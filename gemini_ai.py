@@ -6,7 +6,7 @@ def get_ai_analysis(results_summary):
         return "שגיאה: מפתח API לא הוגדר ב-Secrets"
     
     genai.configure(api_key=st.secrets["GEMINI_KEY_1"])
-    model = genai.GenerativeModel('gemini-1.5-flash')
+   model = genai.GenerativeModel('gemini-pro') # במקום gemini-1.5-flash
     
     prompt = f"""
     אתה מומחה לניתוח מבחני אישיות HEXACO לקבלה לרפואה. 
