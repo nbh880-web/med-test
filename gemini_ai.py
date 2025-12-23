@@ -1,40 +1,47 @@
 import streamlit as st
 import google.generativeai as genai
+from google.generativeai.types import RequestOptions
 
 def get_ai_analysis(user_name, results_summary):
     if "GEMINI_KEY_1" not in st.secrets:
         return "שגיאה: מפתח API לא הוגדר ב-Secrets."
     
     try:
-        # הגדרת המפתח עם פרוטוקול rest למניעת שגיאות גרסה
-        genai.configure(api_key=st.secrets["GEMINI_KEY_1"], transport='rest')
+        # הגדרה עם transport='rest' ושימוש בגרסת API v1 באופן מפורש
+        genai.configure(
+            api_key=st.secrets["GEMINI_KEY_1"],
+            transport='rest'
+        )
         
-        # שימוש בשם המודל המלא כולל הגדרת v1 (הגרסה היציבה)
-        # זה מונע מהספרייה לנסות לגשת ל-v1beta הבעייתי
+        # יצירת המודל עם הגדרת timeout למניעת תקיעות
         model = genai.GenerativeModel(model_name='gemini-1.5-flash')
         
         prompt = f"""
-        ניתוח תוצאות שאלון HEXACO עבור המועמד/ת לרפואה: {user_name}.
-        הקשר: הכנה למבחני מס"ר (מרכז הערכה לרפואה בישראל).
+        משימה: ניתוח תוצאות שאלון HEXACO למועמד לרפואה (מס"ר).
+        שם המועמד: {user_name}
         
-        נתוני התוצאות:
+        תוצאות גולמיות:
         {results_summary}
         
-        כתוב חוות דעת מקצועית בעברית (טקסט בלבד, ללא כוכביות) הכוללת:
-        1. סיכום הפרופיל של {user_name} כרופא/ה לעתיד.
-        2. דגש על מדד היושרה (Honesty-Humility) והתאמתו לאתיקה הרפואית.
-        3. האם התשובות עקביות או שיש חשד לניסיון "לרצות" את המבחן?
-        4. טיפ פרקטי אחד ליום המבחן האמיתי.
+        כתוב חוות דעת מקצועית בעברית (טקסט בלבד):
+        1. סיכום התאמה אישיותית לעולם הרפואה.
+        2. דגש על מדד היושרה (Honesty-Humility).
+        3. אזהרות לגבי חוסר עקביות (אם יש).
+        4. טיפ ליום המיון במרכז מס"ר.
         """
         
-        response = model.generate_content(prompt)
+        # שימוש ב-RequestOptions כדי להכריח את הגרסה היציבה
+        response = model.generate_content(
+            prompt,
+            request_options=RequestOptions(api_version='v1')
+        )
         
         if response and response.text:
             return response.text
-        return "המערכת לא החזירה טקסט, נסה שוב בעוד רגע."
+        return "המערכת לא החזירה תוכן מילולי."
             
     except Exception as e:
-        # טיפול בשגיאת 404 ספציפית בתוך הקוד
-        if "404" in str(e):
-            return "שגיאה טכנית: ה-API של גוגל לא מזהה את המודל בגרסה זו. וודא שביצעת Reboot לאפליקציה."
-        return f"שגיאה בחיבור ל-AI: {str(e)}"
+        error_msg = str(e)
+        if "404" in error_msg:
+            return "שגיאה 404: השרת לא מזהה את המודל. וודא שביצעת 'Clear Cache' ב-Streamlit Cloud."
+        return f"שגיאה בחיבור ל-AI: {error_msg}"
