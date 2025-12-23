@@ -1,4 +1,6 @@
 import pandas as pd
+from fpdf import FPDF
+import re  # נוסיף את זה כדי לנקות תווים מיוחדים
 
 def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
