@@ -107,63 +107,58 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.title("📊 דוח ניתוח אישיות ואמינות")
     
-    # 1. עיבוד הנתונים באמצעות logic.py
-    from logic import process_results, get_profile_match, analyze_consistency
-    
+    # 1. עיבוד נתונים
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # 2. תצוגת רמזורים (Profile Match)
-    st.subheader("🎯 התאמה לפרופיל רופא (מודל רמזור)")
-    status_map = get_profile_match(trait_scores)
+    # 2. הצגת טבלת סיכום וטווחים (מה שביקשת)
+    st.subheader("📋 סיכום ציונים וטווחים")
     
+    # הוספת עמודת הטווח לתצוגה ב-Streamlit
+    summary_df['עומד בטווח?'] = summary_df['final_score'].apply(
+        lambda x: "✅ כן" if 3.5 <= x <= 4.5 else "❌ לא"
+    )
+    
+    st.table(summary_df[['trait', 'final_score', 'עומד בטווח?']].rename(columns={
+        'trait': 'תכונה',
+        'final_score': 'ציון ממוצע'
+    }))
+
+    # 3. תצוגת רמזורים (מדדים מהירים)
+    st.subheader("🎯 התאמה לפרופיל רופא")
+    status_map = get_profile_match(trait_scores)
     cols = st.columns(len(status_map))
     for i, (trait, status) in enumerate(status_map.items()):
-        with cols[i]:
-            st.metric(label=trait, value=f"{trait_scores[trait]:.2f}", delta=status, delta_color="normal")
+        cols[i].metric(label=trait, value=f"{trait_scores[trait]:.2f}", delta=status)
 
     st.divider()
 
-    # 3. בדיקת אמינות ועקביות
-    st.subheader("🛡️ מדדי אמינות ועקביות")
+    # 4. ניתוח AI והורדת PDF
+    st.subheader("🤖 ניתוח עומק וייצוא נתונים")
     
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        st.write("**בדיקת זמני תגובה:**")
-        fast_count = len(df_raw[df_raw['time_status'] == "מהיר מדי"])
-        slow_count = len(df_raw[df_raw['time_status'] == "איטי מדי"])
-        
-        if fast_count > 0:
-            st.warning(f"⚠️ ענית על {fast_count} שאלות מהר מדי (פחות מ-1.5 שניות).")
-        if slow_count > 0:
-            st.info(f"ℹ️ ענית על {slow_count} שאלות לאט מהרגיל.")
-        if fast_count == 0 and slow_count == 0:
-            st.success("✅ קצב התשובות תקין ואמין.")
-
-    with col_b:
-        st.write("**בדיקת עקביות פנימית:**")
-        inconsistencies = analyze_consistency(df_raw)
-        if inconsistencies:
-            for alert in inconsistencies:
-                st.error(f"❌ {alert}")
-        else:
-            st.success("✅ לא נמצאו סתירות מהותיות בתשובות.")
-
-    st.divider()
-
-    # 4. ניתוח AI עמוק
-    st.subheader("🤖 ניתוח עומק מבוסס AI")
-    if st.button("צור ניתוח Gemini מפורט"):
-        with st.spinner("ה-AI סורק את הפרופיל ומחפש דפוסים..."):
-            # הכנת נתונים ל-AI: רק מה שחשוב
-            ai_data = df_raw[['trait', 'final_score', 'time_taken', 'time_status']].to_string()
+    # יצירת ניתוח ה-AI
+    if st.button("צור ניתוח AI והפק דוח PDF"):
+        with st.spinner("מנתח נתונים ומכין את הקובץ..."):
+            ai_data = df_raw[['trait', 'final_score', 'time_taken']].to_string()
             report = get_ai_analysis(ai_data)
             
-            st.markdown("---")
-            st.markdown("### חוות דעת מומחה מערכת:")
+            st.markdown("### חוות דעת מערכת:")
             st.write(report)
             
+            # יצירת ה-PDF באמצעות הפונקציה החדשה ב-logic.py
+            try:
+                pdf_bytes = create_pdf_report(summary_df, st.session_state.responses, report)
+                
+                st.download_button(
+                    label="📥 הורד דוח PDF מלא (כולל תשובות)",
+                    data=pdf_bytes,
+                    file_name="medical_test_report.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"שגיאה בהפקת ה-PDF: {e}")
+                st.info("וודא שהעלית את הקובץ Assistant.ttf ל-GitHub")
+
     # כפתור חזרה
     if st.button("חזרה למסך הבית"):
         st.session_state.step = 'HOME'
