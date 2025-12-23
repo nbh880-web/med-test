@@ -34,11 +34,8 @@ def analyze_consistency(df):
                 inconsistency_alerts.append(f"נמצאה חוסר עקביות בתכונת {trait}")
     return inconsistency_alerts
 
-def process_result(user_responses):
-    """
-    מעבד את התשובות. 
-    שים לב: השם שונה ל-process_result (יחיד) כדי להתאים ל-app.py שלך
-    """
+def process_results(user_responses):
+    """מעבד את התשובות לדאטה-פרים מסודר"""
     df = pd.DataFrame(user_responses)
     if df.empty:
         return df, pd.DataFrame()
@@ -65,34 +62,43 @@ def get_profile_match(trait_scores):
     return status
 
 def fix_heb(text):
-    """מנקה תווים בעייתיים והופכת טקסט עברית ל-RTL ויזואלית"""
+    """מנקה תווים בעייתיים והופכת טקסט עברית ל-RTL ויזואלי"""
     if not text or not isinstance(text, str):
         return ""
-    # ניקוי סימני עיצוב של AI
+    
+    # 1. ניקוי תווים ששוברים את ה-PDF (כוכביות, סולמיות, קווים תחתונים)
     clean_text = re.sub(r'[*#_]', '', text)
-    # החלפת ירידות שורה ברווחים למניעת שגיאת מרחב ב-PDF
+    
+    # 2. החלפת ירידות שורה ברווחים כדי למנוע את שגיאת ה-Horizontal Space
     clean_text = clean_text.replace('\n', ' ').replace('\r', ' ')
-    # צמצום רווחים כפולים
+    
+    # 3. צמצום רווחים כפולים
     clean_text = " ".join(clean_text.split())
+    
+    # 4. הפיכת סדר האותיות (עברית ויזואלית)
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses, ai_report):
-    """הפקת PDF עם תיקון שגיאת ה-Horizontal Space"""
+    """מפיק דו"ח PDF מעוצב עם עברית ויזואלית"""
     pdf = FPDF()
     pdf.add_page()
     
+    # טעינת פונט עברי - וודא שהקובץ Assistant.ttf נמצא בתיקייה הראשית ב-GitHub
     try:
         pdf.add_font('HebrewFont', '', 'Assistant.ttf', uni=True)
         pdf.set_font('HebrewFont', size=16)
     except:
         pdf.set_font("Arial", size=16)
 
+    # כותרת ראשית
     pdf.cell(0, 15, txt=fix_heb("דוח סיכום סימולציה - הכנה לרפואה"), ln=True, align='C')
     pdf.ln(5)
     
-    # טבלה
+    # --- חלק 1: טבלת ציונים ---
     pdf.set_font('HebrewFont', size=12)
+    # הגדרת רוחב עמודות בטוח (סה"כ 180 מ"מ)
     w_trait, w_score, w_range = 80, 50, 50
+    
     pdf.cell(w_trait, 10, fix_heb("תכונה"), border=1, align='C')
     pdf.cell(w_score, 10, fix_heb("ציון"), border=1, align='C')
     pdf.cell(w_range, 10, fix_heb("עומד בטווח"), border=1, align='C')
@@ -107,11 +113,33 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
         pdf.ln()
     
     pdf.ln(10)
+
+    # --- חלק 2: ניתוח AI ---
     pdf.set_font('HebrewFont', size=14)
     pdf.cell(0, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True, align='R')
     pdf.set_font('HebrewFont', size=11)
     
     ai_text = ai_report if ai_report else "לא הופק ניתוח"
+    # multi_cell עם רוחב 0 מתפרס על כל רוחב העמוד ומונע קריסה
     pdf.multi_cell(0, 8, txt=fix_heb(ai_text), align='R')
     
+    # --- חלק 3: פירוט תשובות (עמוד חדש) ---
+    pdf.add_page()
+    pdf.set_font('HebrewFont', size=14)
+    pdf.cell(0, 10, txt=fix_heb("פירוט תשובות מלא:"), ln=True, align='R')
+    pdf.ln(5)
+    
+    for i, resp in enumerate(raw_responses):
+        # חיתוך שאלות ארוכות מדי למניעת גלישה
+        q_clean = resp['question'][:90] + "..." if len(resp['question']) > 90 else resp['question']
+        q_line = f"{i+1}. {q_clean}"
+        ans_line = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
+        
+        pdf.set_font('HebrewFont', size=10)
+        pdf.multi_cell(0, 7, txt=fix_heb(q_line), align='R')
+        pdf.set_text_color(100, 100, 100) # צבע אפור לתשובה
+        pdf.multi_cell(0, 7, txt=fix_heb(ans_line), align='R')
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(2)
+        
     return pdf.output(dest='S')
