@@ -52,3 +52,55 @@ def get_profile_match(trait_scores):
         else:
             status[trait] = "🔴 אדום"
     return status
+    
+    from fpdf import FPDF
+
+def create_pdf_report(summary_df, raw_responses, ai_report):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # כותרת ראשית
+    pdf.set_font("Arial", 'B', size=16)
+    pdf.cell(200, 10, txt="Psychometric Test - Summary Report", ln=True, align='C')
+    pdf.ln(10)
+    
+    # חלק 1: טבלת סיכום תכונות וטווחים
+    pdf.set_font("Arial", 'B', size=12)
+    pdf.cell(60, 10, "Trait", border=1)
+    pdf.cell(40, 10, "Score", border=1)
+    pdf.cell(60, 10, "Within Range (3.5-4.5)", border=1)
+    pdf.ln()
+    
+    pdf.set_font("Arial", size=12)
+    for _, row in summary_df.iterrows():
+        score = row['final_score']
+        in_range = "YES" if 3.5 <= score <= 4.5 else "NO"
+        pdf.cell(60, 10, str(row['trait']), border=1)
+        pdf.cell(40, 10, f"{score:.2f}", border=1)
+        pdf.cell(60, 10, in_range, border=1)
+        pdf.ln()
+    
+    pdf.ln(10)
+
+    # חלק 2: ניתוח AI
+    pdf.set_font("Arial", 'B', size=14)
+    pdf.cell(200, 10, "AI Professional Analysis", ln=True)
+    pdf.set_font("Arial", size=11)
+    pdf.multi_cell(0, 10, ai_report if ai_report else "No AI analysis generated.")
+    
+    # חלק 3: פירוט כל התשובות של המשתמש
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', size=14)
+    pdf.cell(200, 10, "Full User Responses", ln=True)
+    pdf.ln(5)
+    
+    pdf.set_font("Arial", size=9)
+    for i, resp in enumerate(raw_responses):
+        # הצגת השאלה, התשובה והתכונה
+        q_text = f"Q{i+1}: {resp['q'][:60]}..."
+        ans_text = f"Answer: {resp['answer']} | Trait: {resp['trait']} | Time: {resp['time_taken']:.1f}s"
+        pdf.cell(0, 8, q_text, ln=True)
+        pdf.cell(0, 8, ans_text, ln=True, border='B')
+        pdf.ln(2)
+        
+    return pdf.output(dest='S')
