@@ -35,7 +35,7 @@ def analyze_consistency(df):
     return inconsistency_alerts
 
 def process_results(user_responses):
-    """معבד את התשובות לדאטה-פרים מסודר"""
+    """מעבד את התשובות לדאטה-פרים מסודר"""
     df = pd.DataFrame(user_responses)
     if df.empty:
         return df, pd.DataFrame()
@@ -66,10 +66,11 @@ def fix_heb(text):
     if not text or not isinstance(text, str):
         return ""
     
-    # 1. ניקוי תווים ששוברים את ה-PDF
-    clean_text = re.sub(r'[*#_]', '', text)
+    # 1. ניקוי אגרסיבי של תווים ששוברים את ה-PDF (כוכביות, סולמיות, סימנים מיוחדים)
+    # משאיר רק אותיות עברית, מספרים, ופיסוק בסיסי
+    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', text)
     
-    # 2. החלפת ירידות שורה ברווחים למניעת שגיאות עימוד
+    # 2. החלפת ירידות שורה ברווחים למניעת שגיאת Horizontal Space
     clean_text = clean_text.replace('\n', ' ').replace('\r', ' ')
     
     # 3. צמצום רווחים כפולים
@@ -79,7 +80,7 @@ def fix_heb(text):
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses, ai_report):
-    """מפיק דו"ח PDF מעוצב"""
+    """מפיק דו"ח PDF מעוצב עם הגנות על רוחב הטקסט"""
     pdf = FPDF()
     pdf.add_page()
     
@@ -95,7 +96,7 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
     
     # טבלת סיכום
     pdf.set_font('HebrewFont', size=12)
-    w_trait, w_score, w_range = 80, 50, 50
+    w_trait, w_score, w_range = 80, 40, 40
     
     pdf.cell(w_trait, 10, fix_heb("תכונה"), border=1, align='C')
     pdf.cell(w_score, 10, fix_heb("ציון"), border=1, align='C')
@@ -112,13 +113,13 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
     
     pdf.ln(10)
 
-    # ניתוח AI
+    # ניתוח AI - שימוש ברוחב קבוע (180) כדי למנוע חריגה מהדף
     pdf.set_font('HebrewFont', size=14)
     pdf.cell(0, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True, align='R')
     pdf.set_font('HebrewFont', size=11)
     
     ai_text = ai_report if ai_report else "לא הופק ניתוח"
-    pdf.multi_cell(0, 8, txt=fix_heb(ai_text), align='R')
+    pdf.multi_cell(180, 8, txt=fix_heb(ai_text), align='R')
     
     # פירוט תשובות (עמוד חדש)
     pdf.add_page()
@@ -132,9 +133,9 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
         ans_line = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
         
         pdf.set_font('HebrewFont', size=10)
-        pdf.multi_cell(0, 7, txt=fix_heb(q_line), align='R')
+        pdf.multi_cell(180, 7, txt=fix_heb(q_line), align='R')
         pdf.set_text_color(100, 100, 100)
-        pdf.multi_cell(0, 7, txt=fix_heb(ans_line), align='R')
+        pdf.multi_cell(180, 7, txt=fix_heb(ans_line), align='R')
         pdf.set_text_color(0, 0, 0)
         pdf.ln(2)
         
