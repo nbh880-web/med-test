@@ -4,7 +4,6 @@ import pandas as pd
 import random
 from logic import (
     calculate_score, 
-    check_response_time, 
     process_results, 
     get_profile_match, 
     analyze_consistency, 
@@ -27,6 +26,14 @@ st.markdown("""
         border-color: #2e86de; background-color: #f0f7ff !important; color: #2e86de !important;
     }
     .question-text { font-size: 30px; font-weight: bold; text-align: center; padding: 40px; color: #2c3e50; }
+    /* עיצוב תיבת ה-AI */
+    .ai-report-box { 
+        background-color: #f8f9fa; 
+        padding: 20px; 
+        border-right: 5px solid #2e86de; 
+        border-radius: 5px; 
+        line-height: 1.6;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -34,7 +41,6 @@ st.markdown("""
 @st.cache_data
 def load_questions():
     try:
-        # הנתיב חייב להתאים למבנה ב-GitHub
         df = pd.read_csv('data/questions.csv')
         return df.to_dict('records')
     except Exception as e:
@@ -49,8 +55,6 @@ if 'current_q' not in st.session_state: st.session_state.current_q = 0
 # פונקציית שמירת תשובה
 def record_answer(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
-    
-    # חישוב הציון האמיתי (כולל הפיכת סולם במידת הצורך)
     final_score = calculate_score(ans_value, q_data['reverse'])
     
     st.session_state.responses.append({
@@ -74,26 +78,23 @@ if st.session_state.step == 'HOME':
     all_qs = load_questions()
     
     if not all_qs:
-        st.warning("לא נמצאו שאלות בקובץ הנתונים. וודא שקובץ data/questions.csv קיים.")
+        st.warning("לא נמצאו שאלות ב-data/questions.csv")
     else:
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("⏳ תרגול מהיר (36)"):
-                st.session_state.limit = 36
                 st.session_state.questions = random.sample(all_qs, min(36, len(all_qs)))
                 st.session_state.step = 'QUIZ'
                 st.session_state.start_time = time.time()
                 st.rerun()
         with col2:
             if st.button("📋 סימולציה רגילה (120)"):
-                st.session_state.limit = 120
                 st.session_state.questions = random.sample(all_qs, min(120, len(all_qs)))
                 st.session_state.step = 'QUIZ'
                 st.session_state.start_time = time.time()
                 st.rerun()
         with col3:
             if st.button("🔍 סימולציה מלאה (300)"):
-                st.session_state.limit = 300
                 st.session_state.questions = random.sample(all_qs, min(300, len(all_qs)))
                 st.session_state.step = 'QUIZ'
                 st.session_state.start_time = time.time()
@@ -126,14 +127,11 @@ elif st.session_state.step == 'RESULTS':
     
     # 2. הצגת טבלת סיכום וטווחים
     st.subheader("📋 סיכום ציונים וטווחים")
-    
     summary_df['עומד בטווח?'] = summary_df['final_score'].apply(
         lambda x: "✅ כן" if 3.5 <= x <= 4.5 else "❌ לא"
     )
-    
     st.table(summary_df[['trait', 'final_score', 'עומד בטווח?']].rename(columns={
-        'trait': 'תכונה',
-        'final_score': 'ציון ממוצע'
+        'trait': 'תכונה', 'final_score': 'ציון ממוצע'
     }))
 
     # 3. תצוגת רמזורים
@@ -150,21 +148,23 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
 
-    # 5. ניתוח AI והורדת PDF
-    st.subheader("🤖 ניתוח עומק וייצוא נתונים")
+    # 5. ניתוח AI (על המסך) והורדת PDF (ללא ה-AI)
+    st.subheader("🤖 ניתוח מערכת וייצוא דוח")
     
-    if st.button("צור ניתוח AI והפק דוח PDF"):
-        with st.spinner("מנתח נתונים ומכין את הקובץ..."):
+    if st.button("צור ניתוח AI והכן דוח PDF להורדה"):
+        with st.spinner("מנתח נתונים ומכין קבצים..."):
+            # ניתוח AI למסך
             ai_data = summary_df.to_string()
-            report = get_ai_analysis(ai_data)
+            report_text = get_ai_analysis(ai_data)
             
-            st.markdown("### חוות דעת מערכת:")
-            st.write(report)
+            st.markdown("### חוות דעת AI (תצוגה בלבד):")
+            st.markdown(f'<div class="ai-report-box">{report_text}</div>', unsafe_allow_html=True)
             
+            # יצירת PDF
             try:
-                pdf_bytes = create_pdf_report(summary_df, st.session_state.responses, report)
+                pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
                 st.download_button(
-                    label="📥 הורד דוח PDF מלא",
+                    label="📥 הורד דוח PDF (ציונים ותשובות)",
                     data=pdf_bytes,
                     file_name="medical_test_report.pdf",
                     mime="application/pdf"
@@ -172,9 +172,7 @@ elif st.session_state.step == 'RESULTS':
             except Exception as e:
                 st.error(f"שגיאה בהפקת ה-PDF: {e}")
 
-    # כפתור חזרה
     if st.button("חזרה למסך הבית"):
         for key in ['step', 'responses', 'current_q', 'questions']:
-            if key in st.session_state:
-                del st.session_state[key]
+            if key in st.session_state: del st.session_state[key]
         st.rerun()
