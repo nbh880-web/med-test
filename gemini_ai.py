@@ -2,18 +2,16 @@ import streamlit as st
 import google.generativeai as genai
 
 def get_ai_analysis(user_name, results_summary):
-    """
-    מפיק ניתוח ממוקד למבחני מס"ר על בסיס שאלון HEXACO.
-    """
     if "GEMINI_KEY_1" not in st.secrets:
         return "שגיאה: מפתח API לא הוגדר ב-Secrets."
     
     try:
-        # הגדרה הכרחית למניעת שגיאת 404 בשרתים של Streamlit
+        # הגדרת המפתח עם פרוטוקול rest למניעת שגיאות גרסה
         genai.configure(api_key=st.secrets["GEMINI_KEY_1"], transport='rest')
         
-        # אתחול המודל - גרסת פלאש 1.5 היא היציבה והמהירה ביותר
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # שימוש בשם המודל המלא כולל הגדרת v1 (הגרסה היציבה)
+        # זה מונע מהספרייה לנסות לגשת ל-v1beta הבעייתי
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash')
         
         prompt = f"""
         ניתוח תוצאות שאלון HEXACO עבור המועמד/ת לרפואה: {user_name}.
@@ -33,7 +31,10 @@ def get_ai_analysis(user_name, results_summary):
         
         if response and response.text:
             return response.text
-        return "לא התקבל טקסט מה-AI."
+        return "המערכת לא החזירה טקסט, נסה שוב בעוד רגע."
             
     except Exception as e:
+        # טיפול בשגיאת 404 ספציפית בתוך הקוד
+        if "404" in str(e):
+            return "שגיאה טכנית: ה-API של גוגל לא מזהה את המודל בגרסה זו. וודא שביצעת Reboot לאפליקציה."
         return f"שגיאה בחיבור ל-AI: {str(e)}"
