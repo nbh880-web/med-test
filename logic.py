@@ -52,55 +52,67 @@ def get_profile_match(trait_scores):
         else:
             status[trait] = "🔴 אדום"
     return status
-    
-    from fpdf import FPDF
+from fpdf import FPDF
+
+def fix_heb(text):
+    """הופכת טקסט עברית כדי שיוצג נכון ב-PDF (RTL ויזואלי)"""
+    if not text or not isinstance(text, str):
+        return ""
+    # הפיכת סדר האותיות
+    return text[::-1]
 
 def create_pdf_report(summary_df, raw_responses, ai_report):
     pdf = FPDF()
     pdf.add_page()
     
-    # כותרת ראשית
-    pdf.set_font("Arial", 'B', size=16)
-    pdf.cell(200, 10, txt="Psychometric Test - Summary Report", ln=True, align='C')
+    # טעינת פונט עברי (וודא שהקובץ נמצא ב-GitHub באותו שם)
+    # אם שם הקובץ שונה, שנה כאן
+    try:
+        pdf.add_font('HebrewFont', '', 'Assistant.ttf', uni=True)
+        pdf.set_font('HebrewFont', size=16)
+    except:
+        # ברירת מחדל אם הפונט לא נמצא
+        pdf.set_font("Arial", size=16)
+
+    # כותרת
+    pdf.cell(200, 10, txt=fix_heb("דוח סיכום סימולציה - הכנה לרפואה"), ln=True, align='C')
     pdf.ln(10)
     
-    # חלק 1: טבלת סיכום תכונות וטווחים
-    pdf.set_font("Arial", 'B', size=12)
-    pdf.cell(60, 10, "Trait", border=1)
-    pdf.cell(40, 10, "Score", border=1)
-    pdf.cell(60, 10, "Within Range (3.5-4.5)", border=1)
+    # 1. טבלת סיכום
+    pdf.set_font('HebrewFont', size=12)
+    pdf.cell(60, 10, fix_heb("תכונה"), border=1)
+    pdf.cell(40, 10, fix_heb("ציון"), border=1)
+    pdf.cell(60, 10, fix_heb("בטווח? (3.5-4.5)"), border=1)
     pdf.ln()
     
-    pdf.set_font("Arial", size=12)
     for _, row in summary_df.iterrows():
         score = row['final_score']
-        in_range = "YES" if 3.5 <= score <= 4.5 else "NO"
-        pdf.cell(60, 10, str(row['trait']), border=1)
+        in_range = "כן" if 3.5 <= score <= 4.5 else "לא"
+        pdf.cell(60, 10, fix_heb(str(row['trait'])), border=1)
         pdf.cell(40, 10, f"{score:.2f}", border=1)
-        pdf.cell(60, 10, in_range, border=1)
+        pdf.cell(60, 10, fix_heb(in_range), border=1)
         pdf.ln()
     
     pdf.ln(10)
 
-    # חלק 2: ניתוח AI
-    pdf.set_font("Arial", 'B', size=14)
-    pdf.cell(200, 10, "AI Professional Analysis", ln=True)
-    pdf.set_font("Arial", size=11)
-    pdf.multi_cell(0, 10, ai_report if ai_report else "No AI analysis generated.")
+    # 2. ניתוח AI
+    pdf.set_font('HebrewFont', size=14)
+    pdf.cell(200, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True)
+    pdf.set_font('HebrewFont', size=11)
+    # multi_cell מתאים לטקסט ארוך
+    pdf.multi_cell(0, 10, txt=fix_heb(ai_report))
     
-    # חלק 3: פירוט כל התשובות של המשתמש
+    # 3. פירוט תשובות
     pdf.add_page()
-    pdf.set_font("Arial", 'B', size=14)
-    pdf.cell(200, 10, "Full User Responses", ln=True)
-    pdf.ln(5)
+    pdf.set_font('HebrewFont', size=14)
+    pdf.cell(200, 10, txt=fix_heb("פירוט תשובות המשתמש:"), ln=True)
+    pdf.set_font('HebrewFont', size=10)
     
-    pdf.set_font("Arial", size=9)
     for i, resp in enumerate(raw_responses):
-        # הצגת השאלה, התשובה והתכונה
-        q_text = f"Q{i+1}: {resp['q'][:60]}..."
-        ans_text = f"Answer: {resp['answer']} | Trait: {resp['trait']} | Time: {resp['time_taken']:.1f}s"
-        pdf.cell(0, 8, q_text, ln=True)
-        pdf.cell(0, 8, ans_text, ln=True, border='B')
+        q_text = f"{i+1}. {resp['question']}"
+        ans_info = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
+        pdf.multi_cell(0, 8, txt=fix_heb(q_text))
+        pdf.multi_cell(0, 8, txt=fix_heb(ans_info), border='B')
         pdf.ln(2)
         
     return pdf.output(dest='S')
