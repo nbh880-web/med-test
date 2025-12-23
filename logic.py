@@ -21,7 +21,11 @@ def check_response_time(duration):
     return "תקין"
 
 def analyze_consistency(df):
-    """מזהה סתירות מהותיות בתשובות"""
+    """
+    בקרת עקביות ברמזור:
+    פער של 3 ומעלה = אדום (חמור)
+    פער של 2 ומעלה = כתום (בינוני)
+    """
     inconsistency_alerts = []
     if df.empty:
         return inconsistency_alerts
@@ -30,8 +34,17 @@ def analyze_consistency(df):
         trait_data = df[df['trait'] == trait]
         if len(trait_data) > 1:
             score_range = trait_data['final_score'].max() - trait_data['final_score'].min()
+            
             if score_range >= 3:
-                inconsistency_alerts.append(f"נמצאה חוסר עקביות בתכונת {trait}")
+                inconsistency_alerts.append({
+                    "text": f"חוסר עקביות חמור בתכונת {trait} (פער של {score_range:.1f})",
+                    "level": "red"
+                })
+            elif score_range >= 2:
+                inconsistency_alerts.append({
+                    "text": f"חוסר עקביות בינוני בתכונת {trait} (פער של {score_range:.1f})",
+                    "level": "orange"
+                })
     return inconsistency_alerts
 
 def process_results(user_responses):
@@ -112,21 +125,17 @@ def create_pdf_report(summary_df, raw_responses):
     
     pdf.set_font('HebrewFont', size=10)
     for i, resp in enumerate(raw_responses):
-        # בדיקה אם צריך לרדת עמוד
         if pdf.get_y() > 270:
             pdf.add_page()
             
-        # הדפסת השאלה
         pdf.set_text_color(0, 0, 0)
         pdf.multi_cell(0, 7, txt=fix_heb(f"{i+1}. {resp['question']}"), align='R')
         
-        # הדפסת התשובה
         pdf.set_text_color(100, 100, 100)
         ans_line = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
         pdf.cell(0, 7, txt=fix_heb(ans_line), ln=True, align='R')
         pdf.ln(2)
 
-    # יצוא ל-bytes עם טיפול בפורמט
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, bytearray):
         return bytes(pdf_output)
