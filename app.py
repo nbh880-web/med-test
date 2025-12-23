@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import pandas as pd
 import random
-from logic import calculate_score, check_response_time, process_results, get_profile_match, analyze_consistency
+from logic import calculate_score, check_response_time, process_results, get_profile_match, analyze_consistency, create_pdf_report
 from gemini_ai import get_ai_analysis
 
 # הגדרות דף ו-RTL
