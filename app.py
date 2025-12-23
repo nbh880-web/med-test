@@ -2,13 +2,20 @@ import streamlit as st
 import time
 import pandas as pd
 import random
-from logic import calculate_score, check_response_time, process_results, get_profile_match, analyze_consistency, create_pdf_report
+from logic import (
+    calculate_score, 
+    check_response_time, 
+    process_results, 
+    get_profile_match, 
+    analyze_consistency, 
+    create_pdf_report
+)
 from gemini_ai import get_ai_analysis
 
 # הגדרות דף ו-RTL
 st.set_page_config(page_title="HEXACO Medical Prep", layout="wide")
 
-# עיצוב CSS
+# עיצוב CSS לתיקון כיווניות ומראה הכפתורים
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
@@ -23,25 +30,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# טעינת שאלות מה-CSV שלך
+# טעינת שאלות מה-CSV
 @st.cache_data
 def load_questions():
     try:
+        # הנתיב חייב להתאים למבנה ב-GitHub
         df = pd.read_csv('data/questions.csv')
         return df.to_dict('records')
-    except:
+    except Exception as e:
+        st.error(f"שגיאה בטעינת קובץ השאלות: {e}")
         return []
 
-# אתחול משתנים
+# אתחול משתני Session State
 if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 
-# --- פונקציית שמירת תשובה ---
+# פונקציית שמירת תשובה
 def record_answer(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
     
-    # חישוב הציון האמיתי לפי ה-reverse מהאקסל
+    # חישוב הציון האמיתי (כולל הפיכת סולם במידת הצורך)
     final_score = calculate_score(ans_value, q_data['reverse'])
     
     st.session_state.responses.append({
@@ -57,34 +66,38 @@ def record_answer(ans_value, q_data):
     st.session_state.start_time = time.time()
 
 # --- מסכי האפליקציה ---
+
 if st.session_state.step == 'HOME':
     st.title("🏥 מערכת סימולציה HEXACO לרפואה")
     st.subheader("תרגול ממוקד לזיהוי עקביות ואמינות")
     
     all_qs = load_questions()
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("⏳ תרגול מהיר (36)"):
-            st.session_state.limit = 36
-            st.session_state.questions = random.sample(all_qs, min(36, len(all_qs)))
-            st.session_state.step = 'QUIZ'
-            st.session_state.start_time = time.time()
-            st.rerun()
-    with col2:
-        if st.button("📋 סימולציה רגילה (120)"):
-            st.session_state.limit = 120
-            st.session_state.questions = random.sample(all_qs, min(120, len(all_qs)))
-            st.session_state.step = 'QUIZ'
-            st.session_state.start_time = time.time()
-            st.rerun()
-    with col3:
-        if st.button("🔍 סימולציה מלאה (300)"):
-            st.session_state.limit = 300
-            st.session_state.questions = random.sample(all_qs, min(300, len(all_qs)))
-            st.session_state.step = 'QUIZ'
-            st.session_state.start_time = time.time()
-            st.rerun()
+    if not all_qs:
+        st.warning("לא נמצאו שאלות בקובץ הנתונים. וודא שקובץ data/questions.csv קיים.")
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("⏳ תרגול מהיר (36)"):
+                st.session_state.limit = 36
+                st.session_state.questions = random.sample(all_qs, min(36, len(all_qs)))
+                st.session_state.step = 'QUIZ'
+                st.session_state.start_time = time.time()
+                st.rerun()
+        with col2:
+            if st.button("📋 סימולציה רגילה (120)"):
+                st.session_state.limit = 120
+                st.session_state.questions = random.sample(all_qs, min(120, len(all_qs)))
+                st.session_state.step = 'QUIZ'
+                st.session_state.start_time = time.time()
+                st.rerun()
+        with col3:
+            if st.button("🔍 סימולציה מלאה (300)"):
+                st.session_state.limit = 300
+                st.session_state.questions = random.sample(all_qs, min(300, len(all_qs)))
+                st.session_state.step = 'QUIZ'
+                st.session_state.start_time = time.time()
+                st.rerun()
 
 elif st.session_state.step == 'QUIZ':
     q_idx = st.session_state.current_q
@@ -111,10 +124,9 @@ elif st.session_state.step == 'RESULTS':
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # 2. הצגת טבלת סיכום וטווחים (מה שביקשת)
+    # 2. הצגת טבלת סיכום וטווחים
     st.subheader("📋 סיכום ציונים וטווחים")
     
-    # הוספת עמודת הטווח לתצוגה ב-Streamlit
     summary_df['עומד בטווח?'] = summary_df['final_score'].apply(
         lambda x: "✅ כן" if 3.5 <= x <= 4.5 else "❌ לא"
     )
@@ -124,44 +136,45 @@ elif st.session_state.step == 'RESULTS':
         'final_score': 'ציון ממוצע'
     }))
 
-    # 3. תצוגת רמזורים (מדדים מהירים)
+    # 3. תצוגת רמזורים
     st.subheader("🎯 התאמה לפרופיל רופא")
     status_map = get_profile_match(trait_scores)
     cols = st.columns(len(status_map))
     for i, (trait, status) in enumerate(status_map.items()):
         cols[i].metric(label=trait, value=f"{trait_scores[trait]:.2f}", delta=status)
 
+    # 4. התראות עקביות
+    alerts = analyze_consistency(df_raw)
+    for alert in alerts:
+        st.error(alert)
+
     st.divider()
 
-    # 4. ניתוח AI והורדת PDF
+    # 5. ניתוח AI והורדת PDF
     st.subheader("🤖 ניתוח עומק וייצוא נתונים")
     
-    # יצירת ניתוח ה-AI
     if st.button("צור ניתוח AI והפק דוח PDF"):
         with st.spinner("מנתח נתונים ומכין את הקובץ..."):
-            ai_data = df_raw[['trait', 'final_score', 'time_taken']].to_string()
+            ai_data = summary_df.to_string()
             report = get_ai_analysis(ai_data)
             
             st.markdown("### חוות דעת מערכת:")
             st.write(report)
             
-            # יצירת ה-PDF באמצעות הפונקציה החדשה ב-logic.py
             try:
                 pdf_bytes = create_pdf_report(summary_df, st.session_state.responses, report)
-                
                 st.download_button(
-                    label="📥 הורד דוח PDF מלא (כולל תשובות)",
+                    label="📥 הורד דוח PDF מלא",
                     data=pdf_bytes,
                     file_name="medical_test_report.pdf",
                     mime="application/pdf"
                 )
             except Exception as e:
                 st.error(f"שגיאה בהפקת ה-PDF: {e}")
-                st.info("וודא שהעלית את הקובץ Assistant.ttf ל-GitHub")
 
     # כפתור חזרה
     if st.button("חזרה למסך הבית"):
-        st.session_state.step = 'HOME'
-        st.session_state.responses = []
-        st.session_state.current_q = 0
+        for key in ['step', 'responses', 'current_q', 'questions']:
+            if key in st.session_state:
+                del st.session_state[key]
         st.rerun()
