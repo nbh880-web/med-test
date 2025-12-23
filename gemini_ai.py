@@ -1,44 +1,42 @@
 import streamlit as st
 import google.generativeai as genai
-from google.generativeai.types import RequestOptions
 
 def get_ai_analysis(user_name, results_summary):
-    # רשימת המפתחות שיש לך ב-Secrets
-    keys = [st.secrets.get("GEMINI_KEY_1"), st.secrets.get("GEMINI_KEY_2")]
-    keys = [k for k in keys if k] # סינון מפתחות ריקים
+    # ניסיון לקחת את המפתחות מה-Secrets
+    key1 = st.secrets.get("GEMINI_KEY_1")
+    key2 = st.secrets.get("GEMINI_KEY_2")
+    keys = [k for k in [key1, key2] if k]
 
     if not keys:
         return "שגיאה: לא הוגדרו מפתחות API ב-Secrets."
 
-    last_error = ""
-    
     for api_key in keys:
         try:
-            # הגדרה עם המפתח הנוכחי
-            genai.configure(api_key=api_key, transport='rest')
+            genai.configure(api_key=api_key)
             
-            # שימוש במודל בגרסה יציבה
-            model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+            # שימוש בשם המודל הבסיסי ביותר - עובד בכל הגרסאות
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             prompt = f"""
-            ניתוח HEXACO למועמד לרפואה (מס"ר): {user_name}
-            נתונים: {results_summary}
+            נתח את תוצאות שאלון HEXACO עבור מועמד לרפואה (מס"ר): {user_name}
+            תוצאות: {results_summary}
             
-            כתוב ניתוח בעברית הכולל: סיכום פרופיל, דגש על יושרה-ענווה, וטיפ למבחני מס"ר.
-            כתוב בטקסט פשוט ללא עיצוב מורכב.
+            כתוב חוות דעת מקצועית בעברית הכוללת:
+            1. ניתוח התאמה למקצוע הרפואה.
+            2. דגש על יושרה-ענווה (Honesty-Humility).
+            3. טיפ ליום המבחן במס"ר.
+            (כתוב בטקסט פשוט, ללא כוכביות או סולמיות).
             """
             
-            # הכרחת שימוש בגרסה v1 כדי למנוע 404
-            response = model.generate_content(
-                prompt,
-                request_options=RequestOptions(api_version='v1')
-            )
+            response = model.generate_content(prompt)
             
             if response and response.text:
                 return response.text
                 
         except Exception as e:
-            last_error = str(e)
-            continue # ניסיון עם המפתח הבא ברשימה
+            # אם זה המפתח האחרון וזה נכשל, נציג את השגיאה
+            if api_key == keys[-1]:
+                return f"שגיאה בחיבור ל-AI: {str(e)}"
+            continue # נסה את המפתח הבא
 
-    return f"שגיאה בחיבור ל-AI (נוסו כל המפתחות): {last_error}"
+    return "לא ניתן היה להפיק ניתוח."
