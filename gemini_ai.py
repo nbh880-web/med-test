@@ -8,14 +8,13 @@ def get_ai_analysis(results_summary):
     try:
         genai.configure(api_key=st.secrets["GEMINI_KEY_1"])
         
-        # שימוש בשם המודל היציב ביותר
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # שימוש בשם המודל היציב ביותר למניעת שגיאת 404
+        model = genai.GenerativeModel('gemini-pro')
         
         prompt = f"""
-        אתה מומחה לניתוח מבחני אישיות HEXACO לקבלה לרפואה.
-        נתח את התוצאות הבאות עבור מועמד:
+        נתח את תוצאות מבחן ה-HEXACO הבאות עבור מועמד לרפואה:
         {results_summary}
-        כתוב חוות דעת מקצועית בעברית (ללא כוכביות או סימנים מיוחדים).
+        כתוב חוות דעת מקצועית בעברית. אל תשתמש בכוכביות או בסימני #.
         """
         
         response = model.generate_content(prompt)
