@@ -62,81 +62,72 @@ def get_profile_match(trait_scores):
     return status
 
 def fix_heb(text):
-    """מנקה תווים בעייתיים והופכת טקסט עברית ל-RTL ויזואלי"""
-    if not text or not isinstance(text, str):
+    """הופכת טקסט עברית ל-RTL ויזואלי ומנקה תווים בעייתיים"""
+    if not text:
         return ""
-    
-    # 1. ניקוי אגרסיבי של תווים ששוברים את ה-PDF (כוכביות, סולמיות, סימנים מיוחדים)
-    # משאיר רק אותיות עברית, מספרים, ופיסוק בסיסי
-    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', text)
-    
-    # 2. החלפת ירידות שורה ברווחים למניעת שגיאת Horizontal Space
-    clean_text = clean_text.replace('\n', ' ').replace('\r', ' ')
-    
-    # 3. צמצום רווחים כפולים
-    clean_text = " ".join(clean_text.split())
-    
-    # 4. הפיכת סדר האותיות (עברית ויזואלית)
+    # ניקוי תווים שעלולים לשבור את הפונט ב-PDF
+    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', str(text))
+    # הפיכת סדר האותיות לעברית ויזואלית
     return clean_text[::-1]
 
-def create_pdf_report(summary_df, raw_responses, ai_report):
-    """מפיק דו"ח PDF מעוצב עם הגנות על רוחב הטקסט"""
+def create_pdf_report(summary_df, raw_responses):
+    """מפיק דוח תוצאות ודף נספח תשובות (ללא ה-AI)"""
     pdf = FPDF()
-    pdf.add_page()
     
+    # --- דף 1: דף תוצאות מסוכם (להדפסה) ---
+    pdf.add_page()
     try:
         pdf.add_font('HebrewFont', '', 'Assistant.ttf', uni=True)
-        pdf.set_font('HebrewFont', size=16)
+        pdf.set_font('HebrewFont', size=20)
     except:
-        pdf.set_font("Arial", size=16)
+        pdf.set_font("Arial", size=20)
 
     # כותרת
-    pdf.cell(0, 15, txt=fix_heb("דוח סיכום סימולציה - הכנה לרפואה"), ln=True, align='C')
-    pdf.ln(5)
+    pdf.cell(0, 20, txt=fix_heb("דוח תוצאות סימולציית HEXACO - הכנה לרפואה"), ln=True, align='C')
+    pdf.ln(10)
     
-    # טבלת סיכום
+    # טבלת ציונים מעוצבת
+    pdf.set_font('HebrewFont', size=14)
+    pdf.set_fill_color(240, 240, 240) # צבע רקע לכותרות הטבלה
+    
+    w_trait, w_score, w_range = 80, 50, 50
+    pdf.cell(w_range, 12, fix_heb("עומד בטווח"), 1, 0, 'C', True)
+    pdf.cell(w_score, 12, fix_heb("ציון"), 1, 0, 'C', True)
+    pdf.cell(w_trait, 12, fix_heb("תכונה"), 1, 1, 'C', True)
+    
     pdf.set_font('HebrewFont', size=12)
-    w_trait, w_score, w_range = 80, 40, 40
-    
-    pdf.cell(w_trait, 10, fix_heb("תכונה"), border=1, align='C')
-    pdf.cell(w_score, 10, fix_heb("ציון"), border=1, align='C')
-    pdf.cell(w_range, 10, fix_heb("עומד בטווח"), border=1, align='C')
-    pdf.ln()
-    
     for _, row in summary_df.iterrows():
         score = row['final_score']
         in_range = "כן" if 3.5 <= score <= 4.5 else "לא"
-        pdf.cell(w_trait, 10, fix_heb(str(row['trait'])), border=1, align='R')
-        pdf.cell(w_score, 10, f"{score:.2f}", border=1, align='C')
-        pdf.cell(w_range, 10, fix_heb(in_range), border=1, align='C')
-        pdf.ln()
+        
+        pdf.cell(w_range, 10, fix_heb(in_range), 1, 0, 'C')
+        pdf.cell(w_score, 10, f"{score:.2f}", 1, 0, 'C')
+        pdf.cell(w_trait, 10, fix_heb(str(row['trait'])), 1, 1, 'R')
     
-    pdf.ln(10)
-
-    # ניתוח AI - שימוש ברוחב קבוע (180) כדי למנוע חריגה מהדף
-    pdf.set_font('HebrewFont', size=14)
-    pdf.cell(0, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True, align='R')
-    pdf.set_font('HebrewFont', size=11)
-    
-    ai_text = ai_report if ai_report else "לא הופק ניתוח"
-    pdf.multi_cell(180, 8, txt=fix_heb(ai_text), align='R')
-    
-    # פירוט תשובות (עמוד חדש)
+    # --- דף 2 והלאה: נספח תשובות מלא ---
     pdf.add_page()
-    pdf.set_font('HebrewFont', size=14)
-    pdf.cell(0, 10, txt=fix_heb("פירוט תשובות מלא:"), ln=True, align='R')
+    pdf.set_font('HebrewFont', size=16)
+    pdf.cell(0, 15, txt=fix_heb("נספח: פירוט שאלות ותשובות"), ln=True, align='R')
     pdf.ln(5)
     
+    pdf.set_font('HebrewFont', size=10)
     for i, resp in enumerate(raw_responses):
-        q_clean = resp['question'][:90] + "..." if len(resp['question']) > 90 else resp['question']
-        q_line = f"{i+1}. {q_clean}"
-        ans_line = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
-        
-        pdf.set_font('HebrewFont', size=10)
-        pdf.multi_cell(180, 7, txt=fix_heb(q_line), align='R')
-        pdf.set_text_color(100, 100, 100)
-        pdf.multi_cell(180, 7, txt=fix_heb(ans_line), align='R')
+        # בדיקה אם צריך לרדת עמוד
+        if pdf.get_y() > 270:
+            pdf.add_page()
+            
+        # הדפסת השאלה
         pdf.set_text_color(0, 0, 0)
-        pdf.ln(2)
+        pdf.multi_cell(0, 7, txt=fix_heb(f"{i+1}. {resp['question']}"), align='R')
         
-    return pdf.output(dest='S')
+        # הדפסת התשובה
+        pdf.set_text_color(100, 100, 100)
+        ans_line = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
+        pdf.cell(0, 7, txt=fix_heb(ans_line), ln=True, align='R')
+        pdf.ln(2)
+
+    # יצוא ל-bytes עם טיפול בפורמט
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, bytearray):
+        return bytes(pdf_output)
+    return pdf_output
