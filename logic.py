@@ -1,6 +1,6 @@
 import pandas as pd
 from fpdf import FPDF
-import re  # נוסיף את זה כדי לנקות תווים מיוחדים
+import re
 
 def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
@@ -54,26 +54,25 @@ def get_profile_match(trait_scores):
         else:
             status[trait] = "🔴 אדום"
     return status
-from fpdf import FPDF
 
 def fix_heb(text):
-    """הופכת טקסט עברית כדי שיוצג נכון ב-PDF (RTL ויזואלי)"""
+    """מנקה תווים בעייתיים והופכת טקסט עברית ל-RTL ויזואלי"""
     if not text or not isinstance(text, str):
         return ""
+    # ניקוי כוכביות וסימנים שה-AI מוסיף ושוברים את ה-PDF
+    clean_text = text.replace('*', '').replace('#', '').replace('_', '')
     # הפיכת סדר האותיות
-    return text[::-1]
+    return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses, ai_report):
     pdf = FPDF()
     pdf.add_page()
     
-    # טעינת פונט עברי (וודא שהקובץ נמצא ב-GitHub באותו שם)
-    # אם שם הקובץ שונה, שנה כאן
+    # טעינת פונט עברי
     try:
         pdf.add_font('HebrewFont', '', 'Assistant.ttf', uni=True)
         pdf.set_font('HebrewFont', size=16)
     except:
-        # ברירת מחדל אם הפונט לא נמצא
         pdf.set_font("Arial", size=16)
 
     # כותרת
@@ -84,7 +83,7 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
     pdf.set_font('HebrewFont', size=12)
     pdf.cell(60, 10, fix_heb("תכונה"), border=1)
     pdf.cell(40, 10, fix_heb("ציון"), border=1)
-    pdf.cell(60, 10, fix_heb("בטווח? (3.5-4.5)"), border=1)
+    pdf.cell(60, 10, fix_heb("בטווח?"), border=1)
     pdf.ln()
     
     for _, row in summary_df.iterrows():
@@ -101,8 +100,7 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
     pdf.set_font('HebrewFont', size=14)
     pdf.cell(200, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True)
     pdf.set_font('HebrewFont', size=11)
-    # multi_cell מתאים לטקסט ארוך
-    pdf.multi_cell(0, 10, txt=fix_heb(ai_report))
+    pdf.multi_cell(0, 10, txt=fix_heb(ai_report), align='R')
     
     # 3. פירוט תשובות
     pdf.add_page()
@@ -113,8 +111,8 @@ def create_pdf_report(summary_df, raw_responses, ai_report):
     for i, resp in enumerate(raw_responses):
         q_text = f"{i+1}. {resp['question']}"
         ans_info = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
-        pdf.multi_cell(0, 8, txt=fix_heb(q_text))
-        pdf.multi_cell(0, 8, txt=fix_heb(ans_info), border='B')
+        pdf.multi_cell(0, 8, txt=fix_heb(q_text), align='R')
+        pdf.multi_cell(0, 8, txt=fix_heb(ans_info), border='B', align='R')
         pdf.ln(2)
         
     return pdf.output(dest='S')
