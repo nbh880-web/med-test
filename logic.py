@@ -59,66 +59,70 @@ def fix_heb(text):
     """מנקה תווים בעייתיים והופכת טקסט עברית ל-RTL ויזואלי"""
     if not text or not isinstance(text, str):
         return ""
-    # ניקוי כוכביות וסימנים שה-AI מוסיף ושוברים את ה-PDF
+    # ניקוי סימנים שה-AI מוסיף שעלולים לשבור את ה-PDF
     clean_text = text.replace('*', '').replace('#', '').replace('_', '')
-    # הפיכת סדר האותיות
+    # הסרת רווחים כפולים וירידות שורה מיותרות שגורמות לשגיאת ה-Space
+    clean_text = " ".join(clean_text.split())
+    # הפיכת סדר האותיות לעברית ויזואלית
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses, ai_report):
     pdf = FPDF()
     pdf.add_page()
     
+    # טעינת פונט עברי
     try:
         pdf.add_font('HebrewFont', '', 'Assistant.ttf', uni=True)
         pdf.set_font('HebrewFont', size=16)
     except:
         pdf.set_font("Arial", size=16)
 
+    # כותרת
     pdf.cell(200, 10, txt=fix_heb("דוח סיכום סימולציה - הכנה לרפואה"), ln=True, align='C')
     pdf.ln(10)
     
-    # טבלת סיכום - נשתמש ברוחב גדול יותר לעמודות
+    # 1. טבלת סיכום - רוחב עמודות מוגדל למניעת שגיאת מרחב
     pdf.set_font('HebrewFont', size=12)
-    pdf.cell(70, 10, fix_heb("תכונה"), border=1, align='C')
-    pdf.cell(50, 10, fix_heb("ציון"), border=1, align='C')
-    pdf.cell(50, 10, fix_heb("עומד בטווח"), border=1, align='C')
+    pdf.cell(80, 10, fix_heb("תכונה"), border=1, align='C')
+    pdf.cell(45, 10, fix_heb("ציון"), border=1, align='C')
+    pdf.cell(45, 10, fix_heb("עומד בטווח"), border=1, align='C')
     pdf.ln()
     
     for _, row in summary_df.iterrows():
         score = row['final_score']
         in_range = "כן" if 3.5 <= score <= 4.5 else "לא"
-        pdf.cell(70, 10, fix_heb(str(row['trait'])), border=1, align='R')
-        pdf.cell(50, 10, f"{score:.2f}", border=1, align='C')
-        pdf.cell(50, 10, fix_heb(in_range), border=1, align='C')
+        pdf.cell(80, 10, fix_heb(str(row['trait'])), border=1, align='R')
+        pdf.cell(45, 10, f"{score:.2f}", border=1, align='C')
+        pdf.cell(45, 10, fix_heb(in_range), border=1, align='C')
         pdf.ln()
     
     pdf.ln(10)
 
-    # ניתוח AI - הוספת בדיקה שהטקסט לא ריק
+    # 2. ניתוח AI
     pdf.set_font('HebrewFont', size=14)
-    pdf.cell(200, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True)
+    pdf.cell(200, 10, txt=fix_heb("ניתוח AI מקצועי:"), ln=True, align='R')
     pdf.set_font('HebrewFont', size=11)
     
-    # כאן התיקון הקריטי למניעת שגיאת המרחב:
     ai_text = ai_report if ai_report else "לא הופק ניתוח"
+    # שימוש ב-multi_cell עם רוחב 0 (מתיחה על כל העמוד)
     pdf.multi_cell(0, 10, txt=fix_heb(ai_text), align='R')
     
-    # פירוט תשובות
+    # 3. פירוט תשובות (עמוד חדש)
     pdf.add_page()
-    pdf.set_font('HebrewFont', size=12)
-    pdf.cell(200, 10, txt=fix_heb("פירוט תשובות מלא:"), ln=True)
+    pdf.set_font('HebrewFont', size=14)
+    pdf.cell(200, 10, txt=fix_heb("פירוט תשובות מלא:"), ln=True, align='R')
     pdf.ln(5)
     
     for i, resp in enumerate(raw_responses):
-        # הגבלת אורך השאלה ב-PDF כדי שלא תגלוש
-        q_text = f"{i+1}. {resp['question'][:80]}..." if len(resp['question']) > 80 else f"{i+1}. {resp['question']}"
+        # הגבלת אורך השאלה ב-PDF
+        q_text = f"{i+1}. {resp['question'][:85]}..." if len(resp['question']) > 85 else f"{i+1}. {resp['question']}"
         ans_info = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
         
         pdf.set_font('HebrewFont', size=10)
         pdf.multi_cell(0, 7, txt=fix_heb(q_text), align='R')
-        pdf.set_text_color(100, 100, 100)
+        pdf.set_text_color(100, 100, 100) # צבע אפור לתשובה
         pdf.multi_cell(0, 7, txt=fix_heb(ans_info), align='R')
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(0, 0, 0) # חזרה לשחור
         pdf.ln(2)
         
     return pdf.output(dest='S')
