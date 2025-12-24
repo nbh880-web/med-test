@@ -94,7 +94,10 @@ def record_answer(ans_value, q_data):
         'reverse': q_data['reverse']
     })
     st.session_state.current_q += 1
+    # איפוס זמן התחלה וסטטוס התראה לשאלה הבאה
     st.session_state.start_time = time.time()
+    if 'toast_shown' in st.session_state:
+        st.session_state.toast_shown = False
 
 # --- ניווט בין מסכים ---
 
@@ -124,6 +127,7 @@ if st.session_state.step == 'HOME':
                         st.session_state.current_q = 0
                         st.session_state.step = 'QUIZ'
                         st.session_state.start_time = time.time()
+                        st.session_state.toast_shown = False
                         st.rerun()
 
         with tab_archive:
@@ -143,6 +147,14 @@ elif st.session_state.step == 'QUIZ':
     q_idx = st.session_state.current_q
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
+        
+        # --- לוגיקת התראת זמן (15 שניות) ---
+        if 'start_time' in st.session_state:
+            elapsed = time.time() - st.session_state.start_time
+            if elapsed > 15 and not st.session_state.get('toast_shown', False):
+                st.toast("חלפו 15 שניות על שאלה זו. במבחן אמת, מומלץ לענות על שאלות באופן כנה", icon="⏳")
+                st.session_state.toast_shown = True
+
         st.progress((q_idx) / len(st.session_state.questions))
         st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)}")
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
@@ -217,6 +229,6 @@ elif st.session_state.step == 'RESULTS':
                 st.error(f"שגיאה ביצירת PDF: {e}")
 
     if st.button("חזרה למסך הבית"):
-        for key in ['step', 'responses', 'current_q', 'questions']:
+        for key in ['step', 'responses', 'current_q', 'questions', 'start_time', 'toast_shown']:
             if key in st.session_state: del st.session_state[key]
         st.rerun()
