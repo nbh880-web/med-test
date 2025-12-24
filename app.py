@@ -43,6 +43,7 @@ st.markdown("""
         line-height: 1.8;
         text-align: right;
         font-size: 16px;
+        white-space: pre-wrap;
     }
     input { text-align: right; }
     .stTabs [data-baseweb="tab-list"] { gap: 24px; }
@@ -124,8 +125,8 @@ if st.session_state.step == 'HOME':
                     for entry in history:
                         date_label = f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"
                         with st.expander(date_label):
-                            # הצגת הגרף והדוח השמורים בארכיון
-                            st.plotly_chart(get_comparison_chart(entry['results']), use_container_width=True)
+                            # תיקון אזהרת use_container_width
+                            st.plotly_chart(get_comparison_chart(entry['results']), width='stretch')
                             st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
 
 elif st.session_state.step == 'QUIZ':
@@ -153,7 +154,8 @@ elif st.session_state.step == 'RESULTS':
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
     st.subheader("📊 השוואה לפרופיל רופא יעד")
-    st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
+    # תיקון אזהרת use_container_width
+    st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -175,11 +177,11 @@ elif st.session_state.step == 'RESULTS':
 
     st.subheader("🤖 ניתוח מאמן AI והכנת דוח סופי")
     if st.button("הפק ניתוח AI ושמור לארכיון"):
-        with st.spinner("ה-AI מנתח את התוצאות מול היסטוריית הארכיון שלך..."):
+        with st.spinner("המאמן חוקר מודלים ומנתח נתונים..."):
             # 1. שליפת היסטוריה לצורך הניתוח
             history = get_db_history(st.session_state.user_name)
             
-            # 2. קבלת ניתוח מה-AI (שולחים לו גם את ההיסטוריה)
+            # 2. קבלת ניתוח מה-AI (הפונקציה עכשיו משתמשת ב-Explorer פנימי)
             report_text = get_ai_analysis(st.session_state.user_name, trait_scores, history)
             
             # 3. שמירה של הכל (כולל הניתוח) ב-Database
