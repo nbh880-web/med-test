@@ -68,21 +68,28 @@ class HEXACO_AI_Engine:
         return fig
 
     def get_user_history(self, user_name):
-        if not self.db: return []
+        """שליפת היסטוריה לפי מזהה אחיד (Case-Insensitive)"""
+        if not self.db or not user_name: return []
         try:
+            # יצירת מזהה אחיד לחיפוש (ללא רווחים ובאותיות קטנות)
+            user_id = user_name.strip().lower()
             docs = self.db.collection("hexaco_results")\
-                          .where("user_name", "==", user_name)\
+                          .where("user_id", "==", user_id)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
-                          .limit(5)\
+                          .limit(10)\
                           .stream()
             return [doc.to_dict() for doc in docs]
-        except: return []
+        except Exception as e:
+            return []
 
     def save_to_archive(self, user_name, results, report):
-        if not self.db: return
+        """שמירה עם שדה user_id לחיפוש עתידי אמין"""
+        if not self.db or not user_name: return
         try:
+            user_id = user_name.strip().lower()
             self.db.collection("hexaco_results").add({
-                "user_name": user_name,
+                "user_name": user_name,  # השם המקורי לתצוגה
+                "user_id": user_id,      # המזהה לחיפוש
                 "results": results,
                 "ai_report": report,
                 "timestamp": firestore.SERVER_TIMESTAMP
@@ -93,25 +100,42 @@ class HEXACO_AI_Engine:
         if not self.api_key: 
             return "❌ שגיאה: מפתח API לא מוגדר ב-Secrets."
         
+        # שליפת היסטוריה לצורך הכללה בפרומפט
         history = self.get_user_history(user_name)
         history_context = ""
         if history:
-            history_context = "\nמגמות ממבחנים קודמים: " + str([h.get('results') for h in history[:2]])
+            history_context = "\n--- נתוני התקדמות (מבחנים קודמים) ---\n"
+            for i, h in enumerate(history[:3]):
+                history_context += f"מבחן עבר {i+1}: {h.get('results')}\n"
 
         # בחירת מודל
         list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
         try:
             res = requests.get(list_url, timeout=10)
-            if res.status_code == 401: return "❌ מפתח ה-API אינו תקין (401)."
             available = [m["name"] for m in res.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
             target_model = next((m for m in available if "flash" in m), "models/gemini-1.5-flash")
         except: target_model = "models/gemini-1.5-flash"
 
         url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={self.api_key}"
-        prompt = f"פעל כמאמן למבחן מס\"ר. נתח את ציוני המועמד {user_name} (HEXACO): {results}. יעד: {IDEAL_DOCTOR}. {history_context}. כתוב דוח בעברית עם דגשים לסימולציה."
+        
+        # פרומפט מפורט המנחה את ה-AI להתייחס להתקדמות
+        prompt = f"""
+        פעל כמאמן בכיר להכנה למבחני מס"ר.
+        שם המועמד: {user_name}
+        תוצאות נוכחיות: {results}
+        פרופיל רופא יעד אידיאלי: {IDEAL_DOCTOR}
+        
+        {history_context}
+
+        משימות הדוח (כתוב בעברית מקצועית):
+        1. ניתוח פערים: השווה את התוצאות הנוכחיות לפרופיל היעד.
+        2. ניתוח התקדמות: השווה לתוצאות העבר (אם קיימות). האם המועמד משתפר? האם הוא עקבי יותר? ציין מגמות ספציפיות.
+        3. דגשים לסימולציה: איך המועמד צריך להתנהג בתחנות מס"ר בהתבסס על הפרופיל שלו.
+        4. אזהרות: נקודות שעלולות להכשיל אותו במבחן האמיתי.
+        """
+        
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-        # מנגנון Retry אוטומטי (3 ניסיונות)
         for attempt in range(3):
             try:
                 response = requests.post(url, json=payload, timeout=60)
@@ -120,15 +144,13 @@ class HEXACO_AI_Engine:
                     self.save_to_archive(user_name, results, report)
                     return report
                 elif response.status_code == 429:
-                    if attempt < 2: 
-                        time.sleep(2) # המתנה קצרה לפני ניסיון חוזר
-                        continue
-                    return "⚠️ עומס בקשות (429). נסה שוב בעוד דקה."
+                    time.sleep(2)
+                    continue
                 else:
-                    return f"❌ שגיאת שרת ({response.status_code}). נסה שוב."
+                    return f"❌ שגיאת שרת ({response.status_code})."
             except requests.exceptions.Timeout:
                 if attempt < 2: continue
-                return "⏳ שגיאת זמן (Timeout): השרת של גוגל לא ענה בזמן."
+                return "⏳ שגיאת זמן (Timeout): השרת לא ענה."
             except Exception as e:
                 return f"🆘 שגיאה: {str(e)}"
         
