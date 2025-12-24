@@ -3,12 +3,13 @@ import time
 import pandas as pd
 import random
 
-# ייבוא לוגיקה עסקית
+# ייבוא לוגיקה עסקית - הוספנו את get_inconsistent_questions
 from logic import (
     calculate_score, 
     process_results, 
     analyze_consistency, 
-    create_pdf_report
+    create_pdf_report,
+    get_inconsistent_questions
 )
 
 # ייבוא שכבת הנתונים (Firebase)
@@ -26,7 +27,7 @@ if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 
-# עיצוב CSS מקצועי
+# עיצוב CSS מקצועי (כולל התאמה ל-RTL)
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
@@ -48,6 +49,14 @@ st.markdown("""
     input { text-align: right; }
     .stTabs [data-baseweb="tab-list"] { gap: 24px; }
     .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; font-weight: bold; }
+    /* סגנון לתיבות סתירה */
+    .inconsistency-item {
+        background-color: #fff5f5;
+        border: 1px solid #feb2b2;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -122,11 +131,9 @@ if st.session_state.step == 'HOME':
                 if not history:
                     st.info("לא נמצאו מבחנים קודמים המקושרים לשם זה.")
                 else:
-                    # שימוש ב-enumerate כדי לייצר מפתח ייחודי לכל גרף בארכיון
                     for i, entry in enumerate(history):
                         date_label = f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"
                         with st.expander(date_label):
-                            # הוספת key ייחודי למניעת StreamlitDuplicateElementId
                             st.plotly_chart(
                                 get_comparison_chart(entry['results']), 
                                 width='stretch', 
@@ -168,14 +175,29 @@ elif st.session_state.step == 'RESULTS':
         st.table(summary_df[['trait', 'final_score', 'סטטוס']].rename(columns={'trait': 'תכונה', 'final_score': 'ציון'}))
     
     with col_b:
-        st.subheader("⚠️ בקרת עקביות")
+        st.subheader("⚠️ בקרת עקביות וסתירות")
+        
+        # 1. התראות כלליות (רמת התכונה)
         alerts = analyze_consistency(df_raw)
-        if not alerts:
+        for alert in alerts:
+            if alert['level'] == 'red': st.error(alert['text'])
+            else: st.warning(alert['text'])
+            
+        # 2. פירוט סתירות ספציפיות (זוגות שאלות)
+        inconsistent_pairs = get_inconsistent_questions(df_raw)
+        if inconsistent_pairs:
+            st.markdown("---")
+            st.markdown("**פירוט שאלות שנסתרו:**")
+            labels_map = ["", "בכלל לא מסכים", "לא מסכים", "נייטרלי", "מסכים", "מסכים מאוד"]
+            
+            for j, pair in enumerate(inconsistent_pairs):
+                with st.expander(f"🔍 סתירה בערך: {pair['trait']} (זוג {j+1})"):
+                    st.write(f"**שאלה א':** {pair['q1_text']}")
+                    st.info(f"ענית: {labels_map[int(pair['q1_ans'])]}")
+                    st.write(f"**שאלה ב':** {pair['q2_text']}")
+                    st.info(f"ענית: {labels_map[int(pair['q2_ans'])]}")
+        elif not alerts:
             st.success("לא נמצאו סתירות מהותיות. התשובות נראות עקביות ומהימנות.")
-        else:
-            for alert in alerts:
-                if alert['level'] == 'red': st.error(alert['text'])
-                else: st.warning(alert['text'])
 
     st.divider()
 
