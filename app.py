@@ -31,15 +31,27 @@ if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 if 'toast_shown' not in st.session_state: st.session_state.toast_shown = False
 
-# עיצוב CSS (כולל RTL ותמיכה בטאבים)
+# עיצוב CSS - יישור לימין ותמיכה במובייל
 st.markdown("""
     <style>
-    .stApp { text-align: right; direction: rtl; }
+    /* יישור כללי לימין */
+    .stApp, div[data-testid="stAppViewContainer"] {
+        direction: rtl;
+        text-align: right;
+    }
+    
+    /* עיצוב כפתורים וטקסט */
     div.stButton > button {
         width: 100%; border-radius: 12px; border: 1px solid #d1d8e0;
         height: 60px; font-size: 18px; transition: all 0.2s;
+        direction: rtl;
     }
-    .question-text { font-size: 28px; font-weight: bold; text-align: center; padding: 30px; color: #2c3e50; }
+    
+    .question-text { 
+        font-size: 26px; font-weight: bold; text-align: center; 
+        padding: 20px; color: #2c3e50; direction: rtl; 
+    }
+    
     .ai-report-box { 
         background-color: #f0f7ff; 
         padding: 25px; 
@@ -49,9 +61,14 @@ st.markdown("""
         text-align: right;
         font-size: 16px;
         white-space: pre-wrap;
+        direction: rtl;
     }
-    input { text-align: right; }
-    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    
+    /* יישור תיבות קלט */
+    input { text-align: right; direction: rtl; }
+    
+    /* התאמת טאבים */
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; direction: rtl; }
     .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
@@ -96,7 +113,7 @@ def record_answer(ans_value, q_data):
 # --- ניווט בין מסכים ---
 
 if st.session_state.step == 'HOME':
-    st.title("🏥 מערכת סימולציה HEXACO - הכנה למס\"ר")
+    st.markdown('<h1 style="text-align: right;">🏥 מערכת סימולציה HEXACO - הכנה למס"ר</h1>', unsafe_allow_html=True)
     st.session_state.user_name = st.text_input("הכנס את שמך המלא להתחלה:", st.session_state.user_name)
     
     if st.session_state.user_name:
@@ -126,44 +143,41 @@ if st.session_state.step == 'HOME':
                     st.rerun()
 
         with tab_archive:
-            st.subheader(f"היסטוריית תרגול עבור: {st.session_state.user_name}")
+            st.markdown(f'<h3 style="text-align: right;">היסטוריית תרגול עבור: {st.session_state.user_name}</h3>', unsafe_allow_html=True)
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
                     with st.expander(f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
-                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"arch_{i}")
+                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"arch_{i}", use_container_width=True)
                         st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
             else:
                 st.info("לא נמצאו מבחנים קודמים.")
 
 elif st.session_state.step == 'QUIZ':
-    # ריענון אוטומטי כל שנייה
     st_autorefresh(interval=1000, key="timer_refresh")
     
     q_idx = st.session_state.current_q
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         
-        # חישוב זמן
         if 'start_time' not in st.session_state:
             st.session_state.start_time = time.time()
             
         elapsed = time.time() - st.session_state.start_time
         
-        # התקדמות וזמן
         st.progress((q_idx) / len(st.session_state.questions))
         st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)} | זמן: {int(elapsed)} שניות")
         
-        # הצגת אזהרה שתישאר עד המענה (אם עברו 6 שניות)
-        if elapsed > 6:
-            st.warning("⚠️ חלפו 6 שניות על שאלה זו. במבחן אמת, מומלץ לענות על שאלות באופן כנה ומהיר.", icon="⏳")
+        # התראה לאחר 8 שניות
+        if elapsed > 8:
+            st.warning("⚠️ חלפו 8 שניות על שאלה זו. מומלץ לענות בזריזות ובכנות.", icon="⏳")
 
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
-        cols = st.columns(5)
+        # הצגת כפתורי תשובה (מותאם למובייל - אחד מתחת לשני אם יש צורך)
         labels = ["בכלל לא מסכים", "לא מסכים", "נייטרלי", "מסכים", "מסכים מאוד"]
         for i, label in enumerate(labels):
-            if cols[i].button(label, key=f"q_{q_idx}_{i}"):
+            if st.button(label, key=f"q_{q_idx}_{i}"):
                 record_answer(i+1, q_data)
                 st.rerun()
     else:
@@ -171,12 +185,37 @@ elif st.session_state.step == 'QUIZ':
         st.rerun()
 
 elif st.session_state.step == 'RESULTS':
-    st.title(f"📊 דוח תוצאות - {st.session_state.user_name}")
+    st.markdown(f'<h1 style="text-align: right;">📊 דוח תוצאות - {st.session_state.user_name}</h1>', unsafe_allow_html=True)
     df_raw, summary_df = process_results(st.session_state.responses)
+    trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    st.plotly_chart(get_comparison_chart(summary_df.set_index('trait')['final_score'].to_dict()))
+    # הצגת גרף השוואה
+    st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
     
-    if st.button("חזרה למסך הבית"):
-        for key in ['step', 'responses', 'current_q', 'questions', 'start_time']:
-            if key in st.session_state: del st.session_state[key]
-        st.rerun()
+    st.divider()
+    st.markdown('<h3 style="text-align: right;">🤖 ניתוח מאמן AI</h3>', unsafe_allow_html=True)
+    
+    # הפעלת ניתוח AI אוטומטי
+    if 'ai_report_done' not in st.session_state:
+        with st.spinner("מנתח את התוצאות שלך..."):
+            history = get_db_history(st.session_state.user_name)
+            report_text = get_ai_analysis(st.session_state.user_name, trait_scores, history)
+            save_to_db(st.session_state.user_name, trait_scores, report_text)
+            st.session_state.ai_report_done = report_text
+    
+    st.markdown(f'<div class="ai-report-box">{st.session_state.ai_report_done}</div>', unsafe_allow_html=True)
+
+    # כפתורי פעולה בסיום
+    col_pdf, col_home = st.columns(2)
+    with col_pdf:
+        try:
+            pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
+            st.download_button("📥 הורד דוח PDF", data=pdf_bytes, file_name=f"HEXACO_Report_{st.session_state.user_name}.pdf")
+        except:
+            st.error("שגיאה ביצירת קובץ PDF")
+            
+    with col_home:
+        if st.button("חזרה למסך הבית"):
+            for key in ['step', 'responses', 'current_q', 'questions', 'start_time', 'ai_report_done']:
+                if key in st.session_state: del st.session_state[key]
+            st.rerun()
