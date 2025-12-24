@@ -107,7 +107,6 @@ if st.session_state.step == 'HOME':
                 st.write(f"שלום **{st.session_state.user_name}**, בחר את אורך הסימולציה:")
                 col1, col2, col3 = st.columns(3)
                 
-                # כפתורי בחירת אורך מבחן (החזרתי את כולם)
                 if col1.button("⏳ תרגול מהיר (36 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.step = 'QUIZ'
@@ -155,9 +154,9 @@ elif st.session_state.step == 'QUIZ':
         st.progress((q_idx) / len(st.session_state.questions))
         st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)} | זמן: {int(elapsed)} שניות")
         
-        # הצגת אזהרה שתישאר עד המענה (אם עברו 8 שניות)
-        if elapsed > 8:
-            st.warning("⚠️ חלפו 8 שניות על שאלה זו. במבחן אמת, מומלץ לענות על שאלות באופן כנה ומהיר.", icon="⏳")
+        # הצגת אזהרה שתישאר עד המענה (אם עברו 6 שניות)
+        if elapsed > 6:
+            st.warning("⚠️ חלפו 6 שניות על שאלה זו. במבחן אמת, מומלץ לענות על שאלות באופן כנה ומהיר.", icon="⏳")
 
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
