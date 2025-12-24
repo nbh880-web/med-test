@@ -44,9 +44,8 @@ class HEXACO_AI_Engine:
             return None
 
     def create_comparison_chart(self, user_results):
-        """יצירת גרף עמודות השוואתי - מתוקן ללא שגיאת RTL"""
-        if not user_results:
-            return None
+        """יצירת גרף עמודות השוואתי - ללא שגיאת RTL"""
+        if not user_results: return None
             
         labels = [TRAIT_DICT.get(k, k) for k in user_results.keys()]
         user_vals = list(user_results.values())
@@ -60,18 +59,8 @@ class HEXACO_AI_Engine:
         fig.update_layout(
             barmode='group', 
             yaxis=dict(range=[1, 5], title="ציון (1-5)"),
-            title=dict(
-                text="השוואת פרופיל אישי מול יעד רפואי",
-                x=0.5,
-                xanchor='center'
-            ),
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="center",
-                x=0.5
-            ),
+            title=dict(text="השוואת פרופיל אישי מול יעד רפואי", x=0.5, xanchor='center'),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
             font=dict(size=12),
             margin=dict(t=100, b=50)
         )
@@ -85,8 +74,7 @@ class HEXACO_AI_Engine:
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .stream()
             return [doc.to_dict() for doc in docs]
-        except Exception as e:
-            return []
+        except: return []
 
     def save_to_archive(self, user_name, results, report):
         if not self.db: return
@@ -100,46 +88,61 @@ class HEXACO_AI_Engine:
         except: pass
 
     def generate_professional_report(self, user_name, results):
-        if not self.api_key: return "שגיאה במפתח API"
+        if not self.api_key: 
+            return "❌ שגיאה: מפתח API (Gemini Key) לא נמצא בהגדרות ה-Secrets."
         
         history = self.get_user_history(user_name)
         history_context = ""
         if history:
-            history_context = "\nהיסטוריה קודמת (לניתוח מגמות): "
-            for i, h in enumerate(history[:3]):
-                history_context += f"מבחן {i+1}: {h.get('results')} | "
+            history_context = "\nהיסטוריה קודמת: " + str([h.get('results') for h in history[:2]])
 
+        # 1. בדיקת מודלים ותקינות מפתח
         list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
         try:
             res = requests.get(list_url, timeout=10)
+            if res.status_code == 401:
+                return "❌ שגיאת אימות (401): מפתח ה-API אינו תקין. וודא שהעתקת אותו נכון ל-Secrets."
+            
             available = [m["name"] for m in res.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
             target_model = next((m for m in available if "flash" in m), "models/gemini-1.5-flash")
-        except: target_model = "models/gemini-1.5-flash"
+        except: 
+            target_model = "models/gemini-1.5-flash"
 
+        # 2. שליחת הבקשה לניתוח
         url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={self.api_key}"
-        
         prompt = f"""
-        פעל כמאמן בכיר להכנה למבחני מס"ר (MSR). המועמד {user_name} מתרגל כעת.
-        תוצאות נוכחיות: {results}
-        פרופיל רופא אידיאלי: {IDEAL_DOCTOR}
+        פעל כמאמן בכיר למס"ר. נתח את תוצאות המועמד {user_name}.
+        תוצאות: {results}
+        יעד: {IDEAL_DOCTOR}
         {history_context}
-
-        דרישות הדוח ככלי הכנה (בעברית):
-        1. ניתוח פערים: היכן המועמד צריך להשתפר כדי להתקרב לפרופיל הרופא?
-        2. דגשים לתחנות מס"ר: איך להשתמש בחוזקות שלו בסימולציות.
-        3. אזהרות למבחן: נקודות בתשובות שעלולות להיתפס כחוסר עקביות או חוסר יושרה.
-        4. ניתוח התקדמות: השוואה למבחני עבר בארכיון וזיהוי שיפור או נסיגה.
+        ספק ניתוח פערים, דגשים לסימולציה והערכת עקביות בעברית.
         """
         
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
         try:
             response = requests.post(url, json=payload, timeout=30)
+            
             if response.status_code == 200:
                 report = response.json()['candidates'][0]['content']['parts'][0]['text']
                 self.save_to_archive(user_name, results, report)
                 return report
-            return "שגיאה בתקשורת עם ה-AI"
-        except: return "שגיאת תקשורת"
+            
+            elif response.status_code == 429:
+                return "⚠️ עומס (429): חרגת ממכסת הבקשות החינמית. המתן דקה ונסה שוב."
+            
+            elif response.status_code == 400:
+                return f"❌ שגיאת מבנה (400): {response.json().get('error', {}).get('message', 'בקשה לא תקינה')}"
+            
+            else:
+                return f"❓ שגיאה מצד גוגל ({response.status_code}): נסה שוב בעוד רגע."
+
+        except requests.exceptions.Timeout:
+            return "⏳ שגיאת זמן (Timeout): החיבור ל-AI איטי מדי. נסה שוב."
+        except requests.exceptions.ConnectionError:
+            return "🔌 שגיאת חיבור: אין גישה לשרתי ה-AI. בדוק חיבור אינטרנט."
+        except Exception as e:
+            return f"🆘 שגיאה כללית: {str(e)}"
 
 # פונקציות גשר
 def get_ai_analysis(user_name, results_summary):
