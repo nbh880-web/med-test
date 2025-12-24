@@ -44,7 +44,10 @@ class HEXACO_AI_Engine:
             return None
 
     def create_comparison_chart(self, user_results):
-        """יצירת גרף עמודות השוואתי"""
+        """יצירת גרף עמודות השוואתי - מתוקן ללא שגיאת RTL"""
+        if not user_results:
+            return None
+            
         labels = [TRAIT_DICT.get(k, k) for k in user_results.keys()]
         user_vals = list(user_results.values())
         ideal_vals = [IDEAL_DOCTOR.get(k, 3.5) for k in user_results.keys()]
@@ -53,11 +56,24 @@ class HEXACO_AI_Engine:
             go.Bar(name='הציון שלך', x=labels, y=user_vals, marker_color='#1E90FF'),
             go.Bar(name='פרופיל רופא יעד', x=labels, y=ideal_vals, marker_color='#2ECC71')
         ])
+        
         fig.update_layout(
             barmode='group', 
-            yaxis=dict(range=[1, 5]),
-            title="השוואת פרופיל אישי מול יעד רפואי",
-            direction='rtl'
+            yaxis=dict(range=[1, 5], title="ציון (1-5)"),
+            title=dict(
+                text="השוואת פרופיל אישי מול יעד רפואי",
+                x=0.5,
+                xanchor='center'
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5
+            ),
+            font=dict(size=12),
+            margin=dict(t=100, b=50)
         )
         return fig
 
@@ -69,7 +85,7 @@ class HEXACO_AI_Engine:
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .stream()
             return [doc.to_dict() for doc in docs]
-        except:
+        except Exception as e:
             return []
 
     def save_to_archive(self, user_name, results, report):
@@ -89,9 +105,10 @@ class HEXACO_AI_Engine:
         history = self.get_user_history(user_name)
         history_context = ""
         if history:
-            history_context = f"\nהיסטוריה קודמת של {user_name}: " + str([h.get('results') for h in history[:3]])
+            history_context = "\nהיסטוריה קודמת (לניתוח מגמות): "
+            for i, h in enumerate(history[:3]):
+                history_context += f"מבחן {i+1}: {h.get('results')} | "
 
-        # לוגיקת בחירת מודל Gemini (נשארת כפי שהייתה)
         list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
         try:
             res = requests.get(list_url, timeout=10)
@@ -101,7 +118,6 @@ class HEXACO_AI_Engine:
 
         url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={self.api_key}"
         
-        # פרומפט מעודכן כמאמן הכנה למס"ר
         prompt = f"""
         פעל כמאמן בכיר להכנה למבחני מס"ר (MSR). המועמד {user_name} מתרגל כעת.
         תוצאות נוכחיות: {results}
@@ -112,7 +128,7 @@ class HEXACO_AI_Engine:
         1. ניתוח פערים: היכן המועמד צריך להשתפר כדי להתקרב לפרופיל הרופא?
         2. דגשים לתחנות מס"ר: איך להשתמש בחוזקות שלו בסימולציות.
         3. אזהרות למבחן: נקודות בתשובות שעלולות להיתפס כחוסר עקביות או חוסר יושרה.
-        4. ניתוח התקדמות: אם יש היסטוריה, ציין אם המועמד משתפר או הופך לפחות עקבי.
+        4. ניתוח התקדמות: השוואה למבחני עבר בארכיון וזיהוי שיפור או נסיגה.
         """
         
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -122,7 +138,7 @@ class HEXACO_AI_Engine:
                 report = response.json()['candidates'][0]['content']['parts'][0]['text']
                 self.save_to_archive(user_name, results, report)
                 return report
-            return "שגיאה ביצירת דוח"
+            return "שגיאה בתקשורת עם ה-AI"
         except: return "שגיאת תקשורת"
 
 # פונקציות גשר
