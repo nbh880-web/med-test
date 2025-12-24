@@ -3,7 +3,7 @@ import time
 import pandas as pd
 import random
 
-# ייבוא לוגיקה עסקית - הוספנו את get_inconsistent_questions
+# ייבוא לוגיקה עסקית
 from logic import (
     calculate_score, 
     process_results, 
@@ -26,8 +26,9 @@ if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
+if 'questions' not in st.session_state: st.session_state.questions = []
 
-# עיצוב CSS מקצועי (כולל התאמה ל-RTL)
+# עיצוב CSS מקצועי (RTL מלא)
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
@@ -49,7 +50,6 @@ st.markdown("""
     input { text-align: right; }
     .stTabs [data-baseweb="tab-list"] { gap: 24px; }
     .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; font-weight: bold; }
-    /* סגנון לתיבות סתירה */
     .inconsistency-item {
         background-color: #fff5f5;
         border: 1px solid #feb2b2;
@@ -83,7 +83,7 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def record_answer(ans_value, q_data):
-    duration = time.time() - st.session_state.start_time
+    duration = time.time() - st.session_state.get('start_time', time.time())
     final_score = calculate_score(ans_value, q_data['reverse'])
     st.session_state.responses.append({
         'question': q_data['q'],
@@ -120,6 +120,8 @@ if st.session_state.step == 'HOME':
                 for label, limit, col in configs:
                     if col.button(label):
                         st.session_state.questions = get_balanced_questions(all_qs_df, limit)
+                        st.session_state.responses = []
+                        st.session_state.current_q = 0
                         st.session_state.step = 'QUIZ'
                         st.session_state.start_time = time.time()
                         st.rerun()
@@ -134,11 +136,7 @@ if st.session_state.step == 'HOME':
                     for i, entry in enumerate(history):
                         date_label = f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"
                         with st.expander(date_label):
-                            st.plotly_chart(
-                                get_comparison_chart(entry['results']), 
-                                width='stretch', 
-                                key=f"archive_chart_{i}"
-                            )
+                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"archive_chart_{i}")
                             st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
 
 elif st.session_state.step == 'QUIZ':
@@ -166,7 +164,7 @@ elif st.session_state.step == 'RESULTS':
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
     st.subheader("📊 השוואה לפרופיל רופא יעד")
-    st.plotly_chart(get_comparison_chart(trait_scores), width='stretch', key="current_results_chart")
+    st.plotly_chart(get_comparison_chart(trait_scores), key="current_results_chart")
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -176,20 +174,16 @@ elif st.session_state.step == 'RESULTS':
     
     with col_b:
         st.subheader("⚠️ בקרת עקביות וסתירות")
-        
-        # 1. התראות כלליות (רמת התכונה)
         alerts = analyze_consistency(df_raw)
         for alert in alerts:
-            if alert['level'] == 'red': st.error(alert['text'])
+            if alert.get('level') == 'red': st.error(alert['text'])
             else: st.warning(alert['text'])
             
-        # 2. פירוט סתירות ספציפיות (זוגות שאלות)
         inconsistent_pairs = get_inconsistent_questions(df_raw)
         if inconsistent_pairs:
             st.markdown("---")
             st.markdown("**פירוט שאלות שנסתרו:**")
             labels_map = ["", "בכלל לא מסכים", "לא מסכים", "נייטרלי", "מסכים", "מסכים מאוד"]
-            
             for j, pair in enumerate(inconsistent_pairs):
                 with st.expander(f"🔍 סתירה בערך: {pair['trait']} (זוג {j+1})"):
                     st.write(f"**שאלה א':** {pair['q1_text']}")
