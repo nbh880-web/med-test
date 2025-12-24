@@ -6,7 +6,7 @@ from datetime import datetime
 def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
     try:
-        # טיפול במגוון פורמטים של ה-CSV (מחרוזת, בוליאני, או ריק)
+        # טיפול במגוון פורמטים (TRUE/FALSE, 0/1, מחרוזת)
         rev_str = str(reverse_value).strip().upper()
         is_reverse = rev_str in ["TRUE", "1", "YES", "T"]
         
@@ -17,22 +17,22 @@ def calculate_score(answer, reverse_value):
         return answer
 
 def check_response_time(duration):
-    """בדיקה אם זמן התגובה חשוד (בשניות)"""
-    if duration < 1.8: # העליתי מעט את הסף ל-1.8 למקצועיות
+    """בדיקה אם זמן התגובה תקין או חשוד (בשניות)"""
+    if duration < 1.8:
         return "מהיר מדי"
     if duration > 25:
         return "איטי מדי"
     return "תקין"
 
 def analyze_consistency(df):
-    """בקרת עקביות ברמזור: פער 3 אדום, פער 2 כתום"""
+    """בקרת עקביות כללית ברמת התכונה (רמזור)"""
     inconsistency_alerts = []
     if df.empty or 'trait' not in df.columns:
         return inconsistency_alerts
 
     for trait in df['trait'].unique():
         trait_data = df[df['trait'] == trait]
-        # נדרשות לפחות 3 שאלות לאותה תכונה כדי לקבוע חוסר עקביות סטטיסטי
+        # נדרשות לפחות 3 שאלות כדי לקבוע חוסר עקביות סטטיסטי
         if len(trait_data) >= 3:
             score_range = trait_data['final_score'].max() - trait_data['final_score'].min()
             
@@ -48,6 +48,32 @@ def analyze_consistency(df):
                 })
     return inconsistency_alerts
 
+def get_inconsistent_questions(df_raw):
+    """מאתרת זוגות ספציפיים של שאלות מאותה תכונה שהתשובות עליהן סותרות"""
+    inconsistencies = []
+    if df_raw.empty: return []
+    
+    # עוברים על כל תכונה בנפרד
+    for trait in df_raw['trait'].unique():
+        trait_qs = df_raw[df_raw['trait'] == trait]
+        
+        # השוואה בין כל זוגות השאלות באותה תכונה
+        for i in range(len(trait_qs)):
+            for j in range(i + 1, len(trait_qs)):
+                q1 = trait_qs.iloc[i]
+                q2 = trait_qs.iloc[j]
+                
+                # אם הפער בין הציונים הסופיים (אחרי היפוך) גדול מ-2.5 זה נחשב סתירה
+                if abs(q1['final_score'] - q2['final_score']) >= 2.5:
+                    inconsistencies.append({
+                        'trait': trait,
+                        'q1_text': q1['question'],
+                        'q1_ans': q1['original_answer'],
+                        'q2_text': q2['question'],
+                        'q2_ans': q2['original_answer']
+                    })
+    return inconsistencies
+
 def process_results(user_responses):
     """מעבד את התשובות לדאטה-פרים מסודר ומחשב ממוצעים"""
     df = pd.DataFrame(user_responses)
@@ -62,22 +88,18 @@ def process_results(user_responses):
         'time_taken': 'mean'
     }).reset_index()
     
-    # עיגול ציונים ל-2 ספרות אחרי הנקודה
     summary['final_score'] = summary['final_score'].round(2)
-    
     return df, summary
 
 def fix_heb(text):
-    """הופכת טקסט עברית ל-RTL ויזואלית ומנקה תווים בעייתיים"""
-    if not text:
-        return ""
-    # ניקוי תווים מיוחדים שעלולים לגרום לקריסת ה-PDF
-    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-平衡]', '', str(text))
-    # היפוך הטקסט (Visual RTL)
+    """הופכת טקסט עברית ל-RTL ויזואלית ל-PDF ומנקה תווים בעייתיים"""
+    if not text: return ""
+    # ניקוי תווים שעלולים לשבור את הפונט ב-PDF
+    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', str(text))
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """מפיק דוח PDF מקצועי ומעוצב"""
+    """מפיק דוח PDF מקצועי ומעוצב עם ניתוח סתירות"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     
     # טעינת פונט עברי - וודא ש-Assistant.ttf נמצא בתיקיית השורש
@@ -89,60 +111,52 @@ def create_pdf_report(summary_df, raw_responses):
 
     # --- דף 1: סיכום מנהלים ---
     pdf.add_page()
-    
-    # כותרת ראשית
     pdf.set_font(font_main, size=24)
     pdf.cell(0, 20, txt=fix_heb("דוח הכנה למבחני מס\"ר - HEXACO"), ln=True, align='C')
     
-    # תאריך הפקת הדוח
     pdf.set_font(font_main, size=12)
     curr_time = datetime.now().strftime("%d/%m/%Y %H:%M")
     pdf.cell(0, 10, txt=fix_heb(f"תאריך ביצוע: {curr_time}"), ln=True, align='C')
-    pdf.ln(15)
+    pdf.ln(10)
     
     # טבלת ציונים
     pdf.set_font(font_main, size=14)
-    pdf.set_fill_color(30, 144, 255) # כחול מקצועי
+    pdf.set_fill_color(30, 144, 255) # כחול
     pdf.set_text_color(255, 255, 255)
     
-    col_width = 60
-    pdf.cell(col_width, 12, fix_heb("סטטוס יעד"), 1, 0, 'C', True)
-    pdf.cell(col_width, 12, fix_heb("ציון"), 1, 0, 'C', True)
-    pdf.cell(col_width, 12, fix_heb("תכונת אישיות"), 1, 1, 'C', True)
+    pdf.cell(60, 12, fix_heb("סטטוס יעד"), 1, 0, 'C', True)
+    pdf.cell(60, 12, fix_heb("ציון"), 1, 0, 'C', True)
+    pdf.cell(60, 12, fix_heb("תכונת אישיות"), 1, 1, 'C', True)
     
     pdf.set_text_color(0, 0, 0)
     pdf.set_font(font_main, size=12)
-    
     for _, row in summary_df.iterrows():
         score = row['final_score']
         status = "תקין" if 3.5 <= score <= 4.5 else "דורש שיפור"
-        
-        pdf.cell(col_width, 10, fix_heb(status), 1, 0, 'C')
-        pdf.cell(col_width, 10, f"{score:.2f}", 1, 0, 'C')
-        pdf.cell(col_width, 10, fix_heb(str(row['trait'])), 1, 1, 'R')
+        pdf.cell(60, 10, fix_heb(status), 1, 0, 'C')
+        pdf.cell(60, 10, f"{score:.2f}", 1, 0, 'C')
+        pdf.cell(60, 10, fix_heb(str(row['trait'])), 1, 1, 'R')
+
+    # --- דף 2: ניתוח סתירות פנימיות ---
+    df_raw = pd.DataFrame(raw_responses)
+    inconsistencies = get_inconsistent_questions(df_raw)
     
-    # --- דף 2: פירוט תשובות וזמנים ---
-    pdf.add_page()
-    pdf.set_font(font_main, size=18)
-    pdf.cell(0, 15, txt=fix_heb("פירוט תשובות גולמיות"), ln=True, align='R')
-    pdf.ln(5)
-    
-    pdf.set_font(font_main, size=10)
-    for i, resp in enumerate(raw_responses):
-        if pdf.get_y() > 260:
-            pdf.add_page()
-            
-        # הדפסת השאלה
-        pdf.set_text_color(0, 0, 0)
-        pdf.multi_cell(0, 8, txt=fix_heb(f"{i+1}. {resp['question']}"), align='R')
+    if inconsistencies:
+        pdf.add_page()
+        pdf.set_font(font_main, size=18)
+        pdf.cell(0, 15, txt=fix_heb("ניתוח סתירות פנימיות"), ln=True, align='R')
+        pdf.ln(5)
+        pdf.set_font(font_main, size=11)
         
-        # הדפסת התשובה וזמן התגובה
-        pdf.set_text_color(100, 100, 100)
-        ans_info = f"תשובה: {resp['original_answer']} | זמן: {resp['time_taken']:.1f} שניות"
-        pdf.cell(0, 6, txt=fix_heb(ans_info), ln=True, align='R')
-        pdf.ln(2)
-        pdf.set_draw_color(220, 220, 220)
-        pdf.line(20, pdf.get_y(), 190, pdf.get_y()) # קו מפריד עדין
-        pdf.ln(2)
+        for pair in inconsistencies:
+            pdf.set_text_color(200, 0, 0) # אדום לכותרת הסתירה
+            pdf.cell(0, 10, txt=fix_heb(f"סתירה בתכונת: {pair['trait']}"), ln=True, align='R')
+            pdf.set_text_color(0, 0, 0)
+            pdf.multi_cell(0, 8, txt=fix_heb(f"שאלה 1: {pair['q1_text']} (תשובה: {pair['q1_ans']})"), align='R')
+            pdf.multi_cell(0, 8, txt=fix_heb(f"שאלה 2: {pair['q2_text']} (תשובה: {pair['q2_ans']})"), align='R')
+            pdf.ln(5)
+            pdf.set_draw_color(200, 200, 200)
+            pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+            pdf.ln(2)
 
     return bytes(pdf.output())
