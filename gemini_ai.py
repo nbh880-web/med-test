@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from google.cloud import firestore
 from google.oauth2 import service_account
+import time
 
 # מילון תרגום ותצוגה
 TRAIT_DICT = {
@@ -72,6 +73,7 @@ class HEXACO_AI_Engine:
             docs = self.db.collection("hexaco_results")\
                           .where("user_name", "==", user_name)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
+                          .limit(5)\
                           .stream()
             return [doc.to_dict() for doc in docs]
         except: return []
@@ -89,60 +91,48 @@ class HEXACO_AI_Engine:
 
     def generate_professional_report(self, user_name, results):
         if not self.api_key: 
-            return "❌ שגיאה: מפתח API (Gemini Key) לא נמצא בהגדרות ה-Secrets."
+            return "❌ שגיאה: מפתח API לא מוגדר ב-Secrets."
         
         history = self.get_user_history(user_name)
         history_context = ""
         if history:
-            history_context = "\nהיסטוריה קודמת: " + str([h.get('results') for h in history[:2]])
+            history_context = "\nמגמות ממבחנים קודמים: " + str([h.get('results') for h in history[:2]])
 
-        # 1. בדיקת מודלים ותקינות מפתח
+        # בחירת מודל
         list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
         try:
             res = requests.get(list_url, timeout=10)
-            if res.status_code == 401:
-                return "❌ שגיאת אימות (401): מפתח ה-API אינו תקין. וודא שהעתקת אותו נכון ל-Secrets."
-            
+            if res.status_code == 401: return "❌ מפתח ה-API אינו תקין (401)."
             available = [m["name"] for m in res.json().get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
             target_model = next((m for m in available if "flash" in m), "models/gemini-1.5-flash")
-        except: 
-            target_model = "models/gemini-1.5-flash"
+        except: target_model = "models/gemini-1.5-flash"
 
-        # 2. שליחת הבקשה לניתוח
         url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={self.api_key}"
-        prompt = f"""
-        פעל כמאמן בכיר למס"ר. נתח את תוצאות המועמד {user_name}.
-        תוצאות: {results}
-        יעד: {IDEAL_DOCTOR}
-        {history_context}
-        ספק ניתוח פערים, דגשים לסימולציה והערכת עקביות בעברית.
-        """
-        
+        prompt = f"פעל כמאמן למבחן מס\"ר. נתח את ציוני המועמד {user_name} (HEXACO): {results}. יעד: {IDEAL_DOCTOR}. {history_context}. כתוב דוח בעברית עם דגשים לסימולציה."
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-        try:
-            response = requests.post(url, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                report = response.json()['candidates'][0]['content']['parts'][0]['text']
-                self.save_to_archive(user_name, results, report)
-                return report
-            
-            elif response.status_code == 429:
-                return "⚠️ עומס (429): חרגת ממכסת הבקשות החינמית. המתן דקה ונסה שוב."
-            
-            elif response.status_code == 400:
-                return f"❌ שגיאת מבנה (400): {response.json().get('error', {}).get('message', 'בקשה לא תקינה')}"
-            
-            else:
-                return f"❓ שגיאה מצד גוגל ({response.status_code}): נסה שוב בעוד רגע."
-
-        except requests.exceptions.Timeout:
-            return "⏳ שגיאת זמן (Timeout): החיבור ל-AI איטי מדי. נסה שוב."
-        except requests.exceptions.ConnectionError:
-            return "🔌 שגיאת חיבור: אין גישה לשרתי ה-AI. בדוק חיבור אינטרנט."
-        except Exception as e:
-            return f"🆘 שגיאה כללית: {str(e)}"
+        # מנגנון Retry אוטומטי (3 ניסיונות)
+        for attempt in range(3):
+            try:
+                response = requests.post(url, json=payload, timeout=60)
+                if response.status_code == 200:
+                    report = response.json()['candidates'][0]['content']['parts'][0]['text']
+                    self.save_to_archive(user_name, results, report)
+                    return report
+                elif response.status_code == 429:
+                    if attempt < 2: 
+                        time.sleep(2) # המתנה קצרה לפני ניסיון חוזר
+                        continue
+                    return "⚠️ עומס בקשות (429). נסה שוב בעוד דקה."
+                else:
+                    return f"❌ שגיאת שרת ({response.status_code}). נסה שוב."
+            except requests.exceptions.Timeout:
+                if attempt < 2: continue
+                return "⏳ שגיאת זמן (Timeout): השרת של גוגל לא ענה בזמן."
+            except Exception as e:
+                return f"🆘 שגיאה: {str(e)}"
+        
+        return "שגיאת תקשורת לאחר מספר ניסיונות."
 
 # פונקציות גשר
 def get_ai_analysis(user_name, results_summary):
