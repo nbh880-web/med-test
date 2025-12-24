@@ -122,11 +122,16 @@ if st.session_state.step == 'HOME':
                 if not history:
                     st.info("לא נמצאו מבחנים קודמים המקושרים לשם זה.")
                 else:
-                    for entry in history:
+                    # שימוש ב-enumerate כדי לייצר מפתח ייחודי לכל גרף בארכיון
+                    for i, entry in enumerate(history):
                         date_label = f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"
                         with st.expander(date_label):
-                            # תיקון אזהרת use_container_width
-                            st.plotly_chart(get_comparison_chart(entry['results']), width='stretch')
+                            # הוספת key ייחודי למניעת StreamlitDuplicateElementId
+                            st.plotly_chart(
+                                get_comparison_chart(entry['results']), 
+                                width='stretch', 
+                                key=f"archive_chart_{i}"
+                            )
                             st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
 
 elif st.session_state.step == 'QUIZ':
@@ -154,8 +159,7 @@ elif st.session_state.step == 'RESULTS':
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
     st.subheader("📊 השוואה לפרופיל רופא יעד")
-    # תיקון אזהרת use_container_width
-    st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
+    st.plotly_chart(get_comparison_chart(trait_scores), width='stretch', key="current_results_chart")
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -178,13 +182,8 @@ elif st.session_state.step == 'RESULTS':
     st.subheader("🤖 ניתוח מאמן AI והכנת דוח סופי")
     if st.button("הפק ניתוח AI ושמור לארכיון"):
         with st.spinner("המאמן חוקר מודלים ומנתח נתונים..."):
-            # 1. שליפת היסטוריה לצורך הניתוח
             history = get_db_history(st.session_state.user_name)
-            
-            # 2. קבלת ניתוח מה-AI (הפונקציה עכשיו משתמשת ב-Explorer פנימי)
             report_text = get_ai_analysis(st.session_state.user_name, trait_scores, history)
-            
-            # 3. שמירה של הכל (כולל הניתוח) ב-Database
             save_to_db(st.session_state.user_name, trait_scores, report_text)
             
             st.markdown("### 💡 תובנות והכנה למס\"ר:")
