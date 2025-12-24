@@ -1,36 +1,25 @@
 import streamlit as st
 import requests
-import json
 
 def get_ai_analysis(user_name, results_summary):
-    # 1. שליפת מפתחות (הם צריכים להיות מלאים ב-Secrets)
-    key1 = st.secrets.get("GEMINI_KEY_1")
-    key2 = st.secrets.get("GEMINI_KEY_2")
-    api_keys = [k.strip() for k in [key1, key2] if k]
-
-    if not api_keys:
-        return "שגיאה: מפתח API לא נמצא ב-Secrets."
-
-    # 2. פרומפט נקי
-    prompt_text = f"נתח תוצאות HEXACO עבור המועמד {user_name}: {results_summary}. כתוב בעברית חוות דעת מקצועית."
-    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+    # שליפת המפתח הראשון בלבד לבדיקה
+    api_key = st.secrets.get("GEMINI_KEY_1", "").strip()
     
-    # 3. רשימת ה-URLs המדויקים ביותר (בלי ניחושים)
-    # גוגל עברה לפורמט שבו השם חייב להיות מלא
-    for api_key in api_keys:
-        endpoints = [
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
-            f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}",
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
-        ]
-        
-        for url in endpoints:
-            try:
-                response = requests.post(url, json=payload, timeout=20)
-                if response.status_code == 200:
-                    res_data = response.json()
-                    return res_data['candidates'][0]['content']['parts'][0]['text']
-            except:
-                continue
+    if not api_key:
+        return "שגיאה: GEMINI_KEY_1 לא נמצא ב-Secrets."
 
-    return "לא ניתן היה להתחבר ל-AI. וודא שהמפתח ב-Secrets הוא המפתח המלא שהעתקת מ-Google AI Studio."
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    payload = {"contents": [{"parts": [{"text": "Say 'System Active' in Hebrew"}]}]}
+    
+    try:
+        response = requests.post(url, json=payload, timeout=15)
+        res_data = response.json()
+        
+        if response.status_code == 200:
+            return res_data['candidates'][0]['content']['parts'][0]['text']
+        else:
+            # זה הקטע הכי חשוב: מה גוגל אומרת?
+            error_msg = res_data.get('error', {}).get('message', 'שגיאה לא ידועה')
+            return f"גוגל דחתה את הבקשה. קוד: {response.status_code}. הודעה: {error_msg}"
+    except Exception as e:
+        return f"שגיאת תקשורת: {str(e)}"
