@@ -2,43 +2,61 @@ import streamlit as st
 import requests
 import json
 
-def get_ai_analysis(user_name, results_summary):
-    # שליפת המפתח החדש שהחלפת
-    api_key = st.secrets.get("GEMINI_KEY_1", "").strip()
-    if not api_key:
-        return "שגיאה: GEMINI_KEY_1 לא נמצא ב-Secrets."
+class HEXACO_AI_Engine:
+    def __init__(self):
+        self.api_key = st.secrets.get("GEMINI_KEY_1", "").strip()
 
-    # שינוי ה-URL למבנה הפרוטוקול המלא
-    # שים לב לשימוש ב-v1 (היציב) ובנתיב models/gemini-1.5-flash
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
-    
-    prompt_text = f"Analyze HEXACO results for {user_name}: {results_summary}. Write a professional feedback in Hebrew about medical suitability and integrity. Output only the Hebrew text."
-    
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt_text}]
-        }]
-    }
-    
-    headers = {'Content-Type': 'application/json'}
+    def generate_professional_report(self, user_name, results):
+        if not self.api_key:
+            return "שגיאה: מפתח API חסר ב-Secrets."
 
-    try:
-        response = requests.post(url, headers=headers, json=payload, timeout=20)
+        # שלב 1: חקירה - איזה מודל זמין למפתח הזה?
+        list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
+        try:
+            models_res = requests.get(list_url, timeout=10)
+            if models_res.status_code == 200:
+                models_list = models_res.json().get("models", [])
+                # מחפש מודל שתומך ביצירת תוכן
+                available = [m["name"] for m in models_list if "generateContent" in m.get("supportedGenerationMethods", [])]
+                # עדיפות ל-flash, אם אין - מה שיש
+                target_model = next((m for m in available if "flash" in m), available[0] if available else None)
+            else:
+                target_model = "models/gemini-1.5-flash" # ברירת מחדל אם הרשימה נכשלה
+        except:
+            target_model = "models/gemini-1.5-flash"
+
+        # שלב 2: שליחת הפרומפט למודל שנמצא
+        url = f"https://generativelanguage.googleapis.com/v1beta/{target_model}:generateContent?key={self.api_key}"
         
-        if response.status_code == 200:
-            res_data = response.json()
-            return res_data['candidates'][0]['content']['parts'][0]['text']
-        else:
-            # אם v1 נכשל, ננסה v1beta עם אותו מבנה
-            url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-            response_beta = requests.post(url_beta, headers=headers, json=payload, timeout=20)
-            
-            if response_beta.status_code == 200:
-                return response_beta.json()['candidates'][0]['content']['parts'][0]['text']
-            
-            # הצגת השגיאה המפורטת מגוגל כדי להבין מה חסר
-            error_info = response_beta.json().get('error', {}).get('message', 'Unknown Error')
-            return f"שגיאה (Status {response_beta.status_code}): {error_info}"
-            
-    except Exception as e:
-        return f"שגיאת תקשורת: {str(e)}"
+        prompt = f"""
+        פעל כמעריך בכיר במרכז מס"ר (מרכז סימולציה רפואית) בשיטת ה-MSR למיון מועמדים לרפואה.
+        נתח את תוצאות ה-HEXACO של המועמד {user_name} על פי המדדים הבאים: {results}.
+        
+        דרישות הדוח (בעברית רהוטה):
+        1. הערכת יושרה וצניעות: אמינות המועמד כרופא.
+        2. תקשורת ונעימות: עבודה בצוות וקונפליקטים.
+        3. חוסן נפשי: עמידה בלחץ ושחיקה.
+        4. פוטנציאל מנהיגות רפואית.
+        5. המלצה סופית לבוחני מס"ר.
+        """
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "safetySettings": [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ]
+        }
+
+        try:
+            response = requests.post(url, json=payload, timeout=30)
+            if response.status_code == 200:
+                return response.json()['candidates'][0]['content']['parts'][0]['text']
+            return f"שגיאה (Status {response.status_code}): {response.json().get('error', {}).get('message', 'Unknown')}"
+        except Exception as e:
+            return f"שגיאת תקשורת: {str(e)}"
+
+def get_ai_analysis(user_name, results_summary):
+    engine = HEXACO_AI_Engine()
+    return engine.generate_professional_report(user_name, results_summary)
