@@ -2,7 +2,6 @@ import streamlit as st
 import time
 import pandas as pd
 import random
-# ייבוא הרכיב לריענון אוטומטי
 from streamlit_autorefresh import st_autorefresh
 
 # ייבוא לוגיקה עסקית
@@ -29,8 +28,9 @@ if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
+if 'toast_shown' not in st.session_state: st.session_state.toast_shown = False
 
-# עיצוב CSS
+# עיצוב CSS מקצועי (RTL מלא)
 st.markdown("""
     <style>
     .stApp { text-align: right; direction: rtl; }
@@ -50,6 +50,8 @@ st.markdown("""
         white-space: pre-wrap;
     }
     input { text-align: right; }
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] { height: 50px; white-space: pre-wrap; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -94,38 +96,62 @@ def record_answer(ans_value, q_data):
 
 if st.session_state.step == 'HOME':
     st.title("🏥 מערכת סימולציה HEXACO - הכנה למס\"ר")
+    st.subheader("ניתוח אישיות מקצועי מבוסס ענן ובינה מלאכותית")
+    
     st.session_state.user_name = st.text_input("הכנס את שמך המלא להתחלה:", st.session_state.user_name)
     
     if st.session_state.user_name:
         tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 ארכיון מבחנים קודמים"])
+        
         with tab_new:
             all_qs_df = load_questions()
             if not all_qs_df.empty:
+                st.write(f"שלום **{st.session_state.user_name}**, בחר את אורך הסימולציה:")
                 col1, col2, col3 = st.columns(3)
-                if col1.button("⏳ תרגול מהיר"):
-                    st.session_state.questions = get_balanced_questions(all_qs_df, 36)
-                    st.session_state.step = 'QUIZ'
-                    st.session_state.start_time = time.time()
-                    st.rerun()
+                configs = [
+                    ("⏳ תרגול מהיר (36 שאלות)", 36, col1),
+                    ("📋 סימולציה רגילה (120 שאלות)", 120, col2),
+                    ("🔍 סימולציה מלאה (300 שאלות)", 300, col3)
+                ]
+                for label, limit, col in configs:
+                    if col.button(label):
+                        st.session_state.questions = get_balanced_questions(all_qs_df, limit)
+                        st.session_state.responses = []
+                        st.session_state.current_q = 0
+                        st.session_state.step = 'QUIZ'
+                        st.session_state.start_time = time.time()
+                        st.session_state.toast_shown = False
+                        st.rerun()
+
+        with tab_archive:
+            st.subheader(f"היסטוריית תרגול עבור: {st.session_state.user_name}")
+            with st.spinner("שולף נתונים מהענן..."):
+                history = get_db_history(st.session_state.user_name)
+                if not history:
+                    st.info("לא נמצאו מבחנים קודמים המקושרים לשם זה.")
+                else:
+                    for i, entry in enumerate(history):
+                        date_label = f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"
+                        with st.expander(date_label):
+                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"archive_chart_{i}")
+                            st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
 
 elif st.session_state.step == 'QUIZ':
-    # ריענון אוטומטי כל שנייה כדי לבדוק את הזמן שחלף
-    st_autorefresh(interval=1000, key="timer_refresh")
+    # ריענון אוטומטי כל שנייה לבדיקת הטיימר
+    st_autorefresh(interval=1000, key="quiz_timer")
     
     q_idx = st.session_state.current_q
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         
-        # חישוב זמן שחלף
+        # לוגיקת זמן
         elapsed = time.time() - st.session_state.get('start_time', time.time())
-        
-        # בדיקה אם עברו 8 שניות
         if elapsed > 8 and not st.session_state.get('toast_shown', False):
             st.toast("חלפו 8 שניות על שאלה זו. במבחן אמת, מומלץ לענות על שאלות באופן כנה", icon="⏳")
             st.session_state.toast_shown = True
 
         st.progress((q_idx) / len(st.session_state.questions))
-        st.write(f"שאלה {q_idx + 1} | זמן: {int(elapsed)} שניות")
+        st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)} | זמן: {int(elapsed)} שניות")
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
         cols = st.columns(5)
@@ -138,11 +164,66 @@ elif st.session_state.step == 'QUIZ':
         st.session_state.step = 'RESULTS'
         st.rerun()
 
-# ... (יתר חלקי הקוד של ה-RESULTS נשארים אותו דבר)
 elif st.session_state.step == 'RESULTS':
-    st.title(f"📊 דוח תוצאות - {st.session_state.user_name}")
+    st.title(f"📊 דוח תוצאות מסכם - {st.session_state.user_name}")
+    
     df_raw, summary_df = process_results(st.session_state.responses)
-    st.plotly_chart(get_comparison_chart(summary_df.set_index('trait')['final_score'].to_dict()))
+    trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
+    
+    st.subheader("📊 השוואה לפרופיל רופא יעד")
+    st.plotly_chart(get_comparison_chart(trait_scores), key="current_results_chart")
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("📋 ציוני תכונות")
+        summary_df['סטטוס'] = summary_df['final_score'].apply(lambda x: "✅ תקין" if 3.5 <= x <= 4.5 else "⚠️ דורש תשומת לב")
+        st.table(summary_df[['trait', 'final_score', 'סטטוס']].rename(columns={'trait': 'תכונה', 'final_score': 'ציון'}))
+    
+    with col_b:
+        st.subheader("⚠️ בקרת עקביות וסתירות")
+        alerts = analyze_consistency(df_raw)
+        for alert in alerts:
+            if alert.get('level') == 'red': st.error(alert['text'])
+            else: st.warning(alert['text'])
+            
+        inconsistent_pairs = get_inconsistent_questions(df_raw)
+        if inconsistent_pairs:
+            st.markdown("---")
+            st.markdown("**פירוט שאלות שנסתרו:**")
+            labels_map = ["", "בכלל לא מסכים", "לא מסכים", "נייטרלי", "מסכים", "מסכים מאוד"]
+            for j, pair in enumerate(inconsistent_pairs):
+                with st.expander(f"🔍 סתירה בערך: {pair['trait']} (זוג {j+1})"):
+                    st.write(f"**שאלה א':** {pair['q1_text']}")
+                    st.info(f"ענית: {labels_map[int(pair['q1_ans'])]}")
+                    st.write(f"**שאלה ב':** {pair['q2_text']}")
+                    st.info(f"ענית: {labels_map[int(pair['q2_ans'])]}")
+        elif not alerts:
+            st.success("לא נמצאו סתירות מהותיות. התשובות נראות עקביות ומהימנות.")
+
+    st.divider()
+
+    st.subheader("🤖 ניתוח מאמן AI והכנת דוח סופי")
+    if st.button("הפק ניתוח AI ושמור לארכיון"):
+        with st.spinner("המאמן מנתח נתונים..."):
+            history = get_db_history(st.session_state.user_name)
+            report_text = get_ai_analysis(st.session_state.user_name, trait_scores, history)
+            save_to_db(st.session_state.user_name, trait_scores, report_text)
+            
+            st.markdown("### 💡 תובנות והכנה למס\"ר:")
+            st.markdown(f'<div class="ai-report-box">{report_text}</div>', unsafe_allow_html=True)
+            
+            try:
+                pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
+                st.download_button(
+                    label="📥 הורד דוח PDF מלא",
+                    data=pdf_bytes,
+                    file_name=f"HEXACO_Report_{st.session_state.user_name}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"שגיאה ביצירת PDF: {e}")
+
     if st.button("חזרה למסך הבית"):
-        st.session_state.step = 'HOME'
+        for key in ['step', 'responses', 'current_q', 'questions', 'start_time', 'toast_shown']:
+            if key in st.session_state: del st.session_state[key]
         st.rerun()
