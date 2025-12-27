@@ -13,14 +13,14 @@ TRAIT_DICT = {
     "Openness to Experience": "פתיחות (O)"
 }
 
-# פרופיל יעד מעודכן לפי הטווחים החדשים (ממוצע הטווח)
+# פרופיל יעד מעודכן - ממוצע הטווחים האידיאליים לרפואה
 IDEAL_DOCTOR = {
-    "Honesty-Humility": 4.5, 
-    "Emotionality": 3.8, 
-    "Extraversion": 3.9,
-    "Agreeableness": 4.3, 
-    "Conscientiousness": 4.5, 
-    "Openness to Experience": 3.8
+    "Honesty-Humility": 4.55,      # מרכז הטווח 4.2-4.9
+    "Emotionality": 3.85,         # מרכז הטווח 3.6-4.1
+    "Extraversion": 3.9,          # מרכז הטווח 3.6-4.2
+    "Agreeableness": 4.3,         # מרכז הטווח 4.0-4.6
+    "Conscientiousness": 4.55,    # מרכז הטווח 4.3-4.8
+    "Openness to Experience": 3.8  # מרכז הטווח 3.5-4.1
 }
 
 class HEXACO_Analyzer:
@@ -28,43 +28,42 @@ class HEXACO_Analyzer:
         self.api_key = st.secrets.get("GEMINI_KEY_1", "").strip()
 
     def create_radar_chart(self, user_results):
-        """יוצר גרף מכ"ם היקפי להשוואה מקצועית"""
+        """יוצר גרף מכ"ם היקפי להשוואה מול יעד הרופא"""
         if not user_results: return None
         
-        # הכנת נתונים - הפיכת טקסט ל-RTL עבור התצוגה בגרף
         categories = [TRAIT_DICT.get(k, k)[::-1] for k in user_results.keys()]
         user_vals = list(user_results.values())
         ideal_vals = [IDEAL_DOCTOR.get(k, 3.5) for k in user_results.keys()]
         
-        # סגירת המעגל
+        # סגירת מעגל הגרף
         categories.append(categories[0])
         user_vals.append(user_vals[0])
         ideal_vals.append(ideal_vals[0])
         
         fig = go.Figure()
         
-        # שכבת יעד (חצי שקופה)
+        # שכבת היעד
         fig.add_trace(go.Scatterpolar(
             r=ideal_vals,
             theta=categories,
             fill='toself',
-            name='פרופיל יעד רפואי',
-            line_color='rgba(46, 204, 113, 0.5)'
+            name='יעד רופא אידיאלי',
+            line_color='rgba(46, 204, 113, 0.6)',
+            fillcolor='rgba(46, 204, 113, 0.2)'
         ))
         
-        # שכבת משתמש
+        # שכבת המשתמש
         fig.add_trace(go.Scatterpolar(
             r=user_vals,
             theta=categories,
             fill='toself',
             name='הפרופיל שלך',
-            line_color='#1E90FF'
+            line_color='#1E90FF',
+            fillcolor='rgba(30, 144, 255, 0.3)'
         ))
         
         fig.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=[1, 5])
-            ),
+            polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
             showlegend=True,
             legend=dict(orientation="h", y=-0.2),
             margin=dict(t=30, b=30, l=60, r=60)
@@ -72,7 +71,7 @@ class HEXACO_Analyzer:
         return fig
 
     def create_comparison_chart(self, user_results):
-        """גרף עמודות להשוואה ישירה"""
+        """גרף עמודות להשוואת ציונים ישירה"""
         if not user_results: return None
         labels = [TRAIT_DICT.get(k, k) for k in user_results.keys()]
         user_vals = list(user_results.values())
@@ -80,13 +79,12 @@ class HEXACO_Analyzer:
 
         fig = go.Figure(data=[
             go.Bar(name='הציון שלך', x=labels, y=user_vals, marker_color='#1E90FF'),
-            go.Bar(name='פרופיל יעד', x=labels, y=ideal_vals, marker_color='#2ECC71')
+            go.Bar(name='ציון יעד', x=labels, y=ideal_vals, marker_color='#2ECC71')
         ])
         fig.update_layout(
             barmode='group', 
             yaxis=dict(range=[1, 5], title="ציון (1-5)"),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
-            margin=dict(t=50, b=50)
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
         )
         return fig
 
@@ -111,30 +109,32 @@ class HEXACO_Analyzer:
         
         history_context = ""
         if history and isinstance(history, list):
-            history_context = "\n--- נתוני עבר לניתוח מגמות ---\n"
+            history_context = "\n--- היסטוריית ציונים (לניתוח מגמה) ---\n"
             for i, h in enumerate(history[:3]):
                 history_context += f"מבחן {i+1}: {h.get('results')}\n"
 
         prompt = f"""
-        תפקיד: מאמן מומחה למבחני אישיות HEXACO ומיוני מס"ר לרפואה.
+        תפקיד: פסיכולוג מאבחן ומומחה למיוני רפואה (מס"ר/מרק"ם).
         שם המועמד: {user_name}
-        
         תוצאות נוכחיות: {current_results}
-        פרופיל אידיאלי (טווחים): 
-        - מצפוניות (C): 4.3-4.8
-        - יושר-ענווה (H): 4.2-4.9
-        - נעימות (A): 4.0-4.6
-        - רגשיות (E): 3.6-4.1
-        - מוחצנות (X): 3.6-4.2
+        
+        הטווחים המבוקשים בקבלה לרפואה:
+        - מצפוניות (C): 4.3 עד 4.8 (אחריות ודיוק)
+        - יושר-ענווה (H): 4.2 עד 4.9 (אתיקה והיעדר אגו)
+        - נעימות (A): 4.0 עד 4.6 (עבודת צוות וסבלנות)
+        - רגשיות (E): 3.6 עד 4.1 (אמפתיה מיוצבת ללא שחיקה)
+        - מוחצנות (X): 3.6 עד 4.2 (תקשורת תפקודית רגיעה)
         
         {history_context}
         
-        משימה:
-        1. נתח את הפערים מול פרופיל היעד.
-        2. אם יש ציון 5 עקבי, ציין שזה עלול להיראות כניסיון "לייפות" את המציאות (Social Desirability).
-        3. אם המצפוניות נמוכה מ-3.8, הגדר זאת כ"סיכון קריטי לדיוק רפואי".
-        4. תן 3 טיפים פרקטיים לסימולציה המבוססים על התוצאות (למשל: "הפגן יותר ענווה במקרה של טעות").
-        5. כתוב בנקודות, בעברית מקצועית ומעודדת.
+        משימות הניתוח:
+        1. השווה כל מדד לטווח האידיאלי. אם המועמד בתוך הטווח, ציין זאת לחיוב.
+        2. התרע על "Social Desirability" אם יש ריבוי ציונים של 4.9-5.0.
+        3. אם המצפוניות מתחת ל-3.8, הדגש שזה "דגל אדום" קריטי למקצוע הרפואה.
+        4. נתח מגמות: האם המועמד משתפר או נסוג בויסות הרגשי (E) ובנעימות (A)?
+        5. סיכום: 3 דגשים קונקרטיים להתנהלות בסימולציה מול שחקן.
+        
+        כתוב בעברית רהוטה, בגוף שני, בפורמט של נקודות ברורות.
         """
         
         payload = {"contents": [{"parts": [{"text": prompt}]}]}
