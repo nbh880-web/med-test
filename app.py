@@ -17,7 +17,7 @@ from logic import (
 # ייבוא שכבת הנתונים (Firebase)
 from database import save_to_db, get_db_history
 
-# ייבוא שכבת הבינה המלאכותית המעודכנת (החלפת get_ai_analysis ב-get_multi_ai_analysis)
+# ייבוא שכבת הבינה המלאכותית
 from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart
 
 # 1. הגדרות דף ו-RTL
@@ -30,12 +30,12 @@ if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 
-# עיצוב CSS - יישור לימין, כפתורים נקיים ותמיכה במובייל
+# עיצוב CSS מתקדם
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
-    /* עיצוב כפתורי תשובה נקיים ומקצועיים */
+    /* עיצוב כפתורי תשובה נקיים (ללא אימוג'ים) */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
         height: 55px; font-size: 18px; transition: all 0.2s; 
@@ -47,6 +47,7 @@ st.markdown("""
     
     .question-text { font-size: 28px; font-weight: bold; text-align: center; padding: 30px; color: #2c3e50; }
     
+    /* תיבות הניתוח המופרדות */
     .ai-report-box { 
         padding: 20px; border-right: 6px solid; 
         border-radius: 8px; line-height: 1.6; text-align: right; font-size: 15px; 
@@ -142,7 +143,7 @@ elif st.session_state.step == 'QUIZ':
         if elapsed > 8: st.warning("מומלץ לענות לפי תחושת בטן ראשונית.", icon="⏳")
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
-        # אפשרויות נקיות ללא סמלים ואימוג'ים
+        # כפתורים נקיים ללא אימוג'ים
         options = [
             ("בכלל לא מסכים", 1),
             ("לא מסכים", 2),
@@ -182,7 +183,21 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
-    # --- חלק 3: פאנל בוחני AI (Gemini & Claude) ---
+    # --- חלק 3: ניתוח עקביות (לא הוסר) ---
+    consistency_score = analyze_consistency(st.session_state.responses)
+    inconsistent_qs = get_inconsistent_questions(st.session_state.responses)
+    
+    if consistency_score < 70:
+        st.warning(f"⚠️ מדד עקביות: {consistency_score}% - שים לב לסתירות בתשובותיך.")
+        with st.expander("ראה שאלות שבהן לא היית עקבי"):
+            for item in inconsistent_qs:
+                st.write(f"- {item}")
+    else:
+        st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
+
+    st.divider()
+    
+    # --- חלק 4: פאנל בוחני AI (הפרדת צבעים Gemini & Claude) ---
     st.markdown("### 🤖 פאנל בוחני AI: Gemini & Claude")
     
     if 'ai_multi_reports' not in st.session_state:
@@ -191,11 +206,9 @@ elif st.session_state.step == 'RESULTS':
             g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, history)
             st.session_state.ai_multi_reports = (g_report, c_report)
             
-            # שמירה ל-DB (דוח מאוחד)
             combined_report = f"--- Gemini ---\n{g_report}\n\n--- Claude ---\n{c_report}"
             save_to_db(st.session_state.user_name, trait_scores, combined_report)
 
-    # הצגה בטורים עם הפרדת צבעים
     col_g, col_c = st.columns(2)
     with col_g:
         st.markdown('<p style="color:#1E90FF; font-weight:bold; font-size:20px;">🛡️ בוחן 1: Gemini (Google)</p>', unsafe_allow_html=True)
@@ -207,7 +220,7 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
 
-    # --- חלק 4: טיפים קבועים ---
+    # --- חלק 5: טיפים ודגשים ---
     st.success("### 💡 דגשים קריטיים לסימולציה: הקפד על ענווה, סבלנות ודיוק רב בפרטים.", icon="🩺")
 
     col_pdf, col_home = st.columns(2)
@@ -216,7 +229,6 @@ elif st.session_state.step == 'RESULTS':
         st.download_button("📥 הורד דוח PDF", data=pdf_bytes, file_name="HEXACO_Full_Report.pdf")
     with col_home:
         if st.button("סיום וחזרה לבית"):
-            # ניקוי Session state לצורך מבחן חדש
             keys_to_delete = ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']
             for key in keys_to_delete:
                 if key in st.session_state: del st.session_state[key]
