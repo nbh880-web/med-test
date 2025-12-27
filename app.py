@@ -18,8 +18,7 @@ from logic import (
 from database import save_to_db, get_db_history, get_all_tests
 from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart, create_token_gauge
 
-# --- 1. הגדרות דף ו-CSS (RTL עם סיידבר "צף" ומתקפל) ---
-# initial_sidebar_state="collapsed" גורם לסיידבר להיות סגור בטעינה ראשונה במובייל
+# --- 1. הגדרות דף ו-CSS מקיף ---
 st.set_page_config(
     page_title="Mednitai HEXACO System", 
     layout="wide",
@@ -28,31 +27,36 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* הגדרות כיווניות כלליות */
+    /* הגדרות RTL */
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
-    /* עיצוב סרגל צדי (Sidebar) */
-    [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        background-color: #f1f3f6;
-    }
-    
-    /* מניעת שבירת מילים לאותיות בודדות בסיידבר (פתרון לבעיית הטקסט האנכי) */
+    /* תיקון סיידבר */
+    [data-testid="stSidebar"] { min-width: 280px !important; background-color: #f1f3f6; }
     [data-testid="stSidebar"] * {
         word-break: normal !important;
         white-space: normal !important;
         text-align: right;
     }
 
-    /* עיצוב כפתורי התשובות */
+    /* תיקון כפתורים - מניעת חיתוך טקסט */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
-        height: 65px; font-size: 20px; transition: all 0.2s; 
+        height: 75px !important; /* גובה מוגדל לטקסט ארוך */
+        font-size: 19px !important; 
+        line-height: 1.2 !important;
         background-color: white; color: #212529; font-weight: 500;
         margin-bottom: 10px;
+        display: flex; align-items: center; justify-content: center;
     }
     
-    /* עיצוב ההיגד (השאלה) */
+    /* כפתור מנהל ייעודי */
+    .admin-entry-btn button {
+        background-color: #1e3a8a !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+
+    /* עיצוב ההיגד */
     .question-text { 
         font-size: 42px; font-weight: 800; text-align: center; 
         padding: 40px 20px; color: #1a2a6c; line-height: 1.2;
@@ -62,15 +66,9 @@ st.markdown("""
 
     /* התאמות למובייל */
     @media (max-width: 768px) {
-        .question-text {
-            font-size: 24px !important;
-            padding: 20px 10px !important;
-        }
+        .question-text { font-size: 24px !important; padding: 20px 10px !important; }
         h1 { font-size: 1.6rem !important; }
-        div.stButton > button {
-            height: 55px;
-            font-size: 18px;
-        }
+        div.stButton > button { height: 60px !important; font-size: 17px !important; }
     }
     
     .ai-report-box { 
@@ -109,7 +107,6 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def record_answer(ans_value, q_data):
-    if st.session_state.current_q >= len(st.session_state.questions): return
     duration = time.time() - st.session_state.start_time
     score = calculate_score(ans_value, q_data['reverse'])
     st.session_state.responses.append({
@@ -119,9 +116,8 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-# --- 4. פונקציית דף הניהול (ADMIN) ---
+# --- 4. דף הניהול (ADMIN) ---
 def show_admin_dashboard():
-    # תצוגת מנהל בסיידבר
     st.sidebar.markdown(f"### 🔑 מנהל: \n**{st.session_state.user_name}**")
     if st.sidebar.button("🚪 התנתק"):
         st.session_state.user_name = ""
@@ -129,7 +125,6 @@ def show_admin_dashboard():
         st.rerun()
 
     st.title("📊 לוח בקרת מנהל")
-    
     all_data = get_all_tests()
     if not all_data:
         st.info("אין נתונים ב-Firestore.")
@@ -148,7 +143,7 @@ def show_admin_dashboard():
     if search:
         df = df[df['user_name'].str.contains(search, case=False)]
     
-    st.dataframe(df[['user_name', 'test_date', 'test_time', 'tokens']], use_container_width=True)
+    st.dataframe(df[['user_name', 'test_date', 'test_time', 'tokens']], width='stretch')
 
     if not df.empty:
         selected_idx = st.selectbox("בחר מועמד:", df.index, format_func=lambda x: f"{df.loc[x, 'user_name']} ({df.loc[x, 'test_date']})")
@@ -156,10 +151,10 @@ def show_admin_dashboard():
         with col_rep:
             st.markdown(f'<div class="ai-report-box" style="border-right-color: #1e3a8a; background-color: #f9f9f9;">{df.loc[selected_idx, "ai_report"]}</div>', unsafe_allow_html=True)
         with col_gauge:
-            st.plotly_chart(create_token_gauge(df.loc[selected_idx, "ai_report"]), use_container_width=True)
+            st.plotly_chart(create_token_gauge(df.loc[selected_idx, "ai_report"]), width='stretch')
 
 # --- 5. ניווט ראשי ---
-if st.session_state.user_name == "adminMednitai":
+if st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
 
 elif st.session_state.step == 'HOME':
@@ -167,9 +162,14 @@ elif st.session_state.step == 'HOME':
     st.session_state.user_name = st.text_input("הכנס שם מלא:", st.session_state.user_name)
     
     if st.session_state.user_name == "adminMednitai":
-        st.rerun()
+        st.markdown('<div class="admin-entry-btn">', unsafe_allow_html=True)
+        if st.button("🚀 כניסה לממשק ניהול"):
+            st.session_state.step = 'ADMIN_VIEW'
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+        st.divider()
 
-    if st.session_state.user_name:
+    if st.session_state.user_name and st.session_state.user_name != "adminMednitai":
         tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריה"])
         with tab_new:
             all_qs_df = load_questions()
@@ -179,21 +179,24 @@ elif st.session_state.step == 'HOME':
                 if col1.button("⏳ תרגול קצר (36)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
                 if col2.button("📋 סימולציה (120)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 120)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
                 if col3.button("🔍 מבדק מלא (300)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 300)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
         with tab_archive:
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
                     with st.expander(f"📅 מבדק מ-{entry.get('test_date', 'לא ידוע')}"):
-                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
+                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}", width='stretch')
                         st.write(entry.get('ai_report', 'אין דוח'))
             else: st.info("לא נמצאו מבדקים.")
 
@@ -203,12 +206,18 @@ elif st.session_state.step == 'QUIZ':
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         elapsed = time.time() - st.session_state.start_time
+        
+        # התראה אחרי 8 שניות
+        if elapsed > 8:
+            st.warning("⚠️ עברו 8 שניות נא לענות בכנות")
+            
         st.progress(q_idx / len(st.session_state.questions))
-        st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)}")
+        st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)} | ⏱️ {int(elapsed)} ש' לשאלה")
         
         st.markdown(f'<div class="question-text">{q_data["q"]}</div>', unsafe_allow_html=True)
         
-        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מאוד", 5)]
+        # תיקון טקסט כפתורים
+        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         cols = st.columns(5)
         for i, (label, val) in enumerate(options):
             if cols[i].button(label, key=f"b_{q_idx}_{val}"):
@@ -224,10 +233,10 @@ elif st.session_state.step == 'RESULTS':
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
 
     c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
+    with c1: st.plotly_chart(get_radar_chart(trait_scores), width='stretch')
+    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
 
     if st.button("🏁 חזרה לתפריט"):
-        for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']:
+        for k in ['step', 'responses', 'current_q', 'questions']:
             st.session_state.pop(k, None)
         st.rerun()
