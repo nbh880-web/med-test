@@ -4,7 +4,7 @@ import pandas as pd
 import random
 from streamlit_autorefresh import st_autorefresh
 
-# ייבוא לוגיקה עסקית
+# ייבוא לוגיקה עסקית - כל הפונקציות נשמרות
 from logic import (
     calculate_score, 
     process_results, 
@@ -14,7 +14,7 @@ from logic import (
     get_static_interpretation
 )
 
-# ייבוא שכבת הנתונים (Firebase)
+# ייבוא שכבת הנתונים
 from database import save_to_db, get_db_history
 
 # ייבוא שכבת הבינה המלאכותית
@@ -23,19 +23,20 @@ from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_cha
 # 1. הגדרות דף ו-RTL
 st.set_page_config(page_title="HEXACO Medical Prep", layout="wide")
 
-# 2. אתחול משתני Session State
+# 2. אתחול משתני Session State - כולל שעון
 if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
+if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
 
-# עיצוב CSS מתקדם - כולל הפרדת צבעים לבוחני AI
+# עיצוב CSS מלא למבנה RTL ובוחני AI
 st.markdown("""
     <style>
-    .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
+    .stApp { direction: rtl; text-align: right; }
     
-    /* כפתורי תשובה נקיים ומקצועיים */
+    /* כפתורי תשובה מקצועיים */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
         height: 55px; font-size: 18px; transition: all 0.2s; 
@@ -47,7 +48,6 @@ st.markdown("""
     
     .question-text { font-size: 28px; font-weight: bold; text-align: center; padding: 30px; color: #2c3e50; }
     
-    /* תיבות הניתוח המופרדות ויזואלית */
     .ai-report-box { 
         padding: 20px; border-right: 6px solid; 
         border-radius: 8px; line-height: 1.6; text-align: right; font-size: 15px; 
@@ -72,13 +72,18 @@ def get_balanced_questions(df, total_limit):
     selected_qs = []
     for trait in traits:
         trait_qs = df[df['trait'] == trait].to_dict('records')
-        selected_qs.extend(random.sample(trait_qs, min(len(trait_qs), qs_per_trait)))
+        if len(trait_qs) >= qs_per_trait:
+            selected_qs.extend(random.sample(trait_qs, qs_per_trait))
+        else:
+            selected_qs.extend(trait_qs)
     random.shuffle(selected_qs)
     return selected_qs
 
 def record_answer(ans_value, q_data):
-    duration = time.time() - st.session_state.get('start_time', time.time())
+    # חישוב משך הזמן לשאלה הספציפית הזו
+    duration = time.time() - st.session_state.start_time
     final_score = calculate_score(ans_value, q_data['reverse'])
+    
     st.session_state.responses.append({
         'question': q_data['q'],
         'trait': q_data['trait'],
@@ -88,6 +93,7 @@ def record_answer(ans_value, q_data):
         'reverse': q_data['reverse']
     })
     st.session_state.current_q += 1
+    # איפוס השעון לשאלה הבאה מיד לאחר הלחיצה
     st.session_state.start_time = time.time()
 
 # --- ניווט בין מסכים ---
@@ -106,14 +112,17 @@ if st.session_state.step == 'HOME':
                 if col1.button("⏳ תרגול קצר (36 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
                 if col2.button("📋 סימולציה רגילה (120 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 120)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
                 if col3.button("🔍 מבדק מלא (300 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 300)
                     st.session_state.step = 'QUIZ'
+                    st.session_state.start_time = time.time()
                     st.rerun()
 
         with tab_archive:
@@ -127,22 +136,39 @@ if st.session_state.step == 'HOME':
                 st.info("לא נמצאו מבחנים קודמים לשם זה.")
 
 elif st.session_state.step == 'QUIZ':
+    # השעון שביקשת - רענון כל שנייה
     st_autorefresh(interval=1000, key="timer_refresh")
+    
     q_idx = st.session_state.current_q
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
-        if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
+        
+        # חישוב זמן חי לשאלה הנוכחית
         elapsed = time.time() - st.session_state.start_time
         
         st.progress((q_idx) / len(st.session_state.questions))
         st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)}")
         
-        if elapsed > 8: st.warning("מומלץ לענות לפי תחושת בטן ראשונית.", icon="⏳")
+        # הצגת השעון ויזואלית
+        if elapsed > 8:
+            st.warning(f"זמן שעבר: {int(elapsed)} שניות. נסה לענות מהר יותר כדי לשמור על אותנטיות.", icon="⏳")
+        else:
+            st.info(f"זמן לשאלה זו: {int(elapsed)} שניות")
+
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
-        options = [("בכלל לא מסכים", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
-        for label, val in options:
-            if st.button(label, key=f"btn_{q_idx}_{val}"):
+        # כפתורים נקיים ללא אימוג'ים
+        options = [
+            ("בכלל לא מסכים", 1),
+            ("לא מסכים", 2),
+            ("נייטרלי", 3),
+            ("מסכים", 4),
+            ("מסכים מאוד", 5)
+        ]
+        
+        cols = st.columns(5)
+        for i, (label, val) in enumerate(options):
+            if cols[i].button(label, key=f"btn_{q_idx}_{val}"):
                 record_answer(val, q_data)
                 st.rerun()
     else:
@@ -152,38 +178,35 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'<h1 style="text-align: right;">📊 דוח תוצאות - {st.session_state.user_name}</h1>', unsafe_allow_html=True)
     
-    # עיבוד נתונים
+    # עיבוד נתונים - שימוש בפונקציות המקוריות
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # חלק 1: גרפים (ירוק ליעד, כחול למשתמש)
+    # הצגת גרפים (כחול למשתמש, ירוק ליעד)
     col_radar, col_bar = st.columns(2)
     with col_radar:
-        st.markdown("### 🕸️ פרופיל אישיות היקפי")
         st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
     with col_bar:
-        st.markdown("### 📊 השוואה ליעד רפואי")
         st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
     
     st.divider()
 
-    # חלק 2: ניתוח עקביות (תיקון השגיאה כאן)
-    # אנחנו הופכים את ה-responses ל-DataFrame לפני השליחה כדי למנוע את ה-AttributeError
+    # ניתוח עקביות - מניעת AttributeError על ידי המרה ל-DataFrame
     df_for_consistency = pd.DataFrame(st.session_state.responses)
-    consistency_score = analyze_consistency(df_for_consistency) 
+    consistency_score = analyze_consistency(df_for_consistency)
     inconsistent_qs = get_inconsistent_questions(st.session_state.responses)
     
     if consistency_score < 70:
-        st.warning(f"⚠️ מדד עקביות: {consistency_score}% - שים לב לסתירות בתשובותיך.")
-        with st.expander("ראה שאלות שבהן לא היית עקבי"):
+        st.warning(f"⚠️ מדד עקביות: {consistency_score}% - זוהו סתירות פנימיות בתשובותיך.")
+        with st.expander("לחץ כאן לצפייה בשאלות שסתרו זו את זו"):
             for item in inconsistent_qs:
                 st.write(f"- {item}")
     else:
-        st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
+        st.success(f"✅ מדד עקביות גבוה: {consistency_score}% - תשובותיך מהימנות ועקביות.")
 
     st.divider()
 
-    # חלק 3: פרשנות מובנית
+    # פרשנות מובנית לכל תכונה
     st.markdown("### 🔍 ניתוח תכונות מובנה")
     for _, row in summary_df.iterrows():
         text = get_static_interpretation(row['trait'], row['final_score'])
@@ -191,7 +214,7 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
-    # חלק 4: פאנל בוחני AI (הפרדה צבעונית)
+    # פאנל בוחני AI - הפרדה צבעונית Gemini/Claude
     st.markdown("### 🤖 פאנל בוחני AI: Gemini & Claude")
     
     if 'ai_multi_reports' not in st.session_state:
@@ -214,14 +237,14 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
 
-    # חלק 5: סיום
+    # כפתורי סיום והורדה
     col_pdf, col_home = st.columns(2)
     with col_pdf:
         pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
-        st.download_button("📥 הורד דוח PDF", data=pdf_bytes, file_name="HEXACO_Full_Report.pdf")
+        st.download_button("📥 הורד דוח PDF מסכם", data=pdf_bytes, file_name=f"HEXACO_Report_{st.session_state.user_name}.pdf")
     with col_home:
-        if st.button("סיום וחזרה לבית"):
-            keys_to_delete = ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']
+        if st.button("סיום וחזרה לתפריט"):
+            keys_to_delete = ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports', 'start_time']
             for key in keys_to_delete:
                 st.session_state.pop(key, None)
             st.rerun()
