@@ -35,7 +35,7 @@ class HEXACO_Analyzer:
 
     def _discover_gemini_model(self, api_key):
         """
-        מנגנון Discovering משופר למניעת TypeError
+        מנגנון זיהוי מודלים עבור Gemini
         """
         default_model = "models/gemini-1.5-flash"
         if not api_key: return default_model
@@ -45,7 +45,7 @@ class HEXACO_Analyzer:
             res = requests.get(list_url, timeout=7)
             if res.status_code == 200:
                 models_data = res.json().get("models", [])
-                # וידוא ששמות המודלים נשלפים כמחרוזות (Strings) בלבד
+                # סינון מודלים תומכי יצירת תוכן מסוג Flash
                 flash_models = [
                     str(m["name"]) for m in models_data 
                     if isinstance(m.get("name"), str) and 
@@ -53,9 +53,37 @@ class HEXACO_Analyzer:
                        "generateContent" in m.get("supportedGenerationMethods", [])
                 ]
                 if flash_models:
-                    return flash_models[-1] # מחזיר את האחרון ברשימה
+                    return flash_models[-1]
         except Exception as e:
-            print(f"DEBUG: Discovering failed: {e}")
+            print(f"DEBUG: Gemini Discovery failed: {e}")
+        return default_model
+
+    def _discover_claude_model(self):
+        """
+        מנגנון זיהוי מודלים עבור Claude - מוצא את ה-Sonnet העדכני ביותר
+        """
+        default_model = "claude-3-5-sonnet-20241022"
+        if not self.claude_key: return default_model
+        
+        try:
+            url = "https://api.anthropic.com/v1/models"
+            headers = {
+                "x-api-key": self.claude_key,
+                "anthropic-version": "2023-06-01"
+            }
+            res = requests.get(url, headers=headers, timeout=7)
+            if res.status_code == 200:
+                models_list = res.json().get("data", [])
+                # מחפשים מודלים שמכילים sonnet בשמם
+                sonnet_models = [
+                    m["id"] for m in models_list 
+                    if "sonnet" in m["id"].lower()
+                ]
+                if sonnet_models:
+                    # מיון אלפביתי יחזיר לרוב את הגרסה החדשה ביותר בסוף
+                    return sorted(sonnet_models)[-1]
+        except Exception as e:
+            print(f"DEBUG: Claude Discovery failed: {e}")
         return default_model
 
     def generate_multi_report(self, user_name, current_results, history):
@@ -105,13 +133,14 @@ class HEXACO_Analyzer:
             except Exception as e:
                 attempts_log.append(f"מפתח {i+1}: תקלה טכנית ({str(e)})")
         
-        return "❌ כל נסיונות ה-Gemini נכשלו:\n" + "\n".join(attempts_log)
+        return "❌ נסיונות Gemini נכשלו:\n" + "\n".join(attempts_log)
 
     def _call_claude_with_detailed_errors(self, prompt):
         if not self.claude_key:
             return "❌ שגיאה: מפתח Claude חסר ב-Secrets."
         
         try:
+            model_id = self._discover_claude_model()
             url = "https://api.anthropic.com/v1/messages"
             headers = {
                 "x-api-key": self.claude_key, 
@@ -119,24 +148,18 @@ class HEXACO_Analyzer:
                 "content-type": "application/json"
             }
             payload = {
-                "model": "claude-3-5-sonnet-20240620", 
+                "model": model_id, 
                 "max_tokens": 1024, 
                 "messages": [{"role": "user", "content": prompt}]
             }
             res = requests.post(url, headers=headers, json=payload, timeout=35)
             
-            # הדפסת דיבאג ללוגים של Streamlit
-            print(f"DEBUG: Claude Response Status: {res.status_code}")
-            
             if res.status_code == 200:
                 return res.json()['content'][0]['text']
             
             error_msg = self._parse_api_error('Claude', res)
-            print(f"DEBUG: Claude Error Detail: {error_msg}")
             return f"❌ שגיאת Claude: {error_msg}"
             
-        except requests.exceptions.Timeout:
-            return "❌ שגיאת Claude: פג זמן ההמתנה לשרת (Timeout)."
         except Exception as e:
             return f"⚠️ תקלה בחיבור ל-Claude: {str(e)}"
 
@@ -144,19 +167,21 @@ class HEXACO_Analyzer:
         status = response.status_code
         try:
             detail = response.json()
+            if provider == "Claude":
+                msg = detail.get('error', {}).get('message', str(detail))
+            else:
+                msg = str(detail)
         except:
-            detail = response.text
+            msg = response.text
 
         if status == 429:
-            return "חריגה ממכסת שימוש (Quota/Rate Limit). ודא שיש קרדיט בחשבון."
+            return "חריגה ממכסת שימוש או חוסר בקרדיט בחשבון."
         elif status == 401:
-            return "מפתח API לא תקין או פג תוקף (Unauthorized)."
+            return "מפתח API לא תקין."
         elif status == 400:
-            return f"בקשה לא תקינה (ייתכן סינון תוכן)."
-        elif status >= 500:
-            return "שגיאת שרת פנימית אצל ספק ה-AI."
+            return f"בקשה לא תקינה: {msg[:100]}"
         
-        return f"שגיאה {status}: {str(detail)[:100]}"
+        return f"שגיאה {status}: {msg[:100]}"
 
     def create_radar_chart(self, results):
         categories = [TRAIT_DICT[k] for k in results.keys()]
