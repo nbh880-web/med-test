@@ -17,7 +17,6 @@ class DB_Manager:
             creds = service_account.Credentials.from_service_account_info(fb_info)
             return firestore.Client(credentials=creds, project=fb_info["project_id"])
         except Exception as e:
-            # כאן אנחנו לא בולעים את השגיאה במידה והחיבור נכשל לגמרי
             st.error(f"חיבור ל-Firebase נכשל: {e}")
             return None
 
@@ -42,32 +41,40 @@ class DB_Manager:
     def fetch_history(self, user_name):
         if not self.db or not user_name: return []
         user_id = user_name.strip().lower()
-        
         try:
-            # ניסיון ראשון: שאילתה מסודרת (דורשת אינדקס ב-Firebase)
             docs = self.db.collection("hexaco_results")\
                           .where("user_id", "==", user_id)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .limit(10).stream()
-            
-            results = [doc.to_dict() for doc in docs]
-            if results: return results
-        except Exception as e:
-            # Fallback: אם חסר אינדקס, נשלוף ללא מיון ונמיין ב-Python כדי שהאפליקציה לא תיתקע
+            return [doc.to_dict() for doc in docs]
+        except:
             try:
                 docs = self.db.collection("hexaco_results")\
                               .where("user_id", "==", user_id)\
                               .limit(20).stream()
-                raw_list = [doc.to_dict() for doc in docs]
-                # מיון ידני לפי תאריך בתוך הקוד
-                return sorted(raw_list, key=lambda x: str(x.get('timestamp')), reverse=True)
-            except:
-                return []
-        return []
+                raw = [doc.to_dict() for doc in docs]
+                return sorted(raw, key=lambda x: str(x.get('timestamp')), reverse=True)
+            except: return []
 
-# פונקציות גשר התואמות ל-app.py
+    def fetch_all_tests_admin(self):
+        """שליפת כל המבחנים מכל המשתמשים עבור ה-Admin"""
+        if not self.db: return []
+        try:
+            docs = self.db.collection("hexaco_results")\
+                          .order_by("timestamp", direction=firestore.Query.DESCENDING)\
+                          .stream()
+            return [doc.to_dict() for doc in docs]
+        except:
+            docs = self.db.collection("hexaco_results").stream()
+            raw = [doc.to_dict() for doc in docs]
+            return sorted(raw, key=lambda x: str(x.get('timestamp')), reverse=True)
+
+# פונקציות גשר
 def save_to_db(name, res, rep):
     DB_Manager().save_test(name, res, rep)
 
 def get_db_history(name):
     return DB_Manager().fetch_history(name)
+
+def get_all_tests():
+    return DB_Manager().fetch_all_tests_admin()
