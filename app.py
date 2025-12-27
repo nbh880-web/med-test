@@ -18,19 +18,26 @@ from logic import (
 from database import save_to_db, get_db_history, get_all_tests
 from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart, create_token_gauge
 
-# --- 1. הגדרות דף ו-CSS (RTL עם תיקון מקיף למובייל) ---
-st.set_page_config(page_title="Mednitai HEXACO System", layout="wide")
+# --- 1. הגדרות דף ו-CSS (RTL עם סיידבר "צף" ומתקפל) ---
+# initial_sidebar_state="collapsed" גורם לסיידבר להיות סגור בטעינה ראשונה במובייל
+st.set_page_config(
+    page_title="Mednitai HEXACO System", 
+    layout="wide",
+    initial_sidebar_state="collapsed" 
+)
 
 st.markdown("""
     <style>
     /* הגדרות כיווניות כלליות */
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
-    /* תיקון סרגל צדי (Sidebar) למניעת טקסט אנכי במובייל */
+    /* עיצוב סרגל צדי (Sidebar) */
     [data-testid="stSidebar"] {
-        min-width: 250px !important;
+        min-width: 280px !important;
+        background-color: #f1f3f6;
     }
-    /* מניעת שבירת מילים לאותיות בודדות בסיידבר */
+    
+    /* מניעת שבירת מילים לאותיות בודדות בסיידבר (פתרון לבעיית הטקסט האנכי) */
     [data-testid="stSidebar"] * {
         word-break: normal !important;
         white-space: normal !important;
@@ -45,30 +52,24 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* עיצוב ההיגד (השאלה) - ברירת מחדל למחשב */
+    /* עיצוב ההיגד (השאלה) */
     .question-text { 
         font-size: 42px; font-weight: 800; text-align: center; 
         padding: 40px 20px; color: #1a2a6c; line-height: 1.2;
         background-color: #f8f9fa; border-radius: 15px; margin-bottom: 20px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
     }
 
-    /* --- התאמות למובייל (Media Queries) --- */
+    /* התאמות למובייל */
     @media (max-width: 768px) {
         .question-text {
             font-size: 24px !important;
             padding: 20px 10px !important;
         }
-        /* הקטנת כותרות הדשבורד */
-        h1 { font-size: 1.8rem !important; }
-        h2, h3 { font-size: 1.4rem !important; }
-        
-        /* הקטנת גובה הכפתורים כדי שיכנסו למסך אחד */
+        h1 { font-size: 1.6rem !important; }
         div.stButton > button {
-            height: 50px;
-            font-size: 16px;
-        }
-        .main .block-container {
-            padding-top: 1rem;
+            height: 55px;
+            font-size: 18px;
         }
     }
     
@@ -90,13 +91,11 @@ if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
 
-# --- 3. פונקציות עזר (טעינה, איזון והקלטה) ---
+# --- 3. פונקציות עזר ---
 @st.cache_data
 def load_questions():
     try: return pd.read_csv('data/questions.csv')
-    except Exception as e:
-        st.error(f"שגיאה בטעינת קובץ השאלות: {e}")
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 def get_balanced_questions(df, total_limit):
     traits = df['trait'].unique()
@@ -122,14 +121,14 @@ def record_answer(ans_value, q_data):
 
 # --- 4. פונקציית דף הניהול (ADMIN) ---
 def show_admin_dashboard():
-    # שימוש ב-markdown למניעת עיוותים בסיידבר
+    # תצוגת מנהל בסיידבר
     st.sidebar.markdown(f"### 🔑 מנהל: \n**{st.session_state.user_name}**")
-    if st.sidebar.button("התנתק וחזור"):
+    if st.sidebar.button("🚪 התנתק"):
         st.session_state.user_name = ""
         st.session_state.step = 'HOME'
         st.rerun()
 
-    st.title("📊 לוח בקרת מנהל - Mednitai")
+    st.title("📊 לוח בקרת מנהל")
     
     all_data = get_all_tests()
     if not all_data:
@@ -139,7 +138,7 @@ def show_admin_dashboard():
     df = pd.DataFrame(all_data)
     df['tokens'] = df['ai_report'].apply(lambda x: int(len(str(x).split()) * 1.6))
 
-    m1, m2, m3 = st.columns([1, 1, 1])
+    m1, m2, m3 = st.columns(3)
     m1.metric("סה\"כ מבדקים", len(df))
     m2.metric("משתמשים", df['user_name'].nunique())
     m3.metric("ממוצע טוקנים", int(df['tokens'].mean()))
@@ -151,7 +150,6 @@ def show_admin_dashboard():
     
     st.dataframe(df[['user_name', 'test_date', 'test_time', 'tokens']], use_container_width=True)
 
-    st.subheader("📄 פירוט דוח ומצב טוקנים")
     if not df.empty:
         selected_idx = st.selectbox("בחר מועמד:", df.index, format_func=lambda x: f"{df.loc[x, 'user_name']} ({df.loc[x, 'test_date']})")
         col_rep, col_gauge = st.columns([2, 1])
@@ -161,33 +159,32 @@ def show_admin_dashboard():
             st.plotly_chart(create_token_gauge(df.loc[selected_idx, "ai_report"]), use_container_width=True)
 
 # --- 5. ניווט ראשי ---
-
 if st.session_state.user_name == "adminMednitai":
     show_admin_dashboard()
 
 elif st.session_state.step == 'HOME':
     st.markdown('<h1 style="text-align: right; color: #1e3a8a;">🏥 סימולטור HEXACO למיוני רפואה</h1>', unsafe_allow_html=True)
-    st.session_state.user_name = st.text_input("הכנס שם מלא לזיהוי:", st.session_state.user_name)
+    st.session_state.user_name = st.text_input("הכנס שם מלא:", st.session_state.user_name)
     
     if st.session_state.user_name == "adminMednitai":
         st.rerun()
 
     if st.session_state.user_name:
-        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריית מבדקים"])
+        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריה"])
         with tab_new:
             all_qs_df = load_questions()
             if not all_qs_df.empty:
-                st.write(f"שלום **{st.session_state.user_name}**, בחר היקף סימולציה:")
+                st.write(f"שלום **{st.session_state.user_name}**")
                 col1, col2, col3 = st.columns(3)
-                if col1.button("⏳ תרגול קצר (36 שאלות)"):
+                if col1.button("⏳ תרגול קצר (36)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
-                if col2.button("📋 סימולציה רגילה (120 שאלות)"):
+                if col2.button("📋 סימולציה (120)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 120)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
-                if col3.button("🔍 מבדק מלא (300 שאלות)"):
+                if col3.button("🔍 מבדק מלא (300)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 300)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
@@ -195,10 +192,10 @@ elif st.session_state.step == 'HOME':
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
-                    with st.expander(f"📅 מיום {entry.get('test_date', 'לא ידוע')}"):
+                    with st.expander(f"📅 מבדק מ-{entry.get('test_date', 'לא ידוע')}"):
                         st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
-                        st.write(entry.get('ai_report', 'אין דוח שמור'))
-            else: st.info("לא נמצאו מבדקים קודמים.")
+                        st.write(entry.get('ai_report', 'אין דוח'))
+            else: st.info("לא נמצאו מבדקים.")
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_clock")
@@ -209,10 +206,9 @@ elif st.session_state.step == 'QUIZ':
         st.progress(q_idx / len(st.session_state.questions))
         st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)}")
         
-        if elapsed > 8: st.warning(f"זמן: {int(elapsed)} שניות")
         st.markdown(f'<div class="question-text">{q_data["q"]}</div>', unsafe_allow_html=True)
         
-        options = [("בכלל לא מסכים", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
+        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מאוד", 5)]
         cols = st.columns(5)
         for i, (label, val) in enumerate(options):
             if cols[i].button(label, key=f"b_{q_idx}_{val}"):
@@ -231,40 +227,7 @@ elif st.session_state.step == 'RESULTS':
     with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
     with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
 
-    df_logic = pd.DataFrame(st.session_state.responses)
-    consistency_score = analyze_consistency(df_logic)
-    if isinstance(consistency_score, list): consistency_score = consistency_score[0]
-    
-    if consistency_score < 75:
-        st.error(f"⚠️ מדד עקביות: {consistency_score}%")
-    else:
-        st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
-
-    st.divider()
-    st.markdown("### 🔍 ניתוח תכונות מובנה")
-    for _, row in summary_df.iterrows():
-        st.info(f"**{row['trait']}:** {get_static_interpretation(row['trait'], row['final_score'])}")
-
-    # בוחני AI
-    st.divider()
-    st.markdown("### 🤖 ניתוח מעמיק על ידי בוחני AI")
-    if 'ai_multi_reports' not in st.session_state:
-        with st.spinner("בוחני ה-AI מנתחים..."):
-            hist = get_db_history(st.session_state.user_name)
-            g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
-            st.session_state.ai_multi_reports = (g_report, c_report)
-            save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\n\nClaude: {c_report}")
-
-    cg, cc = st.columns(2)
-    with cg:
-        st.markdown('<p style="color:#1E90FF; font-weight:bold;">🛡️ Gemini</p>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ai-report-box" style="border-right-color: #1E90FF;">{st.session_state.ai_multi_reports[0]}</div>', unsafe_allow_html=True)
-    with cc:
-        st.markdown('<p style="color:#D97757; font-weight:bold;">🔮 Claude</p>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ai-report-box" style="border-right-color: #D97757;">{st.session_state.ai_multi_reports[1]}</div>', unsafe_allow_html=True)
-
-    st.divider()
-    if st.button("🏁 חזרה לתפריט הראשי"):
+    if st.button("🏁 חזרה לתפריט"):
         for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']:
             st.session_state.pop(k, None)
         st.rerun()
