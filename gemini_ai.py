@@ -30,13 +30,12 @@ class HEXACO_Analyzer:
             st.secrets.get("GEMINI_KEY_1", "").strip(),
             st.secrets.get("GEMINI_KEY_2", "").strip()
         ]
-        # סינון מפתחות שלא הוכנסו
         self.gemini_keys = [k for k in self.gemini_keys if k]
         self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
 
     def _discover_gemini_model(self, api_key):
         """
-        מנגנון Discovering דינמי: מחפש את מודל ה-Flash הזמין ביותר עבור המפתח הנוכחי.
+        מנגנון Discovering משופר למניעת TypeError
         """
         default_model = "models/gemini-1.5-flash"
         if not api_key: return default_model
@@ -45,17 +44,18 @@ class HEXACO_Analyzer:
         try:
             res = requests.get(list_url, timeout=7)
             if res.status_code == 200:
-                models = res.json().get("models", [])
-                # סינון מודלים שתומכים ב-GenerateContent וכוללים 'flash'
+                models_data = res.json().get("models", [])
+                # וידוא ששמות המודלים נשלפים כמחרוזות (Strings) בלבד
                 flash_models = [
-                    m["name"] for m in models 
-                    if "flash" in m["name"].lower() and "generateContent" in m["supportedGenerationMethods"]
+                    str(m["name"]) for m in models_data 
+                    if isinstance(m.get("name"), str) and 
+                       "flash" in m["name"].lower() and 
+                       "generateContent" in m.get("supportedGenerationMethods", [])
                 ]
                 if flash_models:
-                    # מחזיר את המודל האחרון ברשימה (לרוב הגרסה החדשה ביותר)
-                    return flash_models[-1]
-        except Exception:
-            pass 
+                    return flash_models[-1] # מחזיר את האחרון ברשימה
+        except Exception as e:
+            print(f"DEBUG: Discovering failed: {e}")
         return default_model
 
     def generate_multi_report(self, user_name, current_results, history):
@@ -63,7 +63,8 @@ class HEXACO_Analyzer:
         if history and isinstance(history, list):
             history_context = "\n--- מגמות עבר (מבחנים קודמים) ---\n"
             for h in history[:2]:
-                history_context += f"מבחן קודם: {h.get('results', '{}')}\n"
+                results_data = h.get('results', '{}')
+                history_context += f"מבחן קודם: {results_data}\n"
 
         prompt = f"""
         תפקיד: פסיכולוג בכיר במרכז הערכה לרפואה (מס"ר/מרק"ם).
@@ -82,13 +83,9 @@ class HEXACO_Analyzer:
         
         הוראות: עברית רהוטה, נקודות קצרות, גוף שני.
         """
-        
         return self._call_gemini_with_failover(prompt), self._call_claude_with_detailed_errors(prompt)
 
     def _call_gemini_with_failover(self, prompt):
-        """
-        מנסה את המפתח הראשון. אם נכשל בגלל Quota או שגיאה, עובר אוטומטית למפתח השני.
-        """
         if not self.gemini_keys:
             return "❌ שגיאה: לא הוגדרו מפתחות Gemini ב-Secrets."
 
@@ -98,25 +95,19 @@ class HEXACO_Analyzer:
                 model_name = self._discover_gemini_model(key)
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={key}"
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
-                
                 res = requests.post(url, json=payload, timeout=30)
                 
                 if res.status_code == 200:
                     return res.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # ניתוח שגיאה לפי קוד תגובה
                 error_info = self._parse_api_error("Gemini", res)
                 attempts_log.append(f"מפתח {i+1}: {error_info}")
-                
             except Exception as e:
                 attempts_log.append(f"מפתח {i+1}: תקלה טכנית ({str(e)})")
         
         return "❌ כל נסיונות ה-Gemini נכשלו:\n" + "\n".join(attempts_log)
 
     def _call_claude_with_detailed_errors(self, prompt):
-        """
-        קריאה ל-Claude עם ניתוח שגיאות מפורט.
-        """
         if not self.claude_key:
             return "❌ שגיאה: מפתח Claude חסר ב-Secrets."
         
@@ -134,10 +125,15 @@ class HEXACO_Analyzer:
             }
             res = requests.post(url, headers=headers, json=payload, timeout=35)
             
+            # הדפסת דיבאג ללוגים של Streamlit
+            print(f"DEBUG: Claude Response Status: {res.status_code}")
+            
             if res.status_code == 200:
                 return res.json()['content'][0]['text']
             
-            return f"❌ שגיאת Claude: {self._parse_api_error('Claude', res)}"
+            error_msg = self._parse_api_error('Claude', res)
+            print(f"DEBUG: Claude Error Detail: {error_msg}")
+            return f"❌ שגיאת Claude: {error_msg}"
             
         except requests.exceptions.Timeout:
             return "❌ שגיאת Claude: פג זמן ההמתנה לשרת (Timeout)."
@@ -145,9 +141,6 @@ class HEXACO_Analyzer:
             return f"⚠️ תקלה בחיבור ל-Claude: {str(e)}"
 
     def _parse_api_error(self, provider, response):
-        """
-        פונקציה מרכזית לניתוח ופירוט שגיאות API.
-        """
         status = response.status_code
         try:
             detail = response.json()
@@ -155,15 +148,13 @@ class HEXACO_Analyzer:
             detail = response.text
 
         if status == 429:
-            return "חריגה ממכסת שימוש (Quota/Rate Limit). נסה שוב מאוחר יותר."
+            return "חריגה ממכסת שימוש (Quota/Rate Limit). ודא שיש קרדיט בחשבון."
         elif status == 401:
             return "מפתח API לא תקין או פג תוקף (Unauthorized)."
-        elif status == 403:
-            return "גישה חסומה (Forbidden) - ייתכן מגבלה גאוגרפית או הרשאת מפתח."
         elif status == 400:
-            return f"בקשה לא תקינה. ייתכן וסינון התוכן חסם את התשובה."
+            return f"בקשה לא תקינה (ייתכן סינון תוכן)."
         elif status >= 500:
-            return "שגיאת שרת פנימית אצל הספק (Google/Anthropic)."
+            return "שגיאת שרת פנימית אצל ספק ה-AI."
         
         return f"שגיאה {status}: {str(detail)[:100]}"
 
@@ -171,7 +162,6 @@ class HEXACO_Analyzer:
         categories = [TRAIT_DICT[k] for k in results.keys()]
         user_vals = list(results.values())
         ideal_vals = [IDEAL_DOCTOR[k] for k in results.keys()]
-        
         fig = go.Figure()
         fig.add_trace(go.Scatterpolar(r=ideal_vals + [ideal_vals[0]], theta=categories + [categories[0]], fill='toself', name='יעד רופא', line_color='#2ECC71', opacity=0.3))
         fig.add_trace(go.Scatterpolar(r=user_vals + [user_vals[0]], theta=categories + [categories[0]], fill='toself', name='הפרופיל שלך', line_color='#1E90FF'))
@@ -186,7 +176,7 @@ class HEXACO_Analyzer:
         fig.update_layout(barmode='group', yaxis=dict(range=[1, 5]), title="השוואה כמותית")
         return fig
 
-# פונקציות ממשק ל-app.py
+# פונקציות ממשק
 def get_multi_ai_analysis(user_name, results, history):
     return HEXACO_Analyzer().generate_multi_report(user_name, results, history)
 
