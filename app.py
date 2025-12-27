@@ -76,7 +76,6 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def record_answer(ans_value, q_data):
-    # מניעת רישום כפול אם המשתמש לוחץ מהר מדי
     if st.session_state.current_q >= len(st.session_state.questions):
         return
 
@@ -108,7 +107,6 @@ if st.session_state.step == 'HOME':
                 st.write(f"שלום **{st.session_state.user_name}**, בחר את היקף הסימולציה:")
                 col1, col2, col3 = st.columns(3)
                 
-                # כפתורי בחירה עם איפוס מונים
                 if col1.button("⏳ תרגול קצר (36 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.current_q = 0
@@ -138,15 +136,15 @@ if st.session_state.step == 'HOME':
                     date_val = entry.get('test_date', 'לא ידוע')
                     with st.expander(f"📅 מבחן מיום {date_val}"):
                         if 'results' in entry:
-                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
+                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}", width='stretch')
                         st.write(entry.get('ai_report', 'אין דוח טקסטואלי שמור'))
             else:
                 st.info("לא נמצאו מבדקים קודמים עבור שם זה.")
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_clock")
-    
     q_idx = st.session_state.current_q
+    
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         elapsed = time.time() - st.session_state.start_time
@@ -174,26 +172,31 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח תוצאות - {st.session_state.user_name}')
     
-    # 1. עיבוד נתונים והכנה
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # 2. הצגת גרפים
     
+
     c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
+    with c1: st.plotly_chart(get_radar_chart(trait_scores), width='stretch')
+    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
     
     st.divider()
 
-    # 3. בדיקת עקביות (הגנה מ-TypeError)
+    # --- פתרון השגיאה TypeError: חילוץ ערך מרשימה במידת הצורך ---
     df_for_logic = pd.DataFrame(st.session_state.responses)
-    consistency_score = analyze_consistency(df_for_logic)
-    inconsistent_qs = get_inconsistent_questions(df_for_logic)
+    raw_consistency = analyze_consistency(df_for_logic)
     
+    # אם חזרה רשימה, ניקח את האיבר הראשון (הציון)
+    if isinstance(raw_consistency, list) and len(raw_consistency) > 0:
+        consistency_score = raw_consistency[0]
+    else:
+        consistency_score = raw_consistency
+
     if isinstance(consistency_score, (int, float)):
         if consistency_score < 75:
             st.error(f"⚠️ מדד עקביות: {consistency_score}%")
+            inconsistent_qs = get_inconsistent_questions(df_for_logic)
             if inconsistent_qs:
                 with st.expander("ראה שאלות שסתרו זו את זו"):
                     for item in inconsistent_qs: st.write(f"• {item}")
@@ -211,16 +214,13 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
-    # 5. בוחני AI (שימוש ב-cache בתוך ה-session)
+    # 5. בוחני AI
     if 'ai_multi_reports' not in st.session_state:
         with st.spinner("בוחני ה-AI מנתחים את הפרופיל שלך..."):
             hist = get_db_history(st.session_state.user_name)
-            # אם אין היסטוריה, נשלח רשימה ריקה
             hist = hist if hist else []
             g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
             st.session_state.ai_multi_reports = (g_report, c_report)
-            
-            # שמירה למסד הנתונים
             save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\nClaude: {c_report}")
 
     cg, cc = st.columns(2)
@@ -243,7 +243,6 @@ elif st.session_state.step == 'RESULTS':
             st.warning("הכנת ה-PDF נכשלה, אך ניתן לצפות בתוצאות כאן.")
     with ch:
         if st.button("🏁 חזרה לתפריט הראשי"):
-            # ניקוי בטוח של המצב ללא מחיקת ה-User Name
             for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports', 'start_time']:
                 st.session_state.pop(k, None)
             st.rerun()
