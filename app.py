@@ -4,7 +4,7 @@ import pandas as pd
 import random
 from streamlit_autorefresh import st_autorefresh
 
-# ייבוא לוגיקה עסקית - שימור כל הפונקציות הקיימות
+# ייבוא לוגיקה עסקית
 from logic import (
     calculate_score, 
     process_results, 
@@ -21,7 +21,7 @@ from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_cha
 # 1. הגדרות דף ו-RTL
 st.set_page_config(page_title="HEXACO Medical Prep", layout="wide")
 
-# 2. אתחול Session State (כולל מנגנון זמן)
+# 2. אתחול Session State
 if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
@@ -43,7 +43,7 @@ st.markdown("""
         border-color: #1e90ff; background-color: #f8f9fa; color: #1e90ff;
     }
     
-    .question-text { font-size: 30px; font-weight: bold; text-align: center; padding: 40px; color: #2c3e50; }
+    .question-text { font-size: 30px; font-weight: bold; text-align: center; padding: 40px; color: #2c3e50; line-height: 1.4; }
     
     .ai-report-box { 
         padding: 25px; border-right: 8px solid; border-radius: 12px; 
@@ -75,7 +75,6 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def record_answer(ans_value, q_data):
-    # חישוב זמן לשאלה וציון
     duration = time.time() - st.session_state.start_time
     score = calculate_score(ans_value, q_data['reverse'])
     
@@ -88,7 +87,6 @@ def record_answer(ans_value, q_data):
         'reverse': q_data['reverse']
     })
     st.session_state.current_q += 1
-    # איפוס השעון לשאלה הבאה מיד
     st.session_state.start_time = time.time()
 
 # --- ניווט בין מסכים ---
@@ -124,11 +122,14 @@ if st.session_state.step == 'HOME':
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
-                    with st.expander(f"📅 מבחן מיום {entry.get('test_date')}"):
-                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
+                    with st.expander(f"📅 מבחן מיום {entry.get('test_date', 'לא ידוע')}"):
+                        if 'results' in entry:
+                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
+                        st.write(entry.get('ai_report', 'אין דוח מוקלט'))
+            else:
+                st.info("לא נמצאו מבדקים קודמים.")
 
 elif st.session_state.step == 'QUIZ':
-    # השעון שביקשת - רענון אוטומטי כל שנייה
     st_autorefresh(interval=1000, key="quiz_clock")
     
     q_idx = st.session_state.current_q
@@ -139,7 +140,6 @@ elif st.session_state.step == 'QUIZ':
         st.progress((q_idx) / len(st.session_state.questions))
         st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)}")
         
-        # תצוגת השעון
         if elapsed > 8:
             st.warning(f"זמן שעבר: {int(elapsed)} שניות. נסה לענות מהר יותר.", icon="⏳")
         else:
@@ -160,48 +160,45 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח תוצאות - {st.session_state.user_name}')
     
-    # עיבוד נתונים
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # הצגת גרפים
     c1, c2 = st.columns(2)
     with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
     with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
     
     st.divider()
 
-    # --- פתרון הקריסה (AttributeError) ---
-    # המרת הרשימה ל-DataFrame לפני קריאה לכל פונקציית לוגיקה
+    # --- פתרון הגנה מ-TypeError ו-AttributeError ---
     df_for_logic = pd.DataFrame(st.session_state.responses)
-    
-    # קריאה לפונקציות עם ה-DataFrame המתוקן
     consistency_score = analyze_consistency(df_for_logic)
     inconsistent_qs = get_inconsistent_questions(df_for_logic)
     
-    if consistency_score < 75:
-        st.error(f"⚠️ מדד עקביות: {consistency_score}%")
-        with st.expander("ראה שאלות שסתרו זו את זו"):
-            for item in inconsistent_qs: st.write(f"• {item}")
+    # בדיקה ש-score הוא מספר לפני השוואה
+    if isinstance(consistency_score, (int, float)):
+        if consistency_score < 75:
+            st.error(f"⚠️ מדד עקביות: {consistency_score}%")
+            with st.expander("ראה שאלות שסתרו זו את זו"):
+                for item in inconsistent_qs: st.write(f"• {item}")
+        else:
+            st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
     else:
-        st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
+        st.info("מחשב מדד עקביות...")
 
     st.divider()
 
-    # ניתוח מובנה
     st.markdown("### 🔍 ניתוח תכונות מובנה")
     for _, row in summary_df.iterrows():
         st.info(f"**{row['trait']}:** {get_static_interpretation(row['trait'], row['final_score'])}")
 
     st.divider()
     
-    # בוחני AI
     if 'ai_multi_reports' not in st.session_state:
         with st.spinner("הבוחנים מנתחים..."):
             hist = get_db_history(st.session_state.user_name)
             g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
             st.session_state.ai_multi_reports = (g_report, c_report)
-            save_to_db(st.session_state.user_name, trait_scores, f"G: {g_report}\nC: {c_report}")
+            save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\nClaude: {c_report}")
 
     cg, cc = st.columns(2)
     with cg:
@@ -213,7 +210,6 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
 
-    # סיום והורדה
     cp, ch = st.columns(2)
     with cp:
         pdf = create_pdf_report(summary_df, st.session_state.responses)
@@ -221,5 +217,5 @@ elif st.session_state.step == 'RESULTS':
     with ch:
         if st.button("🏁 חזרה לתפריט"):
             for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports', 'start_time']:
-                if k in st.session_state: del st.session_state[k]
+                st.session_state.pop(k, None)
             st.rerun()
