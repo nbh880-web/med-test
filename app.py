@@ -11,14 +11,14 @@ from logic import (
     analyze_consistency, 
     create_pdf_report,
     get_inconsistent_questions,
-    get_static_interpretation # פונקציה חדשה שנוסיף ל-logic.py
+    get_static_interpretation
 )
 
 # ייבוא שכבת הנתונים (Firebase)
 from database import save_to_db, get_db_history
 
-# ייבוא שכבת הבינה המלאכותית (Gemini)
-from gemini_ai import get_ai_analysis, get_comparison_chart, get_radar_chart # הוספנו את המכ"ם
+# ייבוא שכבת הבינה המלאכותית המעודכנת (החלפת get_ai_analysis ב-get_multi_ai_analysis)
+from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart
 
 # 1. הגדרות דף ו-RTL
 st.set_page_config(page_title="HEXACO Medical Prep", layout="wide")
@@ -29,20 +29,28 @@ if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
-if 'toast_shown' not in st.session_state: st.session_state.toast_shown = False
 
-# עיצוב CSS - יישור לימין ותמיכה במובייל
+# עיצוב CSS - יישור לימין, כפתורים נקיים ותמיכה במובייל
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
+    
+    /* עיצוב כפתורי תשובה נקיים ומקצועיים */
     div.stButton > button {
-        width: 100%; border-radius: 12px; border: 1px solid #d1d8e0;
-        height: 60px; font-size: 18px; transition: all 0.2s; direction: rtl;
+        width: 100%; border-radius: 8px; border: 1px solid #ced4da;
+        height: 55px; font-size: 18px; transition: all 0.2s; 
+        background-color: white; color: #212529;
     }
-    .question-text { font-size: 26px; font-weight: bold; text-align: center; padding: 20px; color: #2c3e50; }
+    div.stButton > button:hover {
+        border-color: #1e90ff; background-color: #f8f9fa;
+    }
+    
+    .question-text { font-size: 28px; font-weight: bold; text-align: center; padding: 30px; color: #2c3e50; }
+    
     .ai-report-box { 
-        background-color: #f0f7ff; padding: 25px; border-right: 6px solid #1e90ff; 
-        border-radius: 8px; line-height: 1.8; text-align: right; font-size: 16px; white-space: pre-wrap;
+        padding: 20px; border-right: 6px solid; 
+        border-radius: 8px; line-height: 1.6; text-align: right; font-size: 15px; 
+        white-space: pre-wrap; min-height: 450px; color: #333;
     }
     input { text-align: right; direction: rtl; }
     </style>
@@ -87,17 +95,17 @@ def record_answer(ans_value, q_data):
 # --- ניווט בין מסכים ---
 
 if st.session_state.step == 'HOME':
-    st.markdown('<h1 style="text-align: right;">🏥 מערכת סימולציה HEXACO - הכנה למס"ר</h1>', unsafe_allow_html=True)
-    st.session_state.user_name = st.text_input("הכנס את שמך המלא להתחלה:", st.session_state.user_name)
+    st.markdown('<h1 style="text-align: right;">🏥 סימולטור HEXACO למיוני רפואה</h1>', unsafe_allow_html=True)
+    st.session_state.user_name = st.text_input("הכנס שם מלא לזיהוי במערכת:", st.session_state.user_name)
     
     if st.session_state.user_name:
-        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 ארכיון מבחנים קודמים"])
+        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריית מבדקים"])
         with tab_new:
             all_qs_df = load_questions()
             if not all_qs_df.empty:
-                st.write(f"שלום **{st.session_state.user_name}**, בחר את אורך הסימולציה:")
+                st.write(f"שלום **{st.session_state.user_name}**, בחר את היקף הסימולציה:")
                 col1, col2, col3 = st.columns(3)
-                if col1.button("⏳ תרגול מהיר (36 שאלות)"):
+                if col1.button("⏳ תרגול קצר (36 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
@@ -105,7 +113,7 @@ if st.session_state.step == 'HOME':
                     st.session_state.questions = get_balanced_questions(all_qs_df, 120)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
-                if col3.button("🔍 סימולציה מלאה (300 שאלות)"):
+                if col3.button("🔍 מבדק מלא (300 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 300)
                     st.session_state.step = 'QUIZ'
                     st.rerun()
@@ -114,11 +122,11 @@ if st.session_state.step == 'HOME':
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
-                    with st.expander(f"סימולציה מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
+                    with st.expander(f"מבחן מיום {entry.get('test_date')} ({entry.get('test_time')})"):
                         st.plotly_chart(get_comparison_chart(entry['results']), key=f"arch_{i}")
-                        st.markdown(f'<div class="ai-report-box">{entry["ai_report"]}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ai-report-box" style="background-color:#f9f9f9; border-right-color:#ccc;">{entry.get("ai_report", "אין דוח")}</div>', unsafe_allow_html=True)
             else:
-                st.info("לא נמצאו מבחנים קודמים.")
+                st.info("לא נמצאו מבחנים קודמים לשם זה.")
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="timer_refresh")
@@ -129,18 +137,18 @@ elif st.session_state.step == 'QUIZ':
         elapsed = time.time() - st.session_state.start_time
         
         st.progress((q_idx) / len(st.session_state.questions))
-        st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)} | זמן: {int(elapsed)} שניות")
+        st.write(f"שאלה {q_idx + 1} מתוך {len(st.session_state.questions)}")
         
-        if elapsed > 8: st.warning("⚠️ חלפו 8 שניות. מומלץ לענות בזריזות.", icon="⏳")
+        if elapsed > 8: st.warning("מומלץ לענות לפי תחושת בטן ראשונית.", icon="⏳")
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
-        # כפתורים עם אימוג'ים לשיפור ה-UX
+        # אפשרויות נקיות ללא סמלים ואימוג'ים
         options = [
-            ("🔴 בכלל לא מסכים", 1),
-            ("🟠 לא מסכים", 2),
-            ("⚪ נייטרלי", 3),
-            ("🟢 מסכים", 4),
-            ("✨ מסכים מאוד", 5)
+            ("בכלל לא מסכים", 1),
+            ("לא מסכים", 2),
+            ("נייטרלי", 3),
+            ("מסכים", 4),
+            ("מסכים מאוד", 5)
         ]
         for label, val in options:
             if st.button(label, key=f"btn_{q_idx}_{val}"):
@@ -166,7 +174,7 @@ elif st.session_state.step == 'RESULTS':
     
     st.divider()
 
-    # --- חלק 2: פרשנות מובנית (העוגנים) ---
+    # --- חלק 2: פרשנות מובנית ---
     st.markdown("### 🔍 ניתוח תכונות מובנה")
     for _, row in summary_df.iterrows():
         text = get_static_interpretation(row['trait'], row['final_score'])
@@ -174,31 +182,42 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
-    # --- חלק 3: ניתוח AI ---
-    st.markdown("### 🤖 ניתוח מאמן AI מעמיק")
-    if 'ai_report_done' not in st.session_state:
-        with st.spinner("ה-AI מגבש את חוות דעתו..."):
+    # --- חלק 3: פאנל בוחני AI (Gemini & Claude) ---
+    st.markdown("### 🤖 פאנל בוחני AI: Gemini & Claude")
+    
+    if 'ai_multi_reports' not in st.session_state:
+        with st.spinner("הבוחנים מגבשים חוות דעת..."):
             history = get_db_history(st.session_state.user_name)
-            report_text = get_ai_analysis(st.session_state.user_name, trait_scores, history)
-            save_to_db(st.session_state.user_name, trait_scores, report_text)
-            st.session_state.ai_report_done = report_text
-    st.markdown(f'<div class="ai-report-box">{st.session_state.ai_report_done}</div>', unsafe_allow_html=True)
+            g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, history)
+            st.session_state.ai_multi_reports = (g_report, c_report)
+            
+            # שמירה ל-DB (דוח מאוחד)
+            combined_report = f"--- Gemini ---\n{g_report}\n\n--- Claude ---\n{c_report}"
+            save_to_db(st.session_state.user_name, trait_scores, combined_report)
+
+    # הצגה בטורים עם הפרדת צבעים
+    col_g, col_c = st.columns(2)
+    with col_g:
+        st.markdown('<p style="color:#1E90FF; font-weight:bold; font-size:20px;">🛡️ בוחן 1: Gemini (Google)</p>', unsafe_allow_html=True)
+        st.markdown(f'<div class="ai-report-box" style="border-right-color: #1E90FF; background-color: #f0f7ff;">{st.session_state.ai_multi_reports[0]}</div>', unsafe_allow_html=True)
+    
+    with col_c:
+        st.markdown('<p style="color:#D97757; font-weight:bold; font-size:20px;">🔮 בוחן 2: Claude (Anthropic)</p>', unsafe_allow_html=True)
+        st.markdown(f'<div class="ai-report-box" style="border-right-color: #D97757; background-color: #fffaf0;">{st.session_state.ai_multi_reports[1]}</div>', unsafe_allow_html=True)
+
+    st.divider()
 
     # --- חלק 4: טיפים קבועים ---
-    st.success("""
-    ### 💡 טיפים קריטיים ליום המיונים (מס"ר):
-    * **ענווה (H):** אל תפחד לומר "אני לא יודע, אבדוק זאת". זה מראה על בטיחות המטופל.
-    * **סבלנות (A):** בסימולציות מול שחקן כועס - הקשב עד הסוף לפני שתגיב.
-    * **דיוק (C):** הקפד על פרטים טכניים במשימות שיוצגו לך.
-    * **יציבות (E):** שמור על קור רוח גם כשהבוחנים מנסים להלחיץ אותך.
-    """, icon="🩺")
+    st.success("### 💡 דגשים קריטיים לסימולציה: הקפד על ענווה, סבלנות ודיוק רב בפרטים.", icon="🩺")
 
     col_pdf, col_home = st.columns(2)
     with col_pdf:
         pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
-        st.download_button("📥 הורד דוח PDF", data=pdf_bytes, file_name="HEXACO_Report.pdf")
+        st.download_button("📥 הורד דוח PDF", data=pdf_bytes, file_name="HEXACO_Full_Report.pdf")
     with col_home:
-        if st.button("חזרה למסך הבית"):
-            for key in ['step', 'responses', 'current_q', 'questions', 'ai_report_done']:
+        if st.button("סיום וחזרה לבית"):
+            # ניקוי Session state לצורך מבחן חדש
+            keys_to_delete = ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']
+            for key in keys_to_delete:
                 if key in st.session_state: del st.session_state[key]
             st.rerun()
