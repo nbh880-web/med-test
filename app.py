@@ -30,12 +30,12 @@ if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 
-# עיצוב CSS מתקדם
+# עיצוב CSS מתקדם - כולל הפרדת צבעים לבוחני AI
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
-    /* עיצוב כפתורי תשובה נקיים (ללא אימוג'ים) */
+    /* כפתורי תשובה נקיים ומקצועיים */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
         height: 55px; font-size: 18px; transition: all 0.2s; 
@@ -47,7 +47,7 @@ st.markdown("""
     
     .question-text { font-size: 28px; font-weight: bold; text-align: center; padding: 30px; color: #2c3e50; }
     
-    /* תיבות הניתוח המופרדות */
+    /* תיבות הניתוח המופרדות ויזואלית */
     .ai-report-box { 
         padding: 20px; border-right: 6px solid; 
         border-radius: 8px; line-height: 1.6; text-align: right; font-size: 15px; 
@@ -72,10 +72,7 @@ def get_balanced_questions(df, total_limit):
     selected_qs = []
     for trait in traits:
         trait_qs = df[df['trait'] == trait].to_dict('records')
-        if len(trait_qs) >= qs_per_trait:
-            selected_qs.extend(random.sample(trait_qs, qs_per_trait))
-        else:
-            selected_qs.extend(trait_qs)
+        selected_qs.extend(random.sample(trait_qs, min(len(trait_qs), qs_per_trait)))
     random.shuffle(selected_qs)
     return selected_qs
 
@@ -143,14 +140,7 @@ elif st.session_state.step == 'QUIZ':
         if elapsed > 8: st.warning("מומלץ לענות לפי תחושת בטן ראשונית.", icon="⏳")
         st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
         
-        # כפתורים נקיים ללא אימוג'ים
-        options = [
-            ("בכלל לא מסכים", 1),
-            ("לא מסכים", 2),
-            ("נייטרלי", 3),
-            ("מסכים", 4),
-            ("מסכים מאוד", 5)
-        ]
+        options = [("בכלל לא מסכים", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         for label, val in options:
             if st.button(label, key=f"btn_{q_idx}_{val}"):
                 record_answer(val, q_data)
@@ -161,10 +151,12 @@ elif st.session_state.step == 'QUIZ':
 
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'<h1 style="text-align: right;">📊 דוח תוצאות - {st.session_state.user_name}</h1>', unsafe_allow_html=True)
+    
+    # עיבוד נתונים
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
     
-    # --- חלק 1: גרפים משולבים ---
+    # חלק 1: גרפים (ירוק ליעד, כחול למשתמש)
     col_radar, col_bar = st.columns(2)
     with col_radar:
         st.markdown("### 🕸️ פרופיל אישיות היקפי")
@@ -175,16 +167,10 @@ elif st.session_state.step == 'RESULTS':
     
     st.divider()
 
-    # --- חלק 2: פרשנות מובנית ---
-    st.markdown("### 🔍 ניתוח תכונות מובנה")
-    for _, row in summary_df.iterrows():
-        text = get_static_interpretation(row['trait'], row['final_score'])
-        st.info(f"**{row['trait']}:** {text}")
-
-    st.divider()
-    
-    # --- חלק 3: ניתוח עקביות (לא הוסר) ---
-    consistency_score = analyze_consistency(st.session_state.responses)
+    # חלק 2: ניתוח עקביות (תיקון השגיאה כאן)
+    # אנחנו הופכים את ה-responses ל-DataFrame לפני השליחה כדי למנוע את ה-AttributeError
+    df_for_consistency = pd.DataFrame(st.session_state.responses)
+    consistency_score = analyze_consistency(df_for_consistency) 
     inconsistent_qs = get_inconsistent_questions(st.session_state.responses)
     
     if consistency_score < 70:
@@ -196,8 +182,16 @@ elif st.session_state.step == 'RESULTS':
         st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
 
     st.divider()
+
+    # חלק 3: פרשנות מובנית
+    st.markdown("### 🔍 ניתוח תכונות מובנה")
+    for _, row in summary_df.iterrows():
+        text = get_static_interpretation(row['trait'], row['final_score'])
+        st.info(f"**{row['trait']}:** {text}")
+
+    st.divider()
     
-    # --- חלק 4: פאנל בוחני AI (הפרדת צבעים Gemini & Claude) ---
+    # חלק 4: פאנל בוחני AI (הפרדה צבעונית)
     st.markdown("### 🤖 פאנל בוחני AI: Gemini & Claude")
     
     if 'ai_multi_reports' not in st.session_state:
@@ -220,9 +214,7 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
 
-    # --- חלק 5: טיפים ודגשים ---
-    st.success("### 💡 דגשים קריטיים לסימולציה: הקפד על ענווה, סבלנות ודיוק רב בפרטים.", icon="🩺")
-
+    # חלק 5: סיום
     col_pdf, col_home = st.columns(2)
     with col_pdf:
         pdf_bytes = create_pdf_report(summary_df, st.session_state.responses)
@@ -231,5 +223,5 @@ elif st.session_state.step == 'RESULTS':
         if st.button("סיום וחזרה לבית"):
             keys_to_delete = ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports']
             for key in keys_to_delete:
-                if key in st.session_state: del st.session_state[key]
+                st.session_state.pop(key, None)
             st.rerun()
