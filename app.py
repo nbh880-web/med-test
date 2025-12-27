@@ -29,21 +29,34 @@ if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
 
-# עיצוב CSS למבנה RTL נקי
+# עיצוב CSS למבנה RTL נקי והגדלת טקסט
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
+    /* עיצוב כפתורי התשובות */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
-        height: 60px; font-size: 18px; transition: all 0.2s; 
+        height: 65px; font-size: 20px; transition: all 0.2s; 
         background-color: white; color: #212529; font-weight: 500;
     }
     div.stButton > button:hover {
         border-color: #1e90ff; background-color: #f8f9fa; color: #1e90ff;
     }
     
-    .question-text { font-size: 30px; font-weight: bold; text-align: center; padding: 40px; color: #2c3e50; line-height: 1.4; }
+    /* הגדלה משמעותית של ההיגד (השאלה) */
+    .question-text { 
+        font-size: 42px; /* הגדלה מ-30px ל-42px */
+        font-weight: 800; 
+        text-align: center; 
+        padding: 50px 20px; 
+        color: #1a2a6c; 
+        line-height: 1.3;
+        background-color: #f8f9fa;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+    }
     
     .ai-report-box { 
         padding: 25px; border-right: 8px solid; border-radius: 12px; 
@@ -136,7 +149,7 @@ if st.session_state.step == 'HOME':
                     date_val = entry.get('test_date', 'לא ידוע')
                     with st.expander(f"📅 מבחן מיום {date_val}"):
                         if 'results' in entry:
-                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}", width='stretch')
+                            st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}", use_container_width=True)
                         st.write(entry.get('ai_report', 'אין דוח טקסטואלי שמור'))
             else:
                 st.info("לא נמצאו מבדקים קודמים עבור שם זה.")
@@ -157,7 +170,8 @@ elif st.session_state.step == 'QUIZ':
         else:
             st.info(f"זמן לשאלה זו: {int(elapsed)} שניות")
 
-        st.markdown(f'<p class="question-text">{q_data["q"]}</p>', unsafe_allow_html=True)
+        # הצגת ההיגד המוגדל
+        st.markdown(f'<div class="question-text">{q_data["q"]}</div>', unsafe_allow_html=True)
         
         options = [("בכלל לא מסכים", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         cols = st.columns(5)
@@ -174,20 +188,17 @@ elif st.session_state.step == 'RESULTS':
     
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
-    
-    
 
     c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), width='stretch')
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
+    with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
+    with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True)
     
     st.divider()
 
-    # --- פתרון השגיאה TypeError: חילוץ ערך מרשימה במידת הצורך ---
+    # חישוב עקביות
     df_for_logic = pd.DataFrame(st.session_state.responses)
     raw_consistency = analyze_consistency(df_for_logic)
     
-    # אם חזרה רשימה, ניקח את האיבר הראשון (הציון)
     if isinstance(raw_consistency, list) and len(raw_consistency) > 0:
         consistency_score = raw_consistency[0]
     else:
@@ -202,8 +213,6 @@ elif st.session_state.step == 'RESULTS':
                     for item in inconsistent_qs: st.write(f"• {item}")
         else:
             st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
-    else:
-        st.info("מדד העקביות מחושב על בסיס התשובות שלך...")
 
     st.divider()
 
@@ -214,22 +223,37 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
-    # 5. בוחני AI
+    # 5. בוחני AI - עם מנגנון רענון ושגיאות
+    st.markdown("### 🤖 ניתוח מעמיק על ידי בוחני AI")
+    
+    if st.button("🔄 רענן/צור דוח AI מחדש"):
+        if 'ai_multi_reports' in st.session_state:
+            del st.session_state.ai_multi_reports
+
     if 'ai_multi_reports' not in st.session_state:
         with st.spinner("בוחני ה-AI מנתחים את הפרופיל שלך..."):
-            hist = get_db_history(st.session_state.user_name)
-            hist = hist if hist else []
-            g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
-            st.session_state.ai_multi_reports = (g_report, c_report)
-            save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\nClaude: {c_report}")
+            try:
+                hist = get_db_history(st.session_state.user_name)
+                hist = hist if hist else []
+                g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
+                st.session_state.ai_multi_reports = (g_report, c_report)
+                
+                if "❌" not in g_report or "❌" not in c_report:
+                    save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\nClaude: {c_report}")
+            except Exception as e:
+                st.session_state.ai_multi_reports = (f"⚠️ שגיאה: {str(e)}", "⚠️ שגיאה בחיבור")
 
     cg, cc = st.columns(2)
     with cg:
         st.markdown('<p style="color:#1E90FF; font-weight:bold; font-size:20px;">🛡️ Gemini (בוחן א\')</p>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ai-report-box" style="border-right-color: #1E90FF; background-color: #f0f7ff;">{st.session_state.ai_multi_reports[0]}</div>', unsafe_allow_html=True)
+        rep_g = st.session_state.ai_multi_reports[0]
+        bg_g = "background-color: #fff0f0;" if "❌" in rep_g else "background-color: #f0f7ff;"
+        st.markdown(f'<div class="ai-report-box" style="{bg_g} border-right-color: #1E90FF;">{rep_g}</div>', unsafe_allow_html=True)
     with cc:
         st.markdown('<p style="color:#D97757; font-weight:bold; font-size:20px;">🔮 Claude (בוחן ב\')</p>', unsafe_allow_html=True)
-        st.markdown(f'<div class="ai-report-box" style="border-right-color: #D97757; background-color: #fffaf0;">{st.session_state.ai_multi_reports[1]}</div>', unsafe_allow_html=True)
+        rep_c = st.session_state.ai_multi_reports[1]
+        bg_c = "background-color: #fff0f0;" if "❌" in rep_c else "background-color: #fffaf0;"
+        st.markdown(f'<div class="ai-report-box" style="{bg_c} border-right-color: #D97757;">{rep_c}</div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -240,7 +264,7 @@ elif st.session_state.step == 'RESULTS':
             pdf = create_pdf_report(summary_df, st.session_state.responses)
             st.download_button("📥 הורד דוח PDF מלא", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf")
         except:
-            st.warning("הכנת ה-PDF נכשלה, אך ניתן לצפות בתוצאות כאן.")
+            st.warning("הכנת ה-PDF נכשלה.")
     with ch:
         if st.button("🏁 חזרה לתפריט הראשי"):
             for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports', 'start_time']:
