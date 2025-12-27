@@ -29,7 +29,7 @@ if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
 
-# עיצוב CSS מלא למבנה RTL נקי
+# עיצוב CSS למבנה RTL נקי
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
@@ -58,7 +58,8 @@ st.markdown("""
 @st.cache_data
 def load_questions():
     try:
-        return pd.read_csv('data/questions.csv')
+        df = pd.read_csv('data/questions.csv')
+        return df
     except Exception as e:
         st.error(f"שגיאה בטעינת קובץ השאלות: {e}")
         return pd.DataFrame()
@@ -75,6 +76,10 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def record_answer(ans_value, q_data):
+    # מניעת רישום כפול אם המשתמש לוחץ מהר מדי
+    if st.session_state.current_q >= len(st.session_state.questions):
+        return
+
     duration = time.time() - st.session_state.start_time
     score = calculate_score(ans_value, q_data['reverse'])
     
@@ -102,18 +107,26 @@ if st.session_state.step == 'HOME':
             if not all_qs_df.empty:
                 st.write(f"שלום **{st.session_state.user_name}**, בחר את היקף הסימולציה:")
                 col1, col2, col3 = st.columns(3)
+                
+                # כפתורי בחירה עם איפוס מונים
                 if col1.button("⏳ תרגול קצר (36 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 36)
+                    st.session_state.current_q = 0
+                    st.session_state.responses = []
                     st.session_state.step = 'QUIZ'
                     st.session_state.start_time = time.time()
                     st.rerun()
                 if col2.button("📋 סימולציה רגילה (120 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 120)
+                    st.session_state.current_q = 0
+                    st.session_state.responses = []
                     st.session_state.step = 'QUIZ'
                     st.session_state.start_time = time.time()
                     st.rerun()
                 if col3.button("🔍 מבדק מלא (300 שאלות)"):
                     st.session_state.questions = get_balanced_questions(all_qs_df, 300)
+                    st.session_state.current_q = 0
+                    st.session_state.responses = []
                     st.session_state.step = 'QUIZ'
                     st.session_state.start_time = time.time()
                     st.rerun()
@@ -122,12 +135,13 @@ if st.session_state.step == 'HOME':
             history = get_db_history(st.session_state.user_name)
             if history:
                 for i, entry in enumerate(history):
-                    with st.expander(f"📅 מבחן מיום {entry.get('test_date', 'לא ידוע')}"):
+                    date_val = entry.get('test_date', 'לא ידוע')
+                    with st.expander(f"📅 מבחן מיום {date_val}"):
                         if 'results' in entry:
                             st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}")
-                        st.write(entry.get('ai_report', 'אין דוח מוקלט'))
+                        st.write(entry.get('ai_report', 'אין דוח טקסטואלי שמור'))
             else:
-                st.info("לא נמצאו מבדקים קודמים.")
+                st.info("לא נמצאו מבדקים קודמים עבור שם זה.")
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_clock")
@@ -141,7 +155,7 @@ elif st.session_state.step == 'QUIZ':
         st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)}")
         
         if elapsed > 8:
-            st.warning(f"זמן שעבר: {int(elapsed)} שניות. נסה לענות מהר יותר.", icon="⏳")
+            st.warning(f"זמן לשאלה: {int(elapsed)} שניות. נסה לענות מהר יותר.", icon="⏳")
         else:
             st.info(f"זמן לשאלה זו: {int(elapsed)} שניות")
 
@@ -160,8 +174,11 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח תוצאות - {st.session_state.user_name}')
     
+    # 1. עיבוד נתונים והכנה
     df_raw, summary_df = process_results(st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
+    
+    # 2. הצגת גרפים
     
     c1, c2 = st.columns(2)
     with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True)
@@ -169,53 +186,64 @@ elif st.session_state.step == 'RESULTS':
     
     st.divider()
 
-    # --- פתרון הגנה מ-TypeError ו-AttributeError ---
+    # 3. בדיקת עקביות (הגנה מ-TypeError)
     df_for_logic = pd.DataFrame(st.session_state.responses)
     consistency_score = analyze_consistency(df_for_logic)
     inconsistent_qs = get_inconsistent_questions(df_for_logic)
     
-    # בדיקה ש-score הוא מספר לפני השוואה
     if isinstance(consistency_score, (int, float)):
         if consistency_score < 75:
             st.error(f"⚠️ מדד עקביות: {consistency_score}%")
-            with st.expander("ראה שאלות שסתרו זו את זו"):
-                for item in inconsistent_qs: st.write(f"• {item}")
+            if inconsistent_qs:
+                with st.expander("ראה שאלות שסתרו זו את זו"):
+                    for item in inconsistent_qs: st.write(f"• {item}")
         else:
             st.success(f"✅ מדד עקביות גבוה: {consistency_score}%")
     else:
-        st.info("מחשב מדד עקביות...")
+        st.info("מדד העקביות מחושב על בסיס התשובות שלך...")
 
     st.divider()
 
+    # 4. ניתוח תכונות סטטי
     st.markdown("### 🔍 ניתוח תכונות מובנה")
     for _, row in summary_df.iterrows():
         st.info(f"**{row['trait']}:** {get_static_interpretation(row['trait'], row['final_score'])}")
 
     st.divider()
     
+    # 5. בוחני AI (שימוש ב-cache בתוך ה-session)
     if 'ai_multi_reports' not in st.session_state:
-        with st.spinner("הבוחנים מנתחים..."):
+        with st.spinner("בוחני ה-AI מנתחים את הפרופיל שלך..."):
             hist = get_db_history(st.session_state.user_name)
+            # אם אין היסטוריה, נשלח רשימה ריקה
+            hist = hist if hist else []
             g_report, c_report = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
             st.session_state.ai_multi_reports = (g_report, c_report)
+            
+            # שמירה למסד הנתונים
             save_to_db(st.session_state.user_name, trait_scores, f"Gemini: {g_report}\nClaude: {c_report}")
 
     cg, cc = st.columns(2)
     with cg:
-        st.markdown('<p style="color:#1E90FF; font-weight:bold; font-size:20px;">🛡️ Gemini</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#1E90FF; font-weight:bold; font-size:20px;">🛡️ Gemini (בוחן א\')</p>', unsafe_allow_html=True)
         st.markdown(f'<div class="ai-report-box" style="border-right-color: #1E90FF; background-color: #f0f7ff;">{st.session_state.ai_multi_reports[0]}</div>', unsafe_allow_html=True)
     with cc:
-        st.markdown('<p style="color:#D97757; font-weight:bold; font-size:20px;">🔮 Claude</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#D97757; font-weight:bold; font-size:20px;">🔮 Claude (בוחן ב\')</p>', unsafe_allow_html=True)
         st.markdown(f'<div class="ai-report-box" style="border-right-color: #D97757; background-color: #fffaf0;">{st.session_state.ai_multi_reports[1]}</div>', unsafe_allow_html=True)
 
     st.divider()
 
+    # 6. פעולות סיום
     cp, ch = st.columns(2)
     with cp:
-        pdf = create_pdf_report(summary_df, st.session_state.responses)
-        st.download_button("📥 הורד דוח PDF", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf")
+        try:
+            pdf = create_pdf_report(summary_df, st.session_state.responses)
+            st.download_button("📥 הורד דוח PDF מלא", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf")
+        except:
+            st.warning("הכנת ה-PDF נכשלה, אך ניתן לצפות בתוצאות כאן.")
     with ch:
-        if st.button("🏁 חזרה לתפריט"):
+        if st.button("🏁 חזרה לתפריט הראשי"):
+            # ניקוי בטוח של המצב ללא מחיקת ה-User Name
             for k in ['step', 'responses', 'current_q', 'questions', 'ai_multi_reports', 'start_time']:
                 st.session_state.pop(k, None)
             st.rerun()
