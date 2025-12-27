@@ -25,134 +25,85 @@ IDEAL_DOCTOR = {
 
 class HEXACO_Analyzer:
     def __init__(self):
-        # שליכת מפתחות מ-Secrets
         self.gemini_key = st.secrets.get("GEMINI_KEY_1", "").strip()
         self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
 
-    # --- מנגנון Discovery ל-Gemini ---
     def _discover_gemini_model(self):
-        """מוצא את מודל ה-Flash העדכני ביותר הזמין"""
         default_model = "models/gemini-1.5-flash"
         if not self.gemini_key: return default_model
-        
         list_url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.gemini_key}"
         try:
             res = requests.get(list_url, timeout=5)
             if res.status_code == 200:
                 models = res.json().get("models", [])
-                # מחפש מודל שתומך בייצור תוכן ומכיל את המילה flash
                 flash_models = [m["name"] for m in models if "flash" in m["name"] and "generateContent" in m["supportedGenerationMethods"]]
-                if flash_models:
-                    return flash_models[0] # מחזיר את הראשון שנמצא (בדרך כלל החדש ביותר)
-        except:
-            pass
+                if flash_models: return flash_models[0]
+        except: pass
         return default_model
 
-    # --- שליפת דוח מ-Gemini ---
-    def _get_gemini_report(self, prompt):
-        if not self.gemini_key: return "❌ מפתח API של Gemini חסר בהגדרות."
-        
-        model_name = self._discover_gemini_model()
-        url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={self.gemini_key}"
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-        
-        try:
-            res = requests.post(url, json=payload, timeout=30)
-            if res.status_code == 200:
-                return res.json()['candidates'][0]['content']['parts'][0]['text']
-            return f"⚠️ שגיאת Gemini: {res.status_code}"
-        except Exception as e:
-            return f"⚠️ שגיאה בתקשורת עם Gemini: {str(e)}"
-
-    # --- שליפת דוח מ-Claude ---
-    def _get_claude_report(self, prompt):
-        if not self.claude_key: return "❌ מפתח API של Claude חסר בהגדרות."
-        
-        url = "https://api.anthropic.com/v1/messages"
-        headers = {
-            "x-api-key": self.claude_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
-        payload = {
-            "model": "claude-3-5-sonnet-20240620",
-            "max_tokens": 1024,
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        
-        try:
-            res = requests.post(url, headers=headers, json=payload, timeout=30)
-            if res.status_code == 200:
-                return res.json()['content'][0]['text']
-            return f"⚠️ שגיאת Claude: {res.status_code}"
-        except Exception as e:
-            return f"⚠️ שגיאה בתקשורת עם Claude: {str(e)}"
-
-    # --- ניתוח משולב (הפונקציה הראשית) ---
     def generate_multi_report(self, user_name, current_results, history):
-        # הכנת הקשר היסטורי (אם קיים)
         history_context = ""
         if history and isinstance(history, list):
             history_context = "\n--- מגמות עבר (מבחנים קודמים) ---\n"
-            for i, h in enumerate(history[:3]):
-                res_str = h.get('results', '{}')
-                history_context += f"מבחן מיום {h.get('date', 'לא ידוע')}: {res_str}\n"
+            for i, h in enumerate(history[:2]):
+                history_context += f"מבחן קודם: {h.get('results', '{}')}\n"
 
+        # פרומפט מקצועי מעודכן למס"ר
         prompt = f"""
-        תפקיד: פסיכולוג תעסוקתי מומחה למיון רפואי (מרק"ם/שאלון ביוגרפי).
+        תפקיד: פסיכולוג בכיר במרכז הערכה לרפואה (מס"ר/מרק"ם).
         שם המועמד: {user_name}
-        
-        נתונים נוכחיים (HEXACO): {current_results}
+        נתונים נוכחיים: {current_results}
         {history_context}
         
-        משימה:
-        1. השווה את התוצאות לפרופיל הרופא האידיאלי (דגש על מצפוניות גבוהה C וכנות H).
-        2. זהה נקודת חוזק אחת ונקודה אחת לשיפור בסימולציות.
-        3. תן 3 טיפים קונקרטיים להתנהלות בתחנות הערכה.
-        
-        הוראות כתיבה: עברית רהוטה, גוף שני, פורמט של נקודות (Bullet points).
-        """
-        
-        return self._get_gemini_report(prompt), self._get_claude_report(prompt)
+        טווחים מצופים מרופא: 
+        C (מצפוניות): 4.4-4.8, H (כנות): 4.3-4.9, A (נעימות): 4.1-4.6.
 
-    # --- גרפים ---
+        משימה:
+        1. ניתוח התאמה: השווה כל תכונה ליעד הרופא. ציין היכן יש 'פער סיכון' (ציון נמוך מדי).
+        2. דגלים אדומים: התייחס לניסיונות 'ריצוי חברתי' (Social Desirability) אם כל הציונים מעל 4.8.
+        3. טיפ לסימולציה: תן עצה ספציפית אחת לשיפור התקשורת מול שחקן כועס על בסיס הציון ב-A ו-E.
+        4. סיכום: האם המועמד מפגין בשלות למקצוע הרפואה?
+        
+        הוראות: עברית רהוטה, נקודות קצרות, גוף שני.
+        """
+        return self._call_ai(prompt, "gemini"), self._call_ai(prompt, "claude")
+
+    def _call_ai(self, prompt, provider):
+        try:
+            if provider == "gemini":
+                model_name = self._discover_gemini_model()
+                url = f"https://generativelanguage.googleapis.com/v1beta/{model_name}:generateContent?key={self.gemini_key}"
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+                res = requests.post(url, json=payload, timeout=30)
+                return res.json()['candidates'][0]['content']['parts'][0]['text']
+            else:
+                url = "https://api.anthropic.com/v1/messages"
+                headers = {"x-api-key": self.claude_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
+                payload = {"model": "claude-3-5-sonnet-20240620", "max_tokens": 1024, "messages": [{"role": "user", "content": prompt}]}
+                res = requests.post(url, headers=headers, json=payload, timeout=30)
+                return res.json()['content'][0]['text']
+        except: return f"⚠️ שירות {provider} לא זמין כרגע."
+
     def create_radar_chart(self, results):
         categories = [TRAIT_DICT[k] for k in results.keys()]
-        values = list(results.values())
+        user_vals = list(results.values())
+        ideal_vals = [IDEAL_DOCTOR[k] for k in results.keys()]
         
         fig = go.Figure()
-        fig.add_trace(go.Scatterpolar(
-            r=values + [values[0]],
-            theta=categories + [categories[0]],
-            fill='toself',
-            name='הפרופיל שלך',
-            line_color='#1E90FF'
-        ))
-        
-        fig.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[1, 5])),
-            showlegend=False,
-            title="מפת אישיות HEXACO"
-        )
+        fig.add_trace(go.Scatterpolar(r=ideal_vals + [ideal_vals[0]], theta=categories + [categories[0]], fill='toself', name='יעד רופא', line_color='#2ECC71', opacity=0.3))
+        fig.add_trace(go.Scatterpolar(r=user_vals + [user_vals[0]], theta=categories + [categories[0]], fill='toself', name='הפרופיל שלך', line_color='#1E90FF'))
+        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])), showlegend=True, title="מפת אישיות מול יעד")
         return fig
 
     def create_comparison_chart(self, results):
         categories = [TRAIT_DICT[k] for k in results.keys()]
-        user_vals = list(results.values())
-        ideal_vals = [IDEAL_DOCTOR[k] for k in results.keys()]
-
         fig = go.Figure()
-        fig.add_trace(go.Bar(name='הציון שלך', x=categories, y=user_vals, marker_color='#1E90FF'))
-        fig.add_trace(go.Bar(name='פרופיל רופא אידיאלי', x=categories, y=ideal_vals, marker_color='#E0E0E0'))
-
-        fig.update_layout(
-            barmode='group',
-            yaxis=dict(range=[1, 5], title="ציון (1-5)"),
-            title="השוואה לפרופיל המקצועי הנדרש"
-        )
+        fig.add_trace(go.Bar(name='הציון שלך', x=categories, y=list(results.values()), marker_color='#1E90FF'))
+        fig.add_trace(go.Bar(name='יעד רופא', x=categories, y=[IDEAL_DOCTOR[k] for k in results.keys()], marker_color='#2ECC71'))
+        fig.update_layout(barmode='group', yaxis=dict(range=[1, 5]), title="השוואה כמותית")
         return fig
 
-# פונקציות עזר לקריאה נוחה מה-App
+# פונקציות עזר
 def get_multi_ai_analysis(user_name, results, history):
     return HEXACO_Analyzer().generate_multi_report(user_name, results, history)
 
