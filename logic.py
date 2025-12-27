@@ -3,6 +3,16 @@ from fpdf import FPDF
 import re
 from datetime import datetime
 
+# הגדרת הפרופיל האידיאלי (לפי הסיכום שבנינו)
+IDEAL_RANGES = {
+    'Conscientiousness': (4.3, 4.8),
+    'Honesty-Humility': (4.2, 4.9),
+    'Agreeableness': (4.0, 4.6),
+    'Emotionality': (3.6, 4.1),
+    'Extraversion': (3.6, 4.2),
+    'Openness to Experience': (3.5, 4.1)
+}
+
 def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
     try:
@@ -14,17 +24,58 @@ def calculate_score(answer, reverse_value):
     except:
         return int(answer)
 
+def get_static_interpretation(trait, score):
+    """מחזיר פרשנות מובנית מבוססת טווחים (העוגנים הפסיכולוגיים)"""
+    # התאמת שמות אם מגיעים בקיצור
+    trait_map = {
+        'H': 'Honesty-Humility', 'E': 'Emotionality', 'X': 'Extraversion',
+        'A': 'Agreeableness', 'C': 'Conscientiousness', 'O': 'Openness to Experience'
+    }
+    full_trait = trait_map.get(trait, trait)
+    
+    if full_trait not in IDEAL_RANGES:
+        return "ניתוח כללי של התכונה."
+
+    low_limit, high_limit = IDEAL_RANGES[full_trait]
+    
+    if score < 3.0:
+        return f"⚠️ ציון נמוך משמעותית מהמצופה מרופא. מומלץ לבחון האם התשובות שיקפו את המציאות או חוסר הבנה."
+    elif score < low_limit:
+        return f"הציון מעט נמוך מהטווח האידיאלי ({low_limit}-{high_limit}). כדאי להדגיש חוזקות אחרות בראיון."
+    elif score <= high_limit:
+        return f"✅ ציון מצוין! נמצא בטווח האידיאלי עבור מועמדים לרפואה."
+    else:
+        if score >= 4.9:
+            return "❗ ציון גבוה מאוד (קרוב ל-5). בוחנים עלולים לחשוד בניסיון 'לייפות' את המציאות (Social Desirability)."
+        return f"הציון מעט גבוה מהטווח המומלץ, אך עדיין משקף יכולות טובות."
+
+def calculate_medical_fit(summary_df):
+    """מחשב מדד התאמה כללי באחוזים"""
+    if summary_df.empty: return 0
+    
+    points = 0
+    total_traits = len(IDEAL_RANGES)
+    
+    for _, row in summary_df.iterrows():
+        trait = row['trait']
+        score = row['final_score']
+        if trait in IDEAL_RANGES:
+            low, high = IDEAL_RANGES[trait]
+            if low <= score <= high:
+                points += 1
+            elif abs(score - ((low+high)/2)) < 0.7: # חריגה קלה
+                points += 0.5
+                
+    return int((points / total_traits) * 100)
+
 def check_response_time(duration):
-    """בדיקה אם זמן התגובה תקין או חשוד"""
     if duration < 1.8: return "מהיר מדי"
     if duration > 25: return "איטי מדי"
     return "תקין"
 
 def analyze_consistency(df):
-    """בקרת עקביות כללית ברמת התכונה (רמזור)"""
     inconsistency_alerts = []
-    if df.empty or 'trait' not in df.columns:
-        return inconsistency_alerts
+    if df.empty or 'trait' not in df.columns: return inconsistency_alerts
     for trait in df['trait'].unique():
         trait_data = df[df['trait'] == trait]
         if len(trait_data) >= 3:
@@ -36,15 +87,13 @@ def analyze_consistency(df):
     return inconsistency_alerts
 
 def get_inconsistent_questions(df_raw):
-    """מאתרת זוגות סותרים של שאלות"""
     inconsistencies = []
     if df_raw.empty: return []
     for trait in df_raw['trait'].unique():
         trait_qs = df_raw[df_raw['trait'] == trait]
         for i in range(len(trait_qs)):
             for j in range(i + 1, len(trait_qs)):
-                q1 = trait_qs.iloc[i]
-                q2 = trait_qs.iloc[j]
+                q1 = trait_qs.iloc[i]; q2 = trait_qs.iloc[j]
                 if abs(q1['final_score'] - q2['final_score']) >= 2.5:
                     inconsistencies.append({
                         'trait': trait, 'q1_text': q1['question'],
@@ -54,7 +103,6 @@ def get_inconsistent_questions(df_raw):
     return inconsistencies
 
 def process_results(user_responses):
-    """מעבד את התשובות לממוצעים"""
     df = pd.DataFrame(user_responses)
     if df.empty: return df, pd.DataFrame()
     df['time_status'] = df['time_taken'].apply(check_response_time)
@@ -63,16 +111,12 @@ def process_results(user_responses):
     return df, summary
 
 def fix_heb(text):
-    """הופכת טקסט עברית ל-RTL ומנקה תווים בעייתיים"""
     if not text: return " "
     clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', str(text))
-    if not clean_text.strip(): return " "
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """מפיק דוח PDF עם הגנה מקסימלית משגיאות רינדור"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
-    
     try:
         pdf.add_font('Assistant', '', 'Assistant.ttf')
         font_main = 'Assistant'
@@ -81,47 +125,25 @@ def create_pdf_report(summary_df, raw_responses):
 
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
-    effective_width = pdf.w - 30 
-
-    # כותרת
     pdf.set_font(font_main, size=22)
-    pdf.cell(effective_width, 15, txt=fix_heb("דוח תוצאות HEXACO"), ln=True, align='C')
-    pdf.set_font(font_main, size=11)
-    pdf.cell(effective_width, 10, txt=fix_heb(f"הופק בתאריך: {datetime.now().strftime('%d/%m/%Y')}"), ln=True, align='C')
+    pdf.cell(180, 15, txt=fix_heb("דוח תוצאות HEXACO - הכנה לרפואה"), ln=True, align='C')
+    
+    # הוספת מדד ההתאמה ל-PDF
+    fit_score = calculate_medical_fit(summary_df)
+    pdf.set_font(font_main, size=14)
+    pdf.cell(180, 10, txt=fix_heb(f"מדד התאמה משוער לפרופיל רופא: {fit_score}%"), ln=True, align='C')
     pdf.ln(5)
 
-    # טבלת ציונים
-    col_w = effective_width / 3
+    col_w = 60
     pdf.set_font(font_main, size=12)
     pdf.set_fill_color(240, 240, 240)
     pdf.cell(col_w, 10, fix_heb("סטטוס"), 1, 0, 'C', True)
     pdf.cell(col_w, 10, fix_heb("ציון"), 1, 0, 'C', True)
     pdf.cell(col_w, 10, fix_heb("תכונה"), 1, 1, 'C', True)
 
-    pdf.set_font(font_main, size=11)
     for _, row in summary_df.iterrows():
-        score = row['final_score']
-        status = "תקין" if 3.5 <= score <= 4.5 else "לבדיקה"
-        pdf.cell(col_w, 10, fix_heb(status), 1, 0, 'C')
-        pdf.cell(col_w, 10, str(score), 1, 0, 'C')
+        pdf.cell(col_w, 10, fix_heb("מעובד"), 1, 0, 'C')
+        pdf.cell(col_w, 10, str(row['final_score']), 1, 0, 'C')
         pdf.cell(col_w, 10, fix_heb(str(row['trait'])), 1, 1, 'C')
-
-    # סתירות פנימיות
-    inconsistencies = get_inconsistent_questions(pd.DataFrame(raw_responses))
-    if inconsistencies:
-        pdf.ln(10)
-        pdf.set_font(font_main, size=16)
-        pdf.cell(effective_width, 10, txt=fix_heb("ניתוח סתירות"), ln=True, align='R')
-        pdf.ln(2)
-        pdf.set_font(font_main, size=10)
-        for pair in inconsistencies:
-            pdf.set_text_color(200, 0, 0)
-            pdf.cell(effective_width, 8, txt=fix_heb(f"תכונה: {pair['trait']}"), ln=True, align='R')
-            pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(effective_width, 6, txt=fix_heb(f"שאלה א: {pair['q1_text']} (תשובה: {pair['q1_ans']})"), align='R')
-            pdf.multi_cell(effective_width, 6, txt=fix_heb(f"שאלה ב: {pair['q2_text']} (תשובה: {pair['q2_ans']})"), align='R')
-            pdf.ln(2)
-            pdf.line(15, pdf.get_y(), 195, pdf.get_y())
-            pdf.ln(2)
 
     return bytes(pdf.output())
