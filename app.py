@@ -18,24 +18,25 @@ from logic import (
 from database import save_to_db, get_db_history, get_all_tests
 from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart, create_token_gauge
 
-# --- 1. הגדרות דף ו-CSS (RTL) ---
+# --- 1. הגדרות דף ו-CSS (RTL עם התאמה למובייל) ---
 st.set_page_config(page_title="Mednitai HEXACO System", layout="wide")
 
 st.markdown("""
     <style>
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
-    /* עיצוב כפתורי התשובות */
+    /* עיצוב כפתורי התשובות - כללי */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
         height: 65px; font-size: 20px; transition: all 0.2s; 
         background-color: white; color: #212529; font-weight: 500;
+        margin-bottom: 10px;
     }
     div.stButton > button:hover {
         border-color: #1e90ff; background-color: #f8f9fa; color: #1e90ff;
     }
     
-    /* הגדלת השאלה */
+    /* הגדרות היגד (שאלה) למחשב */
     .question-text { 
         font-size: 42px; 
         font-weight: 800; 
@@ -47,6 +48,25 @@ st.markdown("""
         border-radius: 15px;
         margin-bottom: 30px;
         box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+    }
+
+    /* --- התאמה לטלפונים ניידים (מובייל) --- */
+    @media (max-width: 768px) {
+        .question-text {
+            font-size: 24px; /* הקטנה משמעותית לטלפון */
+            padding: 25px 15px;
+            margin-bottom: 20px;
+        }
+        div.stButton > button {
+            height: 55px; /* קיצור גובה הכפתורים */
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .main .block-container {
+            padding-top: 1rem;
+            padding-right: 1rem;
+            padding-left: 1rem;
+        }
     }
     
     .ai-report-box { 
