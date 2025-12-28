@@ -3,9 +3,9 @@ from fpdf import FPDF
 import re
 from datetime import datetime
 import numpy as np
-import random  # ייבוא בראש הקובץ פותר את השגיאה
+import random 
 
-# הגדרת הפרופיל האידיאלי (TRAIT_RANGES) - מורחב עם ערכי יעד לחישוב פערים
+# הגדרת הפרופיל האידיאלי (TRAIT_RANGES)
 IDEAL_RANGES = {
     'Conscientiousness': (4.3, 4.8),
     'Honesty-Humility': (4.2, 4.9),
@@ -78,16 +78,38 @@ def check_response_time(duration):
     if duration > 25: return "איטי מדי"
     return "תקין"
 
+def get_inconsistent_questions(df_raw):
+    """זיהוי שאלות סותרות עם לוגיקת סף דינמית"""
+    inconsistencies = []
+    if df_raw.empty: return []
+    for trait in df_raw['trait'].unique():
+        trait_qs = df_raw[df_raw['trait'] == trait]
+        for i in range(len(trait_qs)):
+            for j in range(i + 1, len(trait_qs)):
+                q1 = trait_qs.iloc[i]; q2 = trait_qs.iloc[j]
+                diff = abs(q1['final_score'] - q2['final_score'])
+                if diff >= 2.5:
+                    inconsistencies.append({
+                        'trait': trait, 'q1_text': q1['question'],
+                        'q1_ans': q1['original_answer'], 'q2_text': q2['question'],
+                        'q2_ans': q2['original_answer'], 'diff': round(diff, 2)
+                    })
+    return inconsistencies
+
 def calculate_reliability_index(df_raw):
-    """ציון אמינות (0-100)"""
+    """ציון אמינות (0-100) - שדרוג: נוספו משקולות סטטיסטיות"""
     if df_raw.empty: return 100
     penalty = 0
+    
+    # 1. קנס על מהירות (חוסר קריאה)
     fast_count = len(df_raw[df_raw['time_taken'] < 1.4])
     penalty += (fast_count / len(df_raw)) * 70 
     
+    # 2. סתירות פנימיות
     inconsistencies = get_inconsistent_questions(df_raw)
     penalty += len(inconsistencies) * 15
     
+    # 3. דפוס תשובה מונוטוני (SD נמוך מאוד)
     if len(df_raw) > 15:
         std_dev = df_raw['original_answer'].std()
         if std_dev < 0.35: penalty += 45
@@ -116,24 +138,6 @@ def analyze_consistency(df):
                 inconsistency_alerts.append({"text": f"חוסר עקביות ב-{trait}", "level": "orange"})
     return inconsistency_alerts
 
-def get_inconsistent_questions(df_raw):
-    """זיהוי שאלות סותרות"""
-    in inconsistencies = []
-    if df_raw.empty: return []
-    for trait in df_raw['trait'].unique():
-        trait_qs = df_raw[df_raw['trait'] == trait]
-        for i in range(len(trait_qs)):
-            for j in range(i + 1, len(trait_qs)):
-                q1 = trait_qs.iloc[i]; q2 = trait_qs.iloc[j]
-                diff = abs(q1['final_score'] - q2['final_score'])
-                if diff >= 2.5:
-                    inconsistencies.append({
-                        'trait': trait, 'q1_text': q1['question'],
-                        'q1_ans': q1['original_answer'], 'q2_text': q2['question'],
-                        'q2_ans': q2['original_answer'], 'diff': round(diff, 2)
-                    })
-    return inconsistencies
-
 def process_results(user_responses):
     """מעבד את התשובות ומוסיף נתוני זמן ואמינות"""
     df = pd.DataFrame(user_responses)
@@ -144,7 +148,7 @@ def process_results(user_responses):
     summary = df.groupby('trait').agg({
         'final_score': 'mean', 
         'time_taken': 'mean',
-        'original_answer': 'std'
+        'original_answer': 'std' 
     }).reset_index()
     
     summary['final_score'] = summary['final_score'].round(2)
@@ -161,7 +165,7 @@ def fix_heb(text):
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """יצירת דוח PDF"""
+    """יצירת דוח PDF עם עיצוב מלא"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     try:
         pdf.add_font('Assistant', '', 'Assistant.ttf', uni=True)
@@ -172,6 +176,7 @@ def create_pdf_report(summary_df, raw_responses):
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
     
+    # עיצוב כותרת ורקע עליון
     pdf.set_fill_color(240, 242, 246)
     pdf.rect(0, 0, 210, 40, 'F')
     
@@ -190,6 +195,7 @@ def create_pdf_report(summary_df, raw_responses):
     pdf.cell(90, 10, fix_heb(f"התאמה לרפואה: {fit_score}%"), 0, 1, 'C')
     pdf.ln(10)
 
+    # טבלת תוצאות מעוצבת
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font(font_main, size=12, style='B')
@@ -208,6 +214,7 @@ def create_pdf_report(summary_df, raw_responses):
         pdf.cell(30, 10, str(row['final_score']), 1, 0, 'C')
         pdf.cell(70, 10, fix_heb(row['trait']), 1, 1, 'R')
 
+    # חלק ניתוח איכותני
     alerts = analyze_consistency(raw_responses)
     if alerts:
         pdf.ln(10)
@@ -222,20 +229,15 @@ def create_pdf_report(summary_df, raw_responses):
     return bytes(pdf.output())
 
 def get_balanced_questions(df, total_limit):
-    """בחירת שאלות מאוזנת עם הגנות מתוקנות"""
-    if df.empty:
-        return []
-    
+    """בחירת שאלות מאוזנת עם הגנה ממחסור במאגר"""
+    if df.empty: return []
     traits = df['trait'].unique()
     qs_per_trait = total_limit // len(traits)
     selected_qs = []
-    
     for trait in traits:
         trait_qs = df[df['trait'] == trait].to_dict('records')
-        # הגנה: אם אין מספיק שאלות במאגר, ניקח את המקסימום האפשרי
         count = min(len(trait_qs), qs_per_trait)
         if count > 0:
             selected_qs.extend(random.sample(trait_qs, count))
-            
     random.shuffle(selected_qs)
     return selected_qs
