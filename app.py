@@ -12,7 +12,9 @@ from logic import (
     create_pdf_report,
     get_inconsistent_questions,
     get_static_interpretation,
-    get_balanced_questions
+    get_balanced_questions,
+    calculate_medical_fit,       # פונקציה משופרת
+    calculate_reliability_index   # פונקציה משופרת
 )
 
 # --- ייבוא שכבת הנתונים וה-AI (database.py & gemini_ai.py) ---
@@ -76,6 +78,7 @@ st.markdown("""
         line-height: 1.8; text-align: right; font-size: 17px; 
         white-space: pre-wrap; color: #333; background-color: #ffffff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        min-height: 400px;
     }
 
     /* התאמות למובייל */
@@ -88,7 +91,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. אתחול Session State (ניהול זיכרון מלא) ---
+# --- 2. אתחול Session State ---
 if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
@@ -114,7 +117,7 @@ def record_answer_full(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-# --- 4. ממשק ניהול (ADMIN) - כולל השוואה מלאה ---
+# --- 4. ממשק ניהול (ADMIN) ---
 def show_admin_dashboard():
     st.sidebar.markdown(f"### 🔑 מנהל מחובר: \n**{st.session_state.user_name}**")
     if st.sidebar.button("🚪 התנתק"):
@@ -156,7 +159,7 @@ def show_admin_dashboard():
             if 'results' in df_admin.columns:
                 st.plotly_chart(get_radar_chart(df_admin.loc[sel_idx, "results"]), use_container_width=True)
 
-# --- 5. ניווט ראשי (HOME / QUIZ / RESULTS) ---
+# --- 5. ניווט ראשי ---
 if st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
 
@@ -201,14 +204,11 @@ elif st.session_state.step == 'QUIZ':
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         elapsed = time.time() - st.session_state.start_time
-        
         if elapsed > 8:
             st.warning("⚠️ עברו מעל 8 שניות. ענה לפי התחושה הראשונה!")
-            
         st.progress(q_idx / len(st.session_state.questions))
         st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)} | ⏱️ {int(elapsed)} שניות")
         st.markdown(f'<div class="question-text">{q_data["q"]}</div>', unsafe_allow_html=True)
-        
         cols = st.columns(5)
         options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         for i, (label, val) in enumerate(options):
@@ -222,13 +222,21 @@ elif st.session_state.step == 'RESULTS':
     df_raw, summary_df = process_results(st.session_state.responses)
     scores = summary_df.set_index('trait')['final_score'].to_dict()
 
-    # תצוגה גרפית משולבת (Radar + Comparison)
+    # --- הצגת מדדי על משופרים ---
+    m1, m2, m3 = st.columns(3)
+    fit_val = calculate_medical_fit(summary_df)
+    rel_val = calculate_reliability_index(df_raw)
+    m1.metric("🎯 מדד התאמה לרפואה", f"{fit_val}%")
+    m2.metric("🛡️ מדד אמינות מבדק", f"{rel_val}%")
+    m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} ש'")
+
+    # תצוגה גרפית
     g1, g2 = st.columns(2)
     with g1: st.plotly_chart(get_radar_chart(scores), use_container_width=True)
     with g2: st.plotly_chart(get_comparison_chart(scores), use_container_width=True)
 
     st.divider()
-    st.subheader("🧠 ניתוח אישיות והתאמה לרפואה (AI Comparison)")
+    st.subheader("🧠 ניתוח אישיות השוואתי (AI Comparison)")
     
     if st.session_state.gemini_report is None:
         with st.spinner("מבצע ניתוח מעמיק מול שני מודלי AI..."):
@@ -236,34 +244,36 @@ elif st.session_state.step == 'RESULTS':
             gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, scores, user_h)
             st.session_state.gemini_report = gem_rep
             st.session_state.claude_report = cld_rep
-            # שמירה ל-DB (שומר את ה-Gemini כדו"ח ראשי)
             save_to_db(st.session_state.user_name, scores, gem_rep)
 
-    # לשוניות השוואה תמידיות
-    t_res_gem, t_res_cld = st.tabs(["🤖 ניתוח Gemini (מודל ראשי)", "☁️ ניתוח Claude (נקודת מבט נוספת)"])
-    with t_res_gem:
+    # --- מנגנון תצוגה חכם: Side-by-Side במחשב, Tabs בטלפון ---
+    # ב-Streamlit, st.tabs הם הפתרון הכי קרוב ללחצני החלפה (Toggle) בטלפון
+    t_gem, t_claude = st.tabs(["🤖 ניתוח Gemini (מודל ראשי)", "☁️ ניתוח Claude (נקודת מבט נוספת)"])
+    
+    with t_gem:
         st.markdown(f'<div class="ai-report-box" style="border-right-color: #1e3a8a;">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
         st.plotly_chart(create_token_gauge(st.session_state.gemini_report), use_container_width=True)
-    with t_res_cld:
+        
+    with t_claude:
         st.markdown(f'<div class="ai-report-box" style="border-right-color: #d97706;">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_token_gauge(st.session_state.claude_report), use_container_width=True)
 
-    # ניתוח עקביות מ-logic.py
+    # ניתוח עקביות
     with st.expander("🔍 ניתוח אמינות ועקביות המבדק"):
         alerts = analyze_consistency(df_raw)
         if alerts:
             for a in alerts: st.warning(f"- {a['text']}")
         else: st.success("המבדק נמצא בעל מהימנות גבוהה.")
-        
         incon_qs = get_inconsistent_questions(df_raw)
-        if not incon_qs.empty:
+        if incon_qs:
             st.write("שאלות שקיבלו ציונים סותרים:")
-            st.dataframe(incon_qs)
+            st.dataframe(pd.DataFrame(incon_qs), use_container_width=True)
 
     # הפקת PDF
     pdf = create_pdf_report(summary_df, df_raw)
-    st.download_button("📥 הורד דוח PDF מלא", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf")
+    st.download_button("📥 הורד דוח PDF מלא", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf", use_container_width=True)
 
-    if st.button("🏁 סיום וחזרה לתפריט"):
+    if st.button("🏁 סיום וחזרה לתפריט", use_container_width=True):
         for k in ['step', 'responses', 'current_q', 'questions', 'gemini_report', 'claude_report']:
             if k in st.session_state: del st.session_state[k]
         st.rerun()
