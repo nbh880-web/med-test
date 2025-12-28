@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 import numpy as np
 
-# הגדרת הפרופיל האידיאלי
+# הגדרת הפרופיל האידיאלי (TRAIT_RANGES) - מורחב עם ערכי יעד לחישוב פערים
 IDEAL_RANGES = {
     'Conscientiousness': (4.3, 4.8),
     'Honesty-Humility': (4.2, 4.9),
@@ -18,12 +18,13 @@ def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
     try:
         rev_str = str(reverse_value).strip().upper()
-        is_reverse = rev_str in ["TRUE", "1", "YES", "T"]
+        is_reverse = rev_str in ["TRUE", "1", "YES", "T", "ת"] # הוספת תמיכה בעברית
+        val = int(answer)
         if is_reverse:
-            return 6 - int(answer)
-        return int(answer)
+            return 6 - val
+        return val
     except:
-        return int(answer)
+        return int(answer) if str(answer).isdigit() else 3
 
 def get_static_interpretation(trait, score):
     """מחזיר פרשנות מובנית מבוססת טווחים"""
@@ -50,22 +51,30 @@ def get_static_interpretation(trait, score):
         return f"הציון מעט גבוה מהטווח המומלץ, אך עדיין משקף יכולות טובות."
 
 def calculate_medical_fit(summary_df):
-    """מחשב מדד התאמה כללי באחוזים"""
+    """
+    חישוב מדד התאמה משופר - מחשב פערים (Gap Analysis)
+    במקום רק נקודות, מחשב קרבה לטווח האידיאלי
+    """
     if summary_df.empty: return 0
-    points = 0
-    total_traits = len(IDEAL_RANGES)
+    total_penalty = 0
+    traits_found = 0
     
     for _, row in summary_df.iterrows():
         trait = row['trait']
         score = row['final_score']
         if trait in IDEAL_RANGES:
+            traits_found += 1
             low, high = IDEAL_RANGES[trait]
-            if low <= score <= high:
-                points += 1
-            elif abs(score - ((low+high)/2)) < 0.7: 
-                points += 0.5
+            # חישוב מרחק מהטווח
+            if score < low:
+                total_penalty += (low - score) * 1.2
+            elif score > high:
+                total_penalty += (score - high) * 0.5 # קנס נמוך יותר על "עודף" תכונה
                 
-    return int((points / total_traits) * 100)
+    if traits_found == 0: return 0
+    # נרמול הציון ל-100 (קנס של 1.0 סה"כ שווה לערך של 20 נקודות מדד)
+    fit_score = 100 - (total_penalty * 15)
+    return int(max(0, min(100, fit_score)))
 
 def check_response_time(duration):
     """בדיקת תקינות זמן תגובה לשאלה בודדת"""
@@ -74,51 +83,49 @@ def check_response_time(duration):
     return "תקין"
 
 def calculate_reliability_index(df_raw):
-    """
-    מחשב ציון אמינות כללי (0-100)
-    מבוסס על סתירות, מהירות תגובה ודפוסי תשובה
-    """
+    """ציון אמינות (0-100) - שדרוג: נוספו משקולות סטטיסטיות"""
     if df_raw.empty: return 100
     penalty = 0
     
-    # 1. קנס על תשובה מהירה מדי (פחות מ-1.5 שניות) - מעיד על חוסר קריאה
-    fast_count = len(df_raw[df_raw['time_taken'] < 1.5])
-    penalty += (fast_count / len(df_raw)) * 60
+    # 1. קנס על מהירות (חוסר קריאה)
+    fast_count = len(df_raw[df_raw['time_taken'] < 1.4])
+    penalty += (fast_count / len(df_raw)) * 70 
     
-    # 2. קנס על סתירות פנימיות
+    # 2. סתירות פנימיות
     inconsistencies = get_inconsistent_questions(df_raw)
-    penalty += len(inconsistencies) * 12
+    penalty += len(inconsistencies) * 15
     
-    # 3. בדיקת "עקביות יתר" (מענה על אותה ספרה כל הזמן)
-    if len(df_raw) > 10:
+    # 3. דפוס תשובה מונוטוני (SD נמוך מאוד)
+    if len(df_raw) > 15:
         std_dev = df_raw['original_answer'].std()
-        if std_dev < 0.4: penalty += 40 # ענה כמעט תמיד את אותה תשובה
+        if std_dev < 0.35: penalty += 45
+        elif std_dev < 0.5: penalty += 20
         
-    reliability = max(0, min(100, int(100 - penalty)))
-    return reliability
+    return int(max(0, min(100, 100 - penalty)))
 
 def analyze_consistency(df):
-    """ניתוח עקביות לפי תכונות והתראות מהירות"""
+    """ניתוח עקביות ומגמות זמן"""
     inconsistency_alerts = []
     if df.empty or 'trait' not in df.columns: return inconsistency_alerts
     
-    # בדיקת זמן ממוצע
     avg_time = df['time_taken'].mean()
-    if avg_time < 2.5:
-        inconsistency_alerts.append({"text": "קצב מענה מהיר מהממוצע - ייתכן חוסר ריכוז", "level": "orange"})
+    if avg_time < 2.2:
+        inconsistency_alerts.append({"text": "קצב מענה מהיר מהממוצע - דורש בדיקת אמינות", "level": "orange"})
+    elif avg_time > 15:
+        inconsistency_alerts.append({"text": "מענה איטי במיוחד - ייתכן ניסיון לניתוח יתר של השאלות", "level": "blue"})
 
     for trait in df['trait'].unique():
         trait_data = df[df['trait'] == trait]
-        if len(trait_data) >= 3:
+        if len(trait_data) >= 2:
             score_range = trait_data['final_score'].max() - trait_data['final_score'].min()
             if score_range >= 3:
-                inconsistency_alerts.append({"text": f"חוסר עקביות חמור ב-{trait}", "level": "red"})
-            elif score_range >= 2.2:
+                inconsistency_alerts.append({"text": f"סתירה חמורה בתכונת {trait}", "level": "red"})
+            elif score_range >= 2.1:
                 inconsistency_alerts.append({"text": f"חוסר עקביות ב-{trait}", "level": "orange"})
     return inconsistency_alerts
 
 def get_inconsistent_questions(df_raw):
-    """מציף זוגות של שאלות שנסתרו מהותית"""
+    """זיהוי שאלות סותרות עם לוגיקת סף דינמית"""
     inconsistencies = []
     if df_raw.empty: return []
     for trait in df_raw['trait'].unique():
@@ -126,15 +133,12 @@ def get_inconsistent_questions(df_raw):
         for i in range(len(trait_qs)):
             for j in range(i + 1, len(trait_qs)):
                 q1 = trait_qs.iloc[i]; q2 = trait_qs.iloc[j]
-                # אם הפער בין הציונים הסופיים (אחרי היפוך) גדול מ-2.5
-                if abs(q1['final_score'] - q2['final_score']) >= 2.5:
+                diff = abs(q1['final_score'] - q2['final_score'])
+                if diff >= 2.5:
                     inconsistencies.append({
-                        'trait': trait, 
-                        'q1_text': q1['question'],
-                        'q1_ans': q1['original_answer'], 
-                        'q2_text': q2['question'],
-                        'q2_ans': q2['original_answer'],
-                        'diff': round(abs(q1['final_score'] - q2['final_score']), 2)
+                        'trait': trait, 'q1_text': q1['question'],
+                        'q1_ans': q1['original_answer'], 'q2_text': q2['question'],
+                        'q2_ans': q2['original_answer'], 'diff': round(diff, 2)
                     })
     return inconsistencies
 
@@ -147,25 +151,29 @@ def process_results(user_responses):
     
     summary = df.groupby('trait').agg({
         'final_score': 'mean', 
-        'time_taken': 'mean'
+        'time_taken': 'mean',
+        'original_answer': 'std' # הוספת סטיית תקן לכל תכונה
     }).reset_index()
     
     summary['final_score'] = summary['final_score'].round(2)
     summary['avg_time'] = summary['time_taken'].round(1)
+    summary['consistency_score'] = (1 - (summary['original_answer'].fillna(0) / 4)).clip(0, 1).round(2)
     
     return df, summary
 
 def fix_heb(text):
     """תיקון ויזואלי לעברית ב-PDF"""
     if not text: return " "
-    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', str(text))
+    # תמיכה בטקסט מעורב (מספרים ועברית)
+    text = str(text)
+    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', text)
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """יצירת דוח PDF הכולל מדדי התאמה ואמינות"""
+    """יצירת דוח PDF עם השדרוגים החדשים"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     try:
-        pdf.add_font('Assistant', '', 'Assistant.ttf')
+        pdf.add_font('Assistant', '', 'Assistant.ttf', uni=True)
         font_main = 'Assistant'
     except:
         font_main = 'Helvetica'
@@ -173,42 +181,69 @@ def create_pdf_report(summary_df, raw_responses):
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
     
-    # כותרת
-    pdf.set_font(font_main, size=22)
-    pdf.cell(180, 15, txt=fix_heb("דוח תוצאות HEXACO - הכנה לרפואה"), ln=True, align='C')
+    # עיצוב כותרת ורקע עליון
+    pdf.set_fill_color(240, 242, 246)
+    pdf.rect(0, 0, 210, 40, 'F')
     
-    # מדדי על (התאמה ואמינות)
+    pdf.set_font(font_main, size=22)
+    pdf.set_text_color(30, 58, 138)
+    pdf.cell(180, 20, txt=fix_heb("דוח מבדק אישיות HEXACO - הכנה לרפואה"), ln=True, align='C')
+    
+    # מדדי ליבה
     fit_score = calculate_medical_fit(summary_df)
     rel_score = calculate_reliability_index(raw_responses)
     
-    pdf.set_font(font_main, size=14)
-    pdf.cell(180, 8, txt=fix_heb(f"מדד התאמה לפרופיל רופא: {fit_score}%"), ln=True, align='C')
-    pdf.cell(180, 8, txt=fix_heb(f"מדד אמינות ועקביות מבדק: {rel_score}%"), ln=True, align='C')
+    pdf.set_font(font_main, size=16)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(10)
+    
+    # הצגת המדדים בתיבות
+    pdf.cell(90, 10, fix_heb(f"אמינות מבדק: {rel_score}%"), 0, 0, 'C')
+    pdf.cell(90, 10, fix_heb(f"התאמה לרפואה: {fit_score}%"), 0, 1, 'C')
     pdf.ln(10)
 
-    # טבלת תוצאות
-    col_w = 60
-    pdf.set_font(font_main, size=12)
-    pdf.set_fill_color(30, 58, 138) # כחול כהה
+    # טבלת תוצאות מעוצבת
+    pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(col_w, 10, fix_heb("זמן ממוצע (ש')"), 1, 0, 'C', True)
-    pdf.cell(col_w, 10, fix_heb("ציון"), 1, 0, 'C', True)
-    pdf.cell(col_w, 10, fix_heb("תכונה"), 1, 1, 'C', True)
+    pdf.set_font(font_main, size=12, style='B')
+    
+    cols = [("זמן ממוצע", 40), ("סטטוס", 40), ("ציון", 30), ("תכונה", 70)]
+    for txt, width in cols:
+        pdf.cell(width, 10, fix_heb(txt), 1, 0, 'C', True)
+    pdf.ln()
 
     pdf.set_text_color(0, 0, 0)
+    pdf.set_font(font_main, size=11)
     for _, row in summary_df.iterrows():
-        pdf.cell(col_w, 10, str(row.get('avg_time', 'N/A')), 1, 0, 'C')
-        pdf.cell(col_w, 10, str(row['final_score']), 1, 0, 'C')
-        pdf.cell(col_w, 10, fix_heb(str(row['trait'])), 1, 1, 'C')
+        status = "תקין" if 2 < row['avg_time'] < 10 else "חריג"
+        pdf.cell(40, 10, str(row['avg_time']), 1, 0, 'C')
+        pdf.cell(40, 10, fix_heb(status), 1, 0, 'C')
+        pdf.cell(30, 10, str(row['final_score']), 1, 0, 'C')
+        pdf.cell(70, 10, fix_heb(row['trait']), 1, 1, 'R')
 
-    # הוספת התראות אמינות ל-PDF אם קיימות
+    # חלק ניתוח איכותני
     alerts = analyze_consistency(raw_responses)
     if alerts:
         pdf.ln(10)
         pdf.set_font(font_main, size=14, style='B')
-        pdf.cell(180, 10, txt=fix_heb("הערות בוחן ואמינות:"), ln=True, align='R')
+        pdf.cell(180, 10, txt=fix_heb("ממצאים בולטים באמינות המענה:"), ln=True, align='R')
         pdf.set_font(font_main, size=11)
         for alert in alerts:
+            color = (200, 0, 0) if alert['level'] == 'red' else (255, 140, 0)
+            pdf.set_text_color(*color)
             pdf.cell(180, 7, txt=fix_heb(f"• {alert['text']}"), ln=True, align='R')
 
     return bytes(pdf.output())
+
+def get_balanced_questions(df, total_limit):
+    """פונקציית העזר לבחירת שאלות (הייתה חסרה בלוגיק הקודם שלך)"""
+    traits = df['trait'].unique()
+    qs_per_trait = total_limit // len(traits)
+    selected_qs = []
+    for trait in traits:
+        trait_qs = df[df['trait'] == trait].to_dict('records')
+        count = min(len(trait_qs), qs_per_trait)
+        selected_qs.extend(random.sample(trait_qs, count))
+    import random
+    random.shuffle(selected_qs)
+    return selected_qs
