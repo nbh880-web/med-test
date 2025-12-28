@@ -4,21 +4,27 @@ import pandas as pd
 import random
 from streamlit_autorefresh import st_autorefresh
 
-# ייבוא לוגיקה עסקית
+# --- ייבוא לוגיקה עסקית (logic.py) ---
 from logic import (
     calculate_score, 
     process_results, 
     analyze_consistency, 
     create_pdf_report,
     get_inconsistent_questions,
-    get_static_interpretation
+    get_static_interpretation,
+    get_balanced_questions
 )
 
-# ייבוא שכבת הנתונים וה-AI
+# --- ייבוא שכבת הנתונים וה-AI (database.py & gemini_ai.py) ---
 from database import save_to_db, get_db_history, get_all_tests
-from gemini_ai import get_multi_ai_analysis, get_comparison_chart, get_radar_chart, create_token_gauge
+from gemini_ai import (
+    get_multi_ai_analysis, 
+    get_comparison_chart, 
+    get_radar_chart, 
+    create_token_gauge
+)
 
-# --- 1. הגדרות דף ו-CSS מקיף ---
+# --- 1. הגדרות דף ו-CSS מקיף (RTL ועיצוב כפתורים מלא) ---
 st.set_page_config(
     page_title="Mednitai HEXACO System", 
     layout="wide",
@@ -27,7 +33,7 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* הגדרות RTL */
+    /* הגדרות RTL כלליות */
     .stApp, div[data-testid="stAppViewContainer"] { direction: rtl; text-align: right; }
     
     /* תיקון סיידבר */
@@ -38,10 +44,10 @@ st.markdown("""
         text-align: right;
     }
 
-    /* תיקון כפתורים - מניעת חיתוך טקסט */
+    /* עיצוב כפתורי התשובות והניווט */
     div.stButton > button {
         width: 100%; border-radius: 8px; border: 1px solid #ced4da;
-        height: 75px !important; /* גובה מוגדל לטקסט ארוך */
+        height: 75px !important; 
         font-size: 19px !important; 
         line-height: 1.2 !important;
         background-color: white; color: #212529; font-weight: 500;
@@ -56,7 +62,7 @@ st.markdown("""
         font-weight: bold !important;
     }
 
-    /* עיצוב ההיגד */
+    /* עיצוב טקסט השאלה (ההיגד) */
     .question-text { 
         font-size: 42px; font-weight: 800; text-align: center; 
         padding: 40px 20px; color: #1a2a6c; line-height: 1.2;
@@ -64,49 +70,41 @@ st.markdown("""
         box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
     }
 
+    /* תיבות דוח AI */
+    .ai-report-box { 
+        padding: 25px; border-right: 8px solid; border-radius: 12px; 
+        line-height: 1.8; text-align: right; font-size: 17px; 
+        white-space: pre-wrap; color: #333; background-color: #ffffff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
     /* התאמות למובייל */
     @media (max-width: 768px) {
         .question-text { font-size: 24px !important; padding: 20px 10px !important; }
-        h1 { font-size: 1.6rem !important; }
         div.stButton > button { height: 60px !important; font-size: 17px !important; }
     }
     
-    .ai-report-box { 
-        padding: 20px; border-right: 8px solid; border-radius: 12px; 
-        line-height: 1.6; text-align: right; font-size: 16px; 
-        white-space: pre-wrap; color: #333;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    }
     input { text-align: right; direction: rtl; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. אתחול Session State ---
+# --- 2. אתחול Session State (ניהול זיכרון מלא) ---
 if 'step' not in st.session_state: st.session_state.step = 'HOME'
 if 'responses' not in st.session_state: st.session_state.responses = []
 if 'current_q' not in st.session_state: st.session_state.current_q = 0
 if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'questions' not in st.session_state: st.session_state.questions = []
 if 'start_time' not in st.session_state: st.session_state.start_time = time.time()
+if 'gemini_report' not in st.session_state: st.session_state.gemini_report = None
+if 'claude_report' not in st.session_state: st.session_state.claude_report = None
 
-# --- 3. פונקציות עזר ---
+# --- 3. פונקציות עזר לניהול המבדק ---
 @st.cache_data
-def load_questions():
+def load_all_questions():
     try: return pd.read_csv('data/questions.csv')
     except: return pd.DataFrame()
 
-def get_balanced_questions(df, total_limit):
-    traits = df['trait'].unique()
-    qs_per_trait = total_limit // len(traits)
-    selected_qs = []
-    for trait in traits:
-        trait_qs = df[df['trait'] == trait].to_dict('records')
-        count = min(len(trait_qs), qs_per_trait)
-        selected_qs.extend(random.sample(trait_qs, count))
-    random.shuffle(selected_qs)
-    return selected_qs
-
-def record_answer(ans_value, q_data):
+def record_answer_full(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
     score = calculate_score(ans_value, q_data['reverse'])
     st.session_state.responses.append({
@@ -116,44 +114,49 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-# --- 4. דף הניהול (ADMIN) ---
+# --- 4. ממשק ניהול (ADMIN) - כולל השוואה מלאה ---
 def show_admin_dashboard():
-    st.sidebar.markdown(f"### 🔑 מנהל: \n**{st.session_state.user_name}**")
+    st.sidebar.markdown(f"### 🔑 מנהל מחובר: \n**{st.session_state.user_name}**")
     if st.sidebar.button("🚪 התנתק"):
-        st.session_state.user_name = ""
-        st.session_state.step = 'HOME'
-        st.rerun()
+        st.session_state.user_name = ""; st.session_state.step = 'HOME'; st.rerun()
 
-    st.title("📊 לוח בקרת מנהל")
+    st.title("📊 לוח בקרת מנהל - Mednitai")
     all_data = get_all_tests()
     if not all_data:
-        st.info("אין נתונים ב-Firestore.")
-        return
+        st.info("אין נתונים בבסיס הנתונים."); return
 
-    df = pd.DataFrame(all_data)
-    df['tokens'] = df['ai_report'].apply(lambda x: int(len(str(x).split()) * 1.6))
+    df_admin = pd.DataFrame(all_data)
+    df_admin['tokens'] = df_admin['ai_report'].apply(lambda x: int(len(str(x).split()) * 1.6) if x else 0)
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("סה\"כ מבדקים", len(df))
-    m2.metric("משתמשים", df['user_name'].nunique())
-    m3.metric("ממוצע טוקנים", int(df['tokens'].mean()))
+    m1.metric("סה\"כ מבדקים", len(df_admin))
+    m2.metric("משתמשים ייחודיים", df_admin['user_name'].nunique())
+    m3.metric("ממוצע טוקנים לדוח", int(df_admin['tokens'].mean()))
 
-    st.divider()
-    search = st.text_input("🔍 חפש מועמד:")
+    search = st.text_input("🔍 חפש מועמד (לפי שם):")
     if search:
-        df = df[df['user_name'].str.contains(search, case=False)]
+        df_admin = df_admin[df_admin['user_name'].str.contains(search, case=False)]
     
-    st.dataframe(df[['user_name', 'test_date', 'test_time', 'tokens']], width='stretch')
+    st.dataframe(df_admin[['user_name', 'test_date', 'tokens']], use_container_width=True)
 
-    if not df.empty:
-        selected_idx = st.selectbox("בחר מועמד:", df.index, format_func=lambda x: f"{df.loc[x, 'user_name']} ({df.loc[x, 'test_date']})")
-        col_rep, col_gauge = st.columns([2, 1])
+    if not df_admin.empty:
+        sel_idx = st.selectbox("בחר מועמד לתצוגה מפורטת:", df_admin.index, 
+                               format_func=lambda x: f"{df_admin.loc[x, 'user_name']} ({df_admin.loc[x, 'test_date']})")
+        
+        col_rep, col_viz = st.columns([2, 1])
         with col_rep:
-            st.markdown(f'<div class="ai-report-box" style="border-right-color: #1e3a8a; background-color: #f9f9f9;">{df.loc[selected_idx, "ai_report"]}</div>', unsafe_allow_html=True)
-        with col_gauge:
-            st.plotly_chart(create_token_gauge(df.loc[selected_idx, "ai_report"]), width='stretch')
+            t_gem, t_claude = st.tabs(["🤖 דוח Gemini", "☁️ דוח Claude"])
+            with t_gem:
+                st.markdown(f'<div class="ai-report-box" style="border-right-color: #1e3a8a;">{df_admin.loc[sel_idx, "ai_report"]}</div>', unsafe_allow_html=True)
+            with t_claude:
+                claude_val = df_admin.loc[sel_idx].get('claude_report', "לא נשמר דוח קלוד למבדק זה.")
+                st.markdown(f'<div class="ai-report-box" style="border-right-color: #d97706;">{claude_val}</div>', unsafe_allow_html=True)
+        with col_viz:
+            st.plotly_chart(create_token_gauge(df_admin.loc[sel_idx, "ai_report"]), use_container_width=True)
+            if 'results' in df_admin.columns:
+                st.plotly_chart(get_radar_chart(df_admin.loc[sel_idx, "results"]), use_container_width=True)
 
-# --- 5. ניווט ראשי ---
+# --- 5. ניווט ראשי (HOME / QUIZ / RESULTS) ---
 if st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
 
@@ -164,79 +167,103 @@ elif st.session_state.step == 'HOME':
     if st.session_state.user_name == "adminMednitai":
         st.markdown('<div class="admin-entry-btn">', unsafe_allow_html=True)
         if st.button("🚀 כניסה לממשק ניהול"):
-            st.session_state.step = 'ADMIN_VIEW'
-            st.rerun()
+            st.session_state.step = 'ADMIN_VIEW'; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
-        st.divider()
 
     if st.session_state.user_name and st.session_state.user_name != "adminMednitai":
-        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריה"])
-        with tab_new:
-            all_qs_df = load_questions()
-            if not all_qs_df.empty:
-                st.write(f"שלום **{st.session_state.user_name}**")
-                col1, col2, col3 = st.columns(3)
-                if col1.button("⏳ תרגול קצר (36)"):
-                    st.session_state.questions = get_balanced_questions(all_qs_df, 36)
-                    st.session_state.step = 'QUIZ'
-                    st.session_state.start_time = time.time()
-                    st.rerun()
-                if col2.button("📋 סימולציה (120)"):
-                    st.session_state.questions = get_balanced_questions(all_qs_df, 120)
-                    st.session_state.step = 'QUIZ'
-                    st.session_state.start_time = time.time()
-                    st.rerun()
-                if col3.button("🔍 מבדק מלא (300)"):
-                    st.session_state.questions = get_balanced_questions(all_qs_df, 300)
-                    st.session_state.step = 'QUIZ'
-                    st.session_state.start_time = time.time()
-                    st.rerun()
-        with tab_archive:
-            history = get_db_history(st.session_state.user_name)
-            if history:
-                for i, entry in enumerate(history):
-                    with st.expander(f"📅 מבדק מ-{entry.get('test_date', 'לא ידוע')}"):
-                        st.plotly_chart(get_comparison_chart(entry['results']), key=f"h_{i}", width='stretch')
-                        st.write(entry.get('ai_report', 'אין דוח'))
-            else: st.info("לא נמצאו מבדקים.")
+        tab_n, tab_h = st.tabs(["📝 מבחן חדש", "📜 היסטוריה אישית"])
+        with tab_n:
+            qs_df = load_all_questions()
+            if not qs_df.empty:
+                st.write(f"שלום **{st.session_state.user_name}**, בחר את אורך המבדק:")
+                c1, c2, c3 = st.columns(3)
+                if c1.button("⏳ תרגול קצר (36)"):
+                    st.session_state.questions = get_balanced_questions(qs_df, 36)
+                    st.session_state.step = 'QUIZ'; st.session_state.current_q = 0; st.session_state.responses = []; st.rerun()
+                if c2.button("📋 סימולציה סטנדרטית (120)"):
+                    st.session_state.questions = get_balanced_questions(qs_df, 120)
+                    st.session_state.step = 'QUIZ'; st.session_state.current_q = 0; st.session_state.responses = []; st.rerun()
+                if c3.button("🔍 מבדק מלא (300)"):
+                    st.session_state.questions = get_balanced_questions(qs_df, 300)
+                    st.session_state.step = 'QUIZ'; st.session_state.current_q = 0; st.session_state.responses = []; st.rerun()
+        with tab_h:
+            hist = get_db_history(st.session_state.user_name)
+            if hist:
+                for i, entry in enumerate(hist):
+                    with st.expander(f"📅 מבדק מ-{entry.get('test_date')}"):
+                        st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_r_{i}")
+                        st.write(entry.get('ai_report'))
+            else: st.info("לא נמצאו מבדקים קודמים.")
 
 elif st.session_state.step == 'QUIZ':
-    st_autorefresh(interval=1000, key="quiz_clock")
+    st_autorefresh(interval=1000, key="quiz_timer")
     q_idx = st.session_state.current_q
     if q_idx < len(st.session_state.questions):
         q_data = st.session_state.questions[q_idx]
         elapsed = time.time() - st.session_state.start_time
         
-        # התראה אחרי 8 שניות
         if elapsed > 8:
-            st.warning("⚠️ עברו 8 שניות נא לענות בכנות")
+            st.warning("⚠️ עברו מעל 8 שניות. ענה לפי התחושה הראשונה!")
             
         st.progress(q_idx / len(st.session_state.questions))
-        st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)} | ⏱️ {int(elapsed)} ש' לשאלה")
-        
+        st.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)} | ⏱️ {int(elapsed)} שניות")
         st.markdown(f'<div class="question-text">{q_data["q"]}</div>', unsafe_allow_html=True)
         
-        # תיקון טקסט כפתורים
-        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         cols = st.columns(5)
+        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         for i, (label, val) in enumerate(options):
-            if cols[i].button(label, key=f"b_{q_idx}_{val}"):
-                record_answer(val, q_data)
-                st.rerun()
+            if cols[i].button(label, key=f"btn_{q_idx}_{val}"):
+                record_answer_full(val, q_data); st.rerun()
     else:
-        st.session_state.step = 'RESULTS'
-        st.rerun()
+        st.session_state.step = 'RESULTS'; st.rerun()
 
 elif st.session_state.step == 'RESULTS':
-    st.markdown(f'# 📊 דוח תוצאות - {st.session_state.user_name}')
+    st.markdown(f'# 📊 דוח תוצאות סופי - {st.session_state.user_name}')
     df_raw, summary_df = process_results(st.session_state.responses)
-    trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
+    scores = summary_df.set_index('trait')['final_score'].to_dict()
 
-    c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), width='stretch')
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width='stretch')
+    # תצוגה גרפית משולבת (Radar + Comparison)
+    g1, g2 = st.columns(2)
+    with g1: st.plotly_chart(get_radar_chart(scores), use_container_width=True)
+    with g2: st.plotly_chart(get_comparison_chart(scores), use_container_width=True)
 
-    if st.button("🏁 חזרה לתפריט"):
-        for k in ['step', 'responses', 'current_q', 'questions']:
-            st.session_state.pop(k, None)
+    st.divider()
+    st.subheader("🧠 ניתוח אישיות והתאמה לרפואה (AI Comparison)")
+    
+    if st.session_state.gemini_report is None:
+        with st.spinner("מבצע ניתוח מעמיק מול שני מודלי AI..."):
+            user_h = get_db_history(st.session_state.user_name)
+            gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, scores, user_h)
+            st.session_state.gemini_report = gem_rep
+            st.session_state.claude_report = cld_rep
+            # שמירה ל-DB (שומר את ה-Gemini כדו"ח ראשי)
+            save_to_db(st.session_state.user_name, scores, gem_rep)
+
+    # לשוניות השוואה תמידיות
+    t_res_gem, t_res_cld = st.tabs(["🤖 ניתוח Gemini (מודל ראשי)", "☁️ ניתוח Claude (נקודת מבט נוספת)"])
+    with t_res_gem:
+        st.markdown(f'<div class="ai-report-box" style="border-right-color: #1e3a8a;">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
+        st.plotly_chart(create_token_gauge(st.session_state.gemini_report), use_container_width=True)
+    with t_res_cld:
+        st.markdown(f'<div class="ai-report-box" style="border-right-color: #d97706;">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
+
+    # ניתוח עקביות מ-logic.py
+    with st.expander("🔍 ניתוח אמינות ועקביות המבדק"):
+        alerts = analyze_consistency(df_raw)
+        if alerts:
+            for a in alerts: st.warning(f"- {a['text']}")
+        else: st.success("המבדק נמצא בעל מהימנות גבוהה.")
+        
+        incon_qs = get_inconsistent_questions(df_raw)
+        if not incon_qs.empty:
+            st.write("שאלות שקיבלו ציונים סותרים:")
+            st.dataframe(incon_qs)
+
+    # הפקת PDF
+    pdf = create_pdf_report(summary_df, df_raw)
+    st.download_button("📥 הורד דוח PDF מלא", data=pdf, file_name=f"HEXACO_{st.session_state.user_name}.pdf")
+
+    if st.button("🏁 סיום וחזרה לתפריט"):
+        for k in ['step', 'responses', 'current_q', 'questions', 'gemini_report', 'claude_report']:
+            if k in st.session_state: del st.session_state[k]
         st.rerun()
