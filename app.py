@@ -75,7 +75,7 @@ def init_session():
         'step': 'HOME', 'responses': [], 'current_q': 0, 
         'user_name': "", 'questions': [], 'start_time': 0, 
         'gemini_report': None, 'claude_report': None,
-        'run_id': str(uuid.uuid4())[:8] # מזהה ייחודי להרצה
+        'run_id': str(uuid.uuid4())[:8]
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -111,7 +111,6 @@ def show_admin_dashboard():
         st.info("טרם בוצעו מבדקים במערכת."); return
 
     df = pd.DataFrame(all_data)
-    
     m1, m2 = st.columns(2)
     m1.metric("סה\"כ מבדקים", len(df))
     m2.metric("משתמשים ייחודיים", df['user_name'].nunique())
@@ -175,9 +174,22 @@ elif st.session_state.step == 'HOME':
                 for i, entry in enumerate(history):
                     with st.expander(f"📅 מבדק מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
                         st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_chart_{i}_{st.session_state.run_id}", width="stretch")
-                        st.write("---")
-                        st.info("ניתן לצפות בחוות המומחים בממשק הניהול או בדו\"ח המופק.")
-            else: st.info("לא נמצאו מבדקים קודמים עבורך.")
+                        
+                        # כפתור לפתיחת חלונית ניתוח AI
+                        if st.button(f"🔍 הצג ניתוח AI מלא", key=f"view_rep_btn_{i}"):
+                            @st.dialog(f"דוח מפורט - מבדק מיום {entry.get('test_date')}", width="large")
+                            def show_modal(data):
+                                st.write(f"### חוות דעת מומחי AI עבור {name_input}")
+                                reps = data.get("ai_report", ["אין נתונים", "אין נתונים"])
+                                t_gem, t_cld = st.tabs(["Gemini Analysis", "Claude Expert"])
+                                with t_gem:
+                                    st.markdown(f'<div class="ai-report-box">{reps[0]}</div>', unsafe_allow_html=True)
+                                with t_cld:
+                                    st.markdown(f'<div class="claude-report-box">{reps[1]}</div>', unsafe_allow_html=True)
+                            
+                            show_modal(entry)
+            else: 
+                st.info("לא נמצאו מבדקים קודמים עבורך.")
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_refresh")
@@ -223,7 +235,6 @@ elif st.session_state.step == 'RESULTS':
     with c1: st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
     with c2: st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
 
-    # הפקת חוות דעת כפולה (Gemini & Claude)
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI (Gemini & Claude)..."):
             try:
@@ -237,14 +248,10 @@ elif st.session_state.step == 'RESULTS':
                 st.session_state.gemini_report = "שגיאת תקשורת עם המנוע."
                 st.session_state.claude_report = "שגיאת תקשורת עם המנוע."
 
-    # תצוגת שתי חוות הדעת
     st.subheader("💡 ניתוח מומחי AI משולב")
     rep_tab1, rep_tab2 = st.tabs(["📝 חוות דעת Gemini (פסיכולוג ארגוני)", "🩺 חוות דעת Claude (ד\"ר רחל גולדשטיין)"])
-    
-    with rep_tab1:
-        st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
-    with rep_tab2:
-        st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
+    with rep_tab1: st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
+    with rep_tab2: st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
 
     st.divider()
     col_pdf, col_reset = st.columns(2)
@@ -254,10 +261,8 @@ elif st.session_state.step == 'RESULTS':
     
     with col_reset:
         if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}"):
-            # איפוס מבוקר: שומרים על שם המשתמש ומנקים את השאר
             current_name = st.session_state.user_name
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
+            for key in list(st.session_state.keys()): del st.session_state[key]
             init_session()
             st.session_state.user_name = current_name
             st.rerun()
