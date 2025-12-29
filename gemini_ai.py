@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import time
 from datetime import datetime
 
+# זכויות יוצרים לניתאי מלכה
 # --- 1. הגדרות ליבה וטווחים פסיכומטריים (ניתוח פערים) ---
 TRAIT_DICT = {
     "Honesty-Humility": "כנות וענווה (H)",
@@ -42,10 +43,9 @@ class HEXACO_Expert_System:
             st.secrets.get("GEMINI_KEY_3", "").strip()
         ]
         self.gemini_keys = [k for k in self.gemini_keys if k]
-        # שים לב: כאן השתמשתי ב-CLAUDE_KEY וגם ב-ANTHROPIC_API_KEY ליתר ביטחון
+        # משיכת מפתח Claude
         self.claude_key = st.secrets.get("CLAUDE_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "").strip()
 
-    # --- מנגנוני API ו-Failover ---
     def _get_model_discovery(self, api_key):
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
@@ -77,11 +77,11 @@ class HEXACO_Expert_System:
     def _call_claude(self, prompt):
         if not self.claude_key: return "⚠️ מפתח Claude חסר."
         
-        # רשימת מודלים לניסיון לפי סדר עדיפות - כדי למנוע 404
+        # רשימת מודלים מעודכנת למניעת 404 (דצמבר 2024 - יוני 2025)
         models_to_try = [
-            "claude-sonnet-4-20250514",      # המודל החדש והמומלץ
-            "claude-3-5-sonnet-20241022",    # גיבוי יציב
-            "claude-3-5-sonnet-latest"       # גיבוי כללי
+            "claude-sonnet-4-20250514",      # Claude 4.5 Sonnet המומלץ
+            "claude-3-5-sonnet-20241022",    # Claude 3.5 Sonnet המעודכן
+            "claude-3-5-sonnet-latest"       # גרסה כללית יציבה
         ]
         
         headers = {
@@ -102,15 +102,15 @@ class HEXACO_Expert_System:
                 if res.status_code == 200:
                     return res.json()['content'][0]['text']
                 elif res.status_code == 404:
-                    continue # מנסה את המודל הבא אם הנוכחי לא נמצא ב-Tier שלך
+                    # אם המודל לא נמצא ב-Tier שלך, נדלג לבא ברשימה
+                    continue 
                 else:
                     return f"❌ שגיאת Claude ({model_name}): {res.status_code} - {res.text}"
             except Exception as e: 
-                return f"❌ שגיאה ב-Claude: {str(e)}"
+                return f"❌ שגיאה טכנית בחיבור ל-Claude: {str(e)}"
         
-        return "❌ שגיאת 404: המודל לא זמין בחשבון זה."
+        return "❌ שגיאת 404: אף אחד מהמודלים לא זמין בחשבון ה-API שלך."
 
-    # --- לוגיקה פסיכומטרית ---
     def calculate_compatibility_score(self, results):
         if not results: return 0
         total = 0
@@ -121,12 +121,8 @@ class HEXACO_Expert_System:
             else: total += 70
         return int(total / 6)
 
-    # --- הפקת דוחות משולבת (עם היסטוריה) ---
     def generate_expert_reports(self, name, results, history=[]):
-        # ניתוח פערים לטקסט
         gaps = "\n".join([f"{TRAIT_DICT.get(t, t)}: {s:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})" for t, s in results.items()])
-        
-        # ניתוח מגמות (3 מבחנים אחרונים)
         trend_text = "אין היסטוריה קודמת"
         if history:
             last_3 = history[-3:]
@@ -138,35 +134,26 @@ class HEXACO_Expert_System:
         תוצאות נוכחיות: {json.dumps(results)}
         ניתוח פערים: {gaps}
         היסטוריית מגמות: {trend_text}
-        
-        כתוב דוח מפורט (לפחות 1200 מילים) בעברית הכולל:
-        1. סיכום מנהלים על התאמת המועמד.
-        2. ניתוח עומק של כל תכונה HEXACO והשפעתה על תפקוד כרופא.
-        3. זיהוי סתירות או דפוסי התנהגות חריגים.
-        4. הכנה ממוקדת לסימולציות ולראיון האישי.
+        כתוב דוח מפורט (לפחות 1200 מילים) בעברית.
         """
         
         claude_prompt = f"""
         אתה ד"ר רחל גולדשטיין, פסיכולוגית קלינית בכירה המומחית למיון מועמדים לרפואה.
         מועמד: {name}
         תוצאות: {json.dumps(results)}
-        נתח את הסיכונים הקליניים והתאמת המועמד למצבי לחץ .
-        ניתוח עומק של כל תכונה HEXACO והשפעתה על תפקוד כרופא.
-        זיהוי סתירות או דפוסי התנהגות חריגים.
-        הכנה ממוקדת לסימולציות ולראיון האישי.
-        כתוב דוח של 1500 מילים בעברית.
+        נתח את הסיכונים הקליניים והתאמת המועמד למצבי לחץ.
+        כתוב דוח מעמיק של 1500 מילים בעברית.
+        © זכויות יוצרים לניתאי מלכה.
         """
         
         return self._call_gemini_safe(gemini_prompt), self._call_claude(claude_prompt)
 
-    # --- גרפים ---
     def create_radar_chart(self, results):
         if not results: return go.Figure()
         fig = go.Figure()
         cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
         val = list(results.values())
         ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
-        
         fig.add_trace(go.Scatterpolar(r=ideal+[ideal[0]], theta=cat+[cat[0]], fill='toself', name='🎯 יעד', line=dict(color='rgba(46,204,113,0.5)')))
         fig.add_trace(go.Scatterpolar(r=val+[val[0]], theta=cat+[cat[0]], fill='toself', name='📊 אתה', line=dict(color='#1e3a8a', width=4)))
         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])), paper_bgcolor='rgba(0,0,0,0)')
@@ -177,7 +164,6 @@ class HEXACO_Expert_System:
         cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
         val = list(results.values())
         ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
-
         fig = go.Figure(data=[
             go.Bar(name='אתה', x=cat, y=val, marker_color='#1e3a8a'),
             go.Bar(name='יעד רפואי', x=cat, y=ideal, marker_color='rgba(46,204,113,0.5)')
@@ -192,7 +178,7 @@ class HEXACO_Expert_System:
         fig.update_layout(height=250)
         return fig
 
-# פונקציות גלובליות לשימוש ב-app.py
+# פונקציות גלובליות
 def get_multi_ai_analysis(name, results, history=[]):
     return HEXACO_Expert_System().generate_expert_reports(name, results, history)
 
