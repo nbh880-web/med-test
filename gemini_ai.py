@@ -65,7 +65,8 @@ class HEXACO_Expert_System:
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
                 res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=90)
                 if res.status_code == 200:
-                    return res.json()['candidates'][0]['content']['parts'][0]['text']
+                    data = res.json()
+                    return data['candidates'][0]['content']['parts'][0]['text']
                 elif res.status_code == 429:
                     st.warning(f"מפתח #{i} חרג מהמכסה, עובר למפתח הבא...")
                     continue
@@ -83,6 +84,7 @@ class HEXACO_Expert_System:
 
     # --- לוגיקה פסיכומטרית ---
     def calculate_compatibility_score(self, results):
+        if not results: return 0
         total = 0
         for trait, score in results.items():
             r = TRAIT_RANGES.get(trait, {})
@@ -94,13 +96,13 @@ class HEXACO_Expert_System:
     # --- הפקת דוחות משולבת (עם היסטוריה) ---
     def generate_expert_reports(self, name, results, history=[]):
         # ניתוח פערים לטקסט
-        gaps = "\n".join([f"{TRAIT_DICT[t]}: {s:.2f} (יעד: {IDEAL_DOCTOR[t]})" for t, s in results.items()])
+        gaps = "\n".join([f"{TRAIT_DICT.get(t, t)}: {s:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})" for t, s in results.items()])
         
         # ניתוח מגמות (3 מבחנים אחרונים)
         trend_text = "אין היסטוריה קודמת"
         if history:
             last_3 = history[-3:]
-            trend_text = "\n".join([f"מבחן מ-{h['test_date']}: {h['results']}" for h in last_3])
+            trend_text = "\n".join([f"מבחן מ-{h.get('test_date', 'unknown')}: {h.get('results', '{}')}" for h in last_3])
 
         gemini_prompt = f"""
         אתה פסיכולוג ארגוני בכיר במיוני רפואה (מס"ר).
@@ -122,13 +124,29 @@ class HEXACO_Expert_System:
 
     # --- גרפים ---
     def create_radar_chart(self, results):
+        if not results: return go.Figure()
         fig = go.Figure()
-        cat = [TRAIT_DICT[k] for k in results.keys()]
+        cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
         val = list(results.values())
-        ideal = [IDEAL_DOCTOR[k] for k in results.keys()]
+        ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
+        
         fig.add_trace(go.Scatterpolar(r=ideal+[ideal[0]], theta=cat+[cat[0]], fill='toself', name='🎯 יעד', line=dict(color='rgba(46,204,113,0.5)')))
         fig.add_trace(go.Scatterpolar(r=val+[val[0]], theta=cat+[cat[0]], fill='toself', name='📊 אתה', line=dict(color='#1e3a8a', width=4)))
         fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[1, 5])), paper_bgcolor='rgba(0,0,0,0)')
+        return fig
+
+    def create_comparison_bar_chart(self, results):
+        """גרף עמודות להשוואה - מונע התנגשות ID ומוסיף ערך ויזואלי"""
+        if not results: return go.Figure()
+        cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
+        val = list(results.values())
+        ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
+
+        fig = go.Figure(data=[
+            go.Bar(name='אתה', x=cat, y=val, marker_color='#1e3a8a'),
+            go.Bar(name='יעד רפואי', x=cat, y=ideal, marker_color='rgba(46,204,113,0.5)')
+        ])
+        fig.update_layout(barmode='group', yaxis=dict(range=[1, 5]), paper_bgcolor='rgba(0,0,0,0)')
         return fig
 
     def create_token_gauge(self, text):
@@ -146,8 +164,8 @@ def get_radar_chart(results):
     return HEXACO_Expert_System().create_radar_chart(results)
 
 def get_comparison_chart(results):
-    # כאן אפשר להוסיף גרף Bar אם תרצה, כרגע מחזיר רדאר
-    return HEXACO_Expert_System().create_radar_chart(results)
+    """שדרוג לגרף עמודות כדי למנוע את שגיאת ה-Duplicate ID"""
+    return HEXACO_Expert_System().create_comparison_bar_chart(results)
 
 def create_token_gauge(text):
     return HEXACO_Expert_System().create_token_gauge(text)
