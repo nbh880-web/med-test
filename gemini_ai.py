@@ -42,8 +42,8 @@ class HEXACO_Expert_System:
             st.secrets.get("GEMINI_KEY_3", "").strip()
         ]
         self.gemini_keys = [k for k in self.gemini_keys if k]
-        # שים לב: כאן השתמשתי ב-CLAUDE_KEY כפי שמופיע ב-Secrets שלך
-        self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
+        # שים לב: כאן השתמשתי ב-CLAUDE_KEY וגם ב-ANTHROPIC_API_KEY ליתר ביטחון
+        self.claude_key = st.secrets.get("CLAUDE_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "").strip()
 
     # --- מנגנוני API ו-Failover ---
     def _get_model_discovery(self, api_key):
@@ -76,27 +76,39 @@ class HEXACO_Expert_System:
 
     def _call_claude(self, prompt):
         if not self.claude_key: return "⚠️ מפתח Claude חסר."
-        try:
-            # תיקון ה-Headers וה-Payload למניעת 404
-            headers = {
-                "x-api-key": self.claude_key, 
-                "anthropic-version": "2023-06-01", 
-                "content-type": "application/json"
-            }
-            payload = {
-                "model": "claude-3-5-sonnet-20240620", 
-                "max_tokens": 4096, 
-                "messages": [{"role": "user", "content": prompt}]
-            }
-            # שימוש ב-Endpoint המדויק של Messages API
-            res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=120)
-            
-            if res.status_code == 200:
-                return res.json()['content'][0]['text']
-            else:
-                return f"❌ שגיאת Claude: {res.status_code} - {res.text}"
-        except Exception as e: 
-            return f"❌ שגיאה ב-Claude: {str(e)}"
+        
+        # רשימת מודלים לניסיון לפי סדר עדיפות - כדי למנוע 404
+        models_to_try = [
+            "claude-sonnet-4-20250514",      # המודל החדש והמומלץ
+            "claude-3-5-sonnet-20241022",    # גיבוי יציב
+            "claude-3-5-sonnet-latest"       # גיבוי כללי
+        ]
+        
+        headers = {
+            "x-api-key": self.claude_key, 
+            "anthropic-version": "2023-06-01", 
+            "content-type": "application/json"
+        }
+
+        for model_name in models_to_try:
+            try:
+                payload = {
+                    "model": model_name, 
+                    "max_tokens": 4096, 
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+                res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=120)
+                
+                if res.status_code == 200:
+                    return res.json()['content'][0]['text']
+                elif res.status_code == 404:
+                    continue # מנסה את המודל הבא אם הנוכחי לא נמצא ב-Tier שלך
+                else:
+                    return f"❌ שגיאת Claude ({model_name}): {res.status_code} - {res.text}"
+            except Exception as e: 
+                return f"❌ שגיאה ב-Claude: {str(e)}"
+        
+        return "❌ שגיאת 404: המודל לא זמין בחשבון זה."
 
     # --- לוגיקה פסיכומטרית ---
     def calculate_compatibility_score(self, results):
