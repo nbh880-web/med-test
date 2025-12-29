@@ -35,12 +35,14 @@ TRAIT_RANGES = {
 
 class HEXACO_System:
     def __init__(self):
-        # שכבה 1: וולידציה וניקוי מפתחות
-        self.gemini_keys = [st.secrets.get(f"GEMINI_KEY_{i}", "").strip() for i in range(1, 4)]
+        # שכבה 1: הגדרה ל-2 מפתחות Gemini בלבד כפי שציינת
+        self.gemini_keys = [
+            st.secrets.get("GEMINI_KEY_1", "").strip(),
+            st.secrets.get("GEMINI_KEY_2", "").strip()
+        ]
         self.gemini_keys = [k for k in self.gemini_keys if k]
         self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
 
-    # שכבה 3: פענוח שגיאות API (Error Parsing)
     def _parse_api_error(self, provider, response):
         status = response.status_code
         try:
@@ -50,9 +52,9 @@ class HEXACO_System:
             msg = response.text[:200]
         
         error_map = {
-            400: "בקשה שגויה - ייתכן שיש תווים לא תקינים.",
+            400: "בקשה שגויה.",
             401: "מפתח API לא תקין.",
-            429: "חריגה ממכסת שימוש (Quota) - עובר למפתח הבא...",
+            429: "חריגה ממכסת שימוש (Quota).",
             500: "שגיאת שרת פנימית ב-AI.",
             503: "השירות בעומס יתר."
         }
@@ -60,45 +62,41 @@ class HEXACO_System:
         return f"❌ {provider}: {desc}\nפרטים: {msg}"
 
     def _get_available_gemini_model(self, api_key):
-        """פונקציית דיסקברי: מחפשת איזה מודל זמין עבור המפתח הספציפי"""
+        """פונקציית דיסקברי: מחפשת מודל. מתעדפת Flash לעקיפת שגיאות 429."""
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
             res = requests.get(url, timeout=10)
             if res.status_code == 200:
                 models = [m['name'] for m in res.json().get('models', []) if 'generateContent' in m['supportedGenerationMethods']]
-                # עדיפות ל-Pro, אם לא קיים לוקח Flash
-                for m in models:
-                    if "1.5-pro" in m: return m
+                # העדפה ל-Flash כי המכסה שלו יציבה בהרבה בגרסה החינמית
                 for m in models:
                     if "1.5-flash" in m: return m
-                return models[0] if models else None
-        except: return None
+                for m in models:
+                    if "1.5-pro" in m: return m
+                return models[0] if models else "models/gemini-1.5-flash"
+        except: return "models/gemini-1.5-flash"
+        return "models/gemini-1.5-flash"
 
-    # שכבה 2: מנגנון Failover ל-Gemini
     def _call_gemini_with_failover(self, prompt):
         if not self.gemini_keys: return "❌ חסרים מפתחות Gemini ב-Secrets."
         for i, key in enumerate(self.gemini_keys, 1):
             model = self._get_available_gemini_model(key)
-            if not model: continue
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.85, "maxOutputTokens": 8192}
+                    "generationConfig": {"temperature": 0.8, "maxOutputTokens": 4096}
                 }
-                res = requests.post(url, json=payload, timeout=120)
+                res = requests.post(url, json=payload, timeout=90)
                 if res.status_code == 200:
                     return res.json()['candidates'][0]['content']['parts'][0]['text']
                 elif res.status_code == 429:
-                    st.warning(f"מפתח Gemini #{i} הגיע למכסה (429). ממתין 2 שניות ומנסה מפתח גיבוי...")
-                    time.sleep(2)
+                    st.warning(f"מפתח Gemini #{i} חורג מהמכסה. מנסה את המפתח הבא...")
+                    time.sleep(1.5)
                     continue
-                else:
-                    st.warning(f"מפתח Gemini #{i} נכשל עם שגיאה {res.status_code}. מנסה מפתח הבא...")
             except: continue
-        return "❌ כל ניסיונות הפנייה ל-Gemini נכשלו. אנא המתן דקה ונסה שוב."
+        return "❌ כל ניסיונות הפנייה ל-Gemini נכשלו עקב עומס מכסות. בדוק את דוח Claude."
 
-    # שכבה 4: טיפול מפורט ב-Claude
     def _call_claude(self, prompt):
         if not self.claude_key: return "⚠️ מפתח Claude חסר ב-Secrets."
         try:
@@ -109,10 +107,10 @@ class HEXACO_System:
             }
             payload = {
                 "model": "claude-3-5-sonnet-20240620",
-                "max_tokens": 4096, # צמצום קל למניעת Timeout
+                "max_tokens": 4096,
                 "messages": [{"role": "user", "content": prompt}]
             }
-            res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=85)
+            res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=120)
             if res.status_code == 200:
                 return res.json()['content'][0]['text']
             return self._parse_api_error("Claude", res)
@@ -153,28 +151,13 @@ class HEXACO_System:
             ideal = IDEAL_DOCTOR[trait]
             diff = score - ideal
             ranges = TRAIT_RANGES[trait]
-            if score < ranges["critical_low"] or score > ranges["critical_high"]:
-                icon, level = "🔴", "קריטי"
-            elif not (ranges["optimal_low"] <= score <= ranges["optimal_high"]):
-                icon, level = "🟡", "צורך שיפור"
-            else:
-                icon, level = "✅", "תקין/אידיאלי"
-            gap_analysis += f"{icon} {TRAIT_DICT[trait]}: {score:.2f} (פער: {diff:+.2f}) - {level}\n"
+            level = "קריטי" if (score < ranges["critical_low"] or score > ranges["critical_high"]) else "צורך שיפור" if not (ranges["optimal_low"] <= score <= ranges["optimal_high"]) else "תקין"
+            gap_analysis += f"{TRAIT_DICT[trait]}: {score:.2f} (פער: {diff:+.2f}) - {level}\n"
 
-        trends = "אין היסטוריה קודמת."
-        if history:
-            trends = "### שינויים מהמבחן הקודם:\n"
-            last_res = history[-1]['results']
-            for trait, score in current_results.items():
-                change = score - last_res.get(trait, score)
-                icon = "📈" if change > 0.05 else "📉" if change < -0.05 else "➡️"
-                trends += f"{icon} {TRAIT_DICT[trait]}: {change:+.2f}\n"
-
-        raw_data_input = f"""מועמד: {user_name}\nתוצאות: {json.dumps(current_results)}\nמגמות: {trends}\nפערים: {gap_analysis}"""
-
-        gemini_prompt = f"""{raw_data_input}\nאתה פסיכולוג ארגוני בכיר במס"ר. כתוב דוח מעמיק (1200 מילים) בעברית הכולל: סיכום, ניתוח תכונה-תכונה, ניתוח אינטגרטיבי, דפוסי תגובה, 7 המלצות לשיפור, הכנה לראיון ותחזית הצלחה."""
+        raw_data_input = f"""מועמד: {user_name}\nתוצאות: {json.dumps(current_results)}\nפערים: {gap_analysis}"""
         
-        claude_prompt = f"""{raw_data_input}\nYou are Dr. Rachel Goldstein, senior clinical psychologist. Write a 1500-word Hebrew report including: Executive Summary, 250 words per trait, clinical scenarios, development plan (500 words), interview script, risk assessment and admission probability."""
+        gemini_prompt = f"{raw_data_input}\nאתה פסיכולוג ארגוני בכיר במס\"ר. כתוב דוח מעמיק (1200 מילים) בעברית הכולל סיכום, ניתוח תכונות, המלצות והכנה לראיון."
+        claude_prompt = f"{raw_data_input}\nYou are Dr. Rachel Goldstein, senior clinical psychologist. Write a 1500-word Hebrew report including: Executive Summary, deep trait analysis, clinical scenarios, and risk assessment."
 
         return self._call_gemini_with_failover(gemini_prompt), self._call_claude(claude_prompt)
 
@@ -197,10 +180,10 @@ def main():
             st.text(details)
 
     if st.button("🚀 הפעל ניתוח מומחים משולב"):
-        with st.spinner("המערכת מבצעת Discovery למודלים ומפיקה דוחות..."):
-            gemini_rep, claude_rep = system.generate_reports("מועמד בדיקה", st.session_state.results, st.session_state.get('history', []))
+        with st.spinner("מבצע Discovery למודלים ומפיק דוחות..."):
+            gemini_rep, claude_rep = system.generate_reports("מועמד בדיקה", st.session_state.results)
             
-            t1, t2 = st.tabs(["🤖 דוח Gemini", "🧠 דוח Claude"])
+            t1, t2 = st.tabs(["🤖 ניתוח Gemini", "🧠 ניתוח Claude"])
             with t1:
                 st.markdown(gemini_rep)
                 st.plotly_chart(system.create_token_gauge(gemini_rep))
