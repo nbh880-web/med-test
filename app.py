@@ -75,7 +75,7 @@ def init_session():
         'step': 'HOME', 'responses': [], 'current_q': 0, 
         'user_name': "", 'questions': [], 'start_time': 0, 
         'gemini_report': None, 'claude_report': None,
-        'run_id': str(uuid.uuid4())[:8] # מזהה ייחודי למניעת כפילויות אלמנטים
+        'run_id': str(uuid.uuid4())[:8] # מזהה ייחודי להרצה
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -201,7 +201,7 @@ elif st.session_state.step == 'QUIZ':
                 record_answer(val, q_data); st.rerun()
         
         if q_idx > 0:
-            if st.button("⬅️ חזור לשאלה הקודמת", key="back_btn"):
+            if st.button("⬅️ חזור לשאלה הקודמת", key=f"back_btn_{st.session_state.run_id}"):
                 st.session_state.current_q -= 1
                 st.session_state.responses.pop()
                 st.rerun()
@@ -250,11 +250,11 @@ elif st.session_state.step == 'RESULTS':
     col_pdf, col_reset = st.columns(2)
     with col_pdf:
         pdf_data = create_pdf_report(summary_df, df_raw)
-        st.download_button("📥 הורד דוח PDF מלא", pdf_data, f"HEXACO_{st.session_state.user_name}.pdf", key="pdf_download")
+        st.download_button("📥 הורד דוח PDF מלא", pdf_data, f"HEXACO_{st.session_state.user_name}.pdf", key=f"pdf_dl_{st.session_state.run_id}")
     
     with col_reset:
-        if st.button("🏁 סיום וחזרה לתפריט", key="finish_reset"):
-            # איפוס מבוקר של ה-Session
+        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}"):
+            # איפוס מבוקר: שומרים על שם המשתמש ומנקים את השאר
             current_name = st.session_state.user_name
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
