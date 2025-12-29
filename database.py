@@ -18,13 +18,14 @@ class DB_Manager:
             fb_info = dict(st.secrets["firebase"])
             
             # תיקון תווים מיוחדים במפתח הפרטי
-            if "\\n" in fb_info["private_key"]:
+            if "private_key" in fb_info and "\\n" in fb_info["private_key"]:
                 fb_info["private_key"] = fb_info["private_key"].replace("\\n", "\n")
             
             creds = service_account.Credentials.from_service_account_info(fb_info)
             return firestore.Client(credentials=creds, project=fb_info["project_id"])
         except Exception as e:
-            st.error(f"❌ חיבור ל-Firebase נכשל: {e}")
+            # אנחנו לא רוצים שהאפליקציה תתרסק אם אין חיבור לבסיס הנתונים
+            print(f"❌ חיבור ל-Firebase נכשל: {e}")
             return None
 
     def save_test(self, user_name, results, report):
@@ -61,7 +62,7 @@ class DB_Manager:
                           .limit(10).stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            # Fallback למקרה שאין Index או שיש שגיאת מיון
+            # Fallback למקרה שאין Index או שיש שגיאת מיון - שליפה ומיון מקומי
             try:
                 docs = self.db.collection("hexaco_results")\
                               .where("user_id", "==", user_id)\
@@ -76,13 +77,11 @@ class DB_Manager:
         if not self.db: 
             return []
         try:
-            # ניסיון שליפה ממוינת
             docs = self.db.collection("hexaco_results")\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            # Fallback ללא מיון שרת (מיון מקומי)
             try:
                 docs = self.db.collection("hexaco_results").stream()
                 raw = [doc.to_dict() for doc in docs]
