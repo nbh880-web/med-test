@@ -35,50 +35,56 @@ TRAIT_RANGES = {
 
 class HEXACO_System:
     def __init__(self):
-        # טעינת מפתחות
         self.gemini_keys = [st.secrets.get(f"GEMINI_KEY_{i}", "").strip() for i in range(1, 4)]
         self.gemini_keys = [k for k in self.gemini_keys if k]
         self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
-        self.error_log = []
 
-    # --- פונקציית Discovery למציאת מודל Gemini פנוי ---
     def _get_available_gemini_model(self, api_key):
         try:
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
             res = requests.get(url, timeout=10)
             if res.status_code == 200:
                 models = [m['name'] for m in res.json().get('models', []) if 'generateContent' in m['supportedGenerationMethods']]
-                # עדיפות ל-Pro, אם לא אז Flash
                 for m in models: 
                     if "1.5-pro" in m: return m
                 return models[0] if models else None
         except: return None
 
-    # --- פונקציית קריאה ל-Claude ---
     def _call_claude(self, prompt):
-        if not self.claude_key: return "⚠️ מפתח Claude חסר."
+        if not self.claude_key: return "⚠️ מפתח Claude חסר ב-Secrets."
         try:
-            headers = {"x-api-key": self.claude_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-            payload = {"model": "claude-3-5-sonnet-20240620", "max_tokens": 4096, "messages": [{"role": "user", "content": prompt}]}
+            headers = {
+                "x-api-key": self.claude_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            payload = {
+                "model": "claude-3-5-sonnet-20240620",
+                "max_tokens": 4096,
+                "messages": [{"role": "user", "content": prompt}]
+            }
             res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=150)
-            return res.json()['content'][0]['text'] if res.status_code == 200 else f"Error Claude: {res.status_code}"
+            if res.status_code == 200:
+                return res.json()['content'][0]['text']
+            return f"❌ שגיאת Claude: {res.status_code} - {res.text}"
         except Exception as e: return f"Claude Exception: {str(e)}"
 
-    # --- פונקציית Gemini עם Discovery ו-Failover ---
     def _call_gemini_with_failover(self, prompt):
-        for i, key in enumerate(self.gemini_keys, 1):
+        for key in self.gemini_keys:
             model = self._get_available_gemini_model(key)
             if not model: continue
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
-                payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.85, "maxOutputTokens": 8192}}
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.85, "maxOutputTokens": 8192}
+                }
                 res = requests.post(url, json=payload, timeout=120)
                 if res.status_code == 200:
                     return res.json()['candidates'][0]['content']['parts'][0]['text']
             except: continue
-        return "❌ כל ניסיונות הפנייה ל-AI נכשלו."
+        return "❌ כל ניסיונות הפנייה ל-Gemini נכשלו."
 
-    # --- ויזואליזציה (Plotly) ---
     def create_radar_chart(self, results):
         categories = [TRAIT_DICT[k] for k in results.keys()]
         user_vals = list(results.values())
@@ -95,7 +101,6 @@ class HEXACO_System:
         fig.update_layout(height=250)
         return fig
 
-    # --- לוגיקה חישובית ---
     def calculate_compatibility(self, results):
         total_points = 0
         details = []
@@ -108,59 +113,121 @@ class HEXACO_System:
             details.append(f"{TRAIT_DICT[trait]}: {points}/100")
         return int(total_points / 6), "\n".join(details)
 
-    # --- יצירת דוח AI משולב (Gemini + Claude + History) ---
     def generate_reports(self, user_name, current_results, history=[]):
-        # 1. ניתוח פערים אוטומטי
+        # 1. הכנת נתוני INPUT (סעיף 1 במפרט)
+        
+        # ניתוח פערים אוטומטי (1C)
         gap_analysis = ""
         for trait, score in current_results.items():
             ideal = IDEAL_DOCTOR[trait]
             diff = score - ideal
-            status = "🔴" if abs(diff) > 0.6 else "🟡" if abs(diff) > 0.3 else "✅"
-            gap_analysis += f"{status} {TRAIT_DICT[trait]}: {score:.2f} (פער: {diff:+.2f})\n"
+            ranges = TRAIT_RANGES[trait]
+            if score < ranges["critical_low"] or score > ranges["critical_high"]:
+                icon = "🔴"
+                level = "קריטי"
+            elif not (ranges["optimal_low"] <= score <= ranges["optimal_high"]):
+                icon = "🟡"
+                level = "צורך שיפור"
+            else:
+                icon = "✅"
+                level = "תקין/אידיאלי"
+            gap_analysis += f"{icon} {TRAIT_DICT[trait]}: ציון {score:.2f} (פער מהאידיאל: {diff:+.2f}) - סטטוס: {level}\n"
 
-        # 2. ניתוח מגמות היסטורי
-        trends = "אין היסטוריה קודמת."
+        # ניתוח מגמות ושינויים (1B, 1D)
+        trends = "אין היסטוריה קודמת במערכת למועמד זה."
         if history:
-            trends = "שינויים מהמבחן האחרון:\n"
+            trends = "### שינויים מהמבחן הקודם:\n"
             last_res = history[-1]['results']
             for trait, score in current_results.items():
                 change = score - last_res.get(trait, score)
                 icon = "📈" if change > 0.05 else "📉" if change < -0.05 else "➡️"
                 trends += f"{icon} {TRAIT_DICT[trait]}: {change:+.2f}\n"
 
-        # 3. בניית הפרומפטים (לפי ההוראות שלך)
-        base_context = f"מועמד: {user_name}\nנתונים:\n{gap_analysis}\n\n{trends}"
+        # 2. הרכבת הפרומפטים המלאים (סעיף 2 במפרט)
         
-        gemini_prompt = f"אתה פסיכולוג מס\"ר. כתוב דוח מעשי (1200 מילים) הכולל סיכום, ניתוח אינטגרטיבי, זיהוי ריצוי חברתי, והכנה לראיון.\n\n{base_context}"
-        claude_prompt = f"You are Dr. Rachel Goldstein, clinical psychologist. Write a deep 1500-word Hebrew report: Executive Summary, Six-Factor Deep Dive (250+ words per trait), Risk Assessment and Development Plan.\n\n{base_context}"
+        # נתונים גולמיים ל-AI
+        raw_data_input = f"""
+🎯 ניתוח פסיכולוגי מקצועי - מועמד לרפואה
+שם המועמד: {user_name}
+
+## 📈 תוצאות מבחן נוכחי:
+{json.dumps(current_results, indent=2)}
+
+### ⚠️ ניתוח פערים ואזורי סיכון מחושב:
+{gap_analysis}
+
+### 📊 ניתוח מגמות היסטוריות:
+{trends}
+"""
+
+        gemini_prompt = f"""
+{raw_data_input}
+
+אתה פסיכולוג ארגוני בכיר במרכז הערכה לרפואה (מס"ר). 
+כתוב דוח מעמיק (מינימום 1200 מילים) בעברית הכולל:
+1. סיכום ראשוני (2-3 פסקאות) - תמונה כוללת.
+2. ניתוח תכונה-תכונה - השוואה ליעד והשפעה רפואית.
+3. ניתוח אינטגרטיבי - איך התכונות משלבות זו את זו (למשל מצפוניות מול נעימות).
+4. זיהוי דפוסי תגובה חשודים - ריצוי חברתי וציונים קיצוניים.
+5. המלצות מפורטות לשיפור (5-7 המלצות) - תרגילים ספציפיים.
+6. עצות לראיון עם שחקן - תרחישים ומלכודות.
+7. תחזית והמלצה סופית - אחוזי הצלחה ותחומי התמחות מומלצים.
+"""
+
+        claude_prompt = f"""
+{raw_data_input}
+
+You are Dr. Rachel Goldstein, a senior clinical psychologist with 20 years of experience evaluating candidates for Israeli medical schools.
+כתוב דוח בעברית (מינימום 1500 מילים) הכולל:
+
+1. Executive Summary (3 פסקאות).
+2. Six-Factor Deep Dive (250+ מילים לתכונה!):
+   A. Quantitative Analysis (score vs benchmark).
+   B. Clinical Interpretation (behavioral manifestations).
+   C. Real-World Scenarios (2-3 סיטואציות רפואיות ספציפיות).
+   D. Developmental Insights.
+3. Integrative Personality Synthesis (400+ מילים) - Configuration Analysis & Specialty Fit.
+4. Validity Analysis - Social Desirability, Consistency, Confidence Level (%).
+5. Development Plan (500+ מילים) - Timeline + Measurability.
+6. Interview Preparation (300+ מילים) - 5 תרחישים ותשובות אופטימליות מילה במילה.
+7. Risk Assessment - Burnout & Compassion fatigue.
+8. Final Recommendation - Admission Probability (%), Go/No-Go Decision.
+9. Personal Letter - פסקה אישית למועמד.
+"""
 
         return self._call_gemini_with_failover(gemini_prompt), self._call_claude(claude_prompt)
 
 # --- ממשק Streamlit ---
 def main():
-    st.set_page_config(page_title="HEXACO Expert - Dual AI", layout="wide")
+    st.set_page_config(page_title="HEXACO Expert - Medical Edition", layout="wide")
     system = HEXACO_System()
 
+    # ניהול נתונים ב-Session
     if 'results' not in st.session_state:
         st.session_state.results = {"Honesty-Humility": 4.1, "Emotionality": 3.2, "Extraversion": 3.7, "Agreeableness": 4.0, "Conscientiousness": 4.6, "Openness to Experience": 3.9}
     if 'history' not in st.session_state:
-        st.session_state.history = [] # כאן ניתן להוסיף מבחני עבר
+        # דוגמה להיסטוריה לצורך הבדיקה - ניתן למחוק או להשאיר
+        st.session_state.history = [
+            {"test_date": "01/12/2025", "results": {"Honesty-Humility": 4.0, "Emotionality": 3.5, "Extraversion": 3.7, "Agreeableness": 4.1, "Conscientiousness": 4.8, "Openness to Experience": 3.8}}
+        ]
 
-    st.title("🩺 מערכת הערכה פסיכולוגית - ניתוח מומחים משולב")
+    st.title("🩺 מערכת הערכה פסיכולוגית - ניתוח מומחים (מס\"ר)")
+    st.info("המערכת מנתחת פערים מהפרופיל האידיאלי ומגמות היסטוריות לפני שליחה ל-AI.")
     
     col1, col2 = st.columns([1, 1])
     with col1:
         st.plotly_chart(system.create_radar_chart(st.session_state.results), use_container_width=True)
     with col2:
         score, details = system.calculate_compatibility(st.session_state.results)
-        st.metric("מדד התאמה לרפואה", f"{score}%")
-        with st.expander("פירוט ניקוד"): st.text(details)
+        st.metric("מדד התאמה כללי", f"{score}%")
+        with st.expander("ראה פירוט ניקוד יבש"):
+            st.text(details)
 
-    if st.button("🚀 הפעל מעריך פסיכולוגי (Gemini + Claude)"):
-        with st.spinner("המומחים מנתחים..."):
+    if st.button("🚀 הפעל ניתוח מומחים משולב (Gemini + Claude)"):
+        with st.spinner("הפסיכולוגים מעבדים את הנתונים, הפערים והמגמות..."):
             gemini_rep, claude_rep = system.generate_reports("מועמד בדיקה", st.session_state.results, st.session_state.history)
             
-            t1, t2 = st.tabs(["🤖 דוח Gemini (מעשי)", "🧠 דוח Claude (עמוק)"])
+            t1, t2 = st.tabs(["🤖 דוח Gemini (מעשי-ארגוני)", "🧠 דוח Claude (קליני-מעמיק)"])
             with t1:
                 st.markdown(gemini_rep)
                 st.plotly_chart(system.create_token_gauge(gemini_rep))
