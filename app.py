@@ -7,6 +7,7 @@ import requests
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
+import uuid
 
 # ייבוא לוגיקה עסקית (logic.py)
 from logic import (
@@ -73,7 +74,8 @@ def init_session():
     defaults = {
         'step': 'HOME', 'responses': [], 'current_q': 0, 
         'user_name': "", 'questions': [], 'start_time': 0, 
-        'gemini_report': None, 'claude_report': None
+        'gemini_report': None, 'claude_report': None,
+        'run_id': str(uuid.uuid4())[:8] # מזהה ייחודי למניעת כפילויות אלמנטים
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -119,7 +121,7 @@ def show_admin_dashboard():
     if search:
         df = df[df['user_name'].str.contains(search, case=False)]
 
-    st.dataframe(df[['user_name', 'test_date', 'test_time']], use_container_width=True)
+    st.dataframe(df[['user_name', 'test_date', 'test_time']], width="stretch")
 
     if not df.empty:
         selected_idx = st.selectbox("בחר מועמד לתצוגה מלאה:", df.index, 
@@ -129,7 +131,7 @@ def show_admin_dashboard():
         col_rep, col_viz = st.columns([2, 1])
         with col_rep:
             st.subheader(f"ניתוח עבור: {row['user_name']}")
-            if isinstance(row["ai_report"], list) or isinstance(row["ai_report"], tuple):
+            if isinstance(row["ai_report"], (list, tuple)):
                 gem_text, cld_text = row["ai_report"][0], row["ai_report"][1]
                 t1, t2 = st.tabs(["חוות דעת Gemini", "חוות דעת Claude"])
                 t1.markdown(f'<div class="ai-report-box">{gem_text}</div>', unsafe_allow_html=True)
@@ -139,7 +141,7 @@ def show_admin_dashboard():
         
         with col_viz:
             if "results" in row:
-                st.plotly_chart(get_radar_chart(row["results"]), use_container_width=True, key=f"admin_radar_{selected_idx}")
+                st.plotly_chart(get_radar_chart(row["results"]), width="stretch", key=f"admin_radar_{selected_idx}_{st.session_state.run_id}")
 
 # --- 5. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
@@ -163,7 +165,7 @@ elif st.session_state.step == 'HOME':
                 col1, col2, col3 = st.columns(3)
                 config = [("⏳ תרגול קצר (36)", 36), ("📋 סימולציה (120)", 120), ("🔍 מבדק מלא (300)", 300)]
                 for i, (label, count) in enumerate(config):
-                    if [col1, col2, col3][i].button(label, key=f"cfg_{count}"):
+                    if [col1, col2, col3][i].button(label, key=f"cfg_{count}_{st.session_state.run_id}"):
                         st.session_state.questions = get_balanced_questions(all_qs_df, count)
                         st.session_state.step = 'QUIZ'; st.session_state.start_time = time.time(); st.rerun()
         
@@ -172,7 +174,7 @@ elif st.session_state.step == 'HOME':
             if history:
                 for i, entry in enumerate(history):
                     with st.expander(f"📅 מבדק מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
-                        st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_chart_{i}", use_container_width=True)
+                        st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_chart_{i}_{st.session_state.run_id}", width="stretch")
                         st.write("---")
                         st.info("ניתן לצפות בחוות המומחים בממשק הניהול או בדו\"ח המופק.")
             else: st.info("לא נמצאו מבדקים קודמים עבורך.")
@@ -195,7 +197,7 @@ elif st.session_state.step == 'QUIZ':
         options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
         cols = st.columns(5)
         for i, (label, val) in enumerate(options):
-            if cols[i].button(label, key=f"ans_{q_idx}_{val}"):
+            if cols[i].button(label, key=f"ans_{q_idx}_{val}_{st.session_state.run_id}"):
                 record_answer(val, q_data); st.rerun()
         
         if q_idx > 0:
@@ -218,8 +220,8 @@ elif st.session_state.step == 'RESULTS':
     m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} שניות")
 
     c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True, key="final_radar")
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True, key="final_bar")
+    with c1: st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
+    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
 
     # הפקת חוות דעת כפולה (Gemini & Claude)
     if st.session_state.gemini_report is None:
@@ -252,7 +254,10 @@ elif st.session_state.step == 'RESULTS':
     
     with col_reset:
         if st.button("🏁 סיום וחזרה לתפריט", key="finish_reset"):
-            # איפוס מוחלט של הסשן להתחלה חדשה
+            # איפוס מבוקר של ה-Session
+            current_name = st.session_state.user_name
             for key in list(st.session_state.keys()):
-                if key != 'user_name': del st.session_state[key]
+                del st.session_state[key]
+            init_session()
+            st.session_state.user_name = current_name
             st.rerun()
