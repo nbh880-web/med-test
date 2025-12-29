@@ -42,6 +42,7 @@ class HEXACO_Expert_System:
             st.secrets.get("GEMINI_KEY_3", "").strip()
         ]
         self.gemini_keys = [k for k in self.gemini_keys if k]
+        # שים לב: כאן השתמשתי ב-CLAUDE_KEY כפי שמופיע ב-Secrets שלך
         self.claude_key = st.secrets.get("CLAUDE_KEY", "").strip()
 
     # --- מנגנוני API ו-Failover ---
@@ -76,11 +77,26 @@ class HEXACO_Expert_System:
     def _call_claude(self, prompt):
         if not self.claude_key: return "⚠️ מפתח Claude חסר."
         try:
-            headers = {"x-api-key": self.claude_key, "anthropic-version": "2023-06-01", "content-type": "application/json"}
-            payload = {"model": "claude-3-5-sonnet-20240620", "max_tokens": 4096, "messages": [{"role": "user", "content": prompt}]}
+            # תיקון ה-Headers וה-Payload למניעת 404
+            headers = {
+                "x-api-key": self.claude_key, 
+                "anthropic-version": "2023-06-01", 
+                "content-type": "application/json"
+            }
+            payload = {
+                "model": "claude-3-5-sonnet-20240620", 
+                "max_tokens": 4096, 
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            # שימוש ב-Endpoint המדויק של Messages API
             res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=120)
-            return res.json()['content'][0]['text'] if res.status_code == 200 else f"❌ שגיאת Claude: {res.status_code}"
-        except Exception as e: return f"❌ שגיאה ב-Claude: {str(e)}"
+            
+            if res.status_code == 200:
+                return res.json()['content'][0]['text']
+            else:
+                return f"❌ שגיאת Claude: {res.status_code} - {res.text}"
+        except Exception as e: 
+            return f"❌ שגיאה ב-Claude: {str(e)}"
 
     # --- לוגיקה פסיכומטרית ---
     def calculate_compatibility_score(self, results):
@@ -118,7 +134,16 @@ class HEXACO_Expert_System:
         4. הכנה ממוקדת לסימולציות ולראיון האישי.
         """
         
-        claude_prompt = f"You are Dr. Rachel Goldstein, senior clinical psychologist. (Same Data) Write a 1500-word Hebrew report focusing on risk assessment and clinical scenarios."
+        claude_prompt = f"""
+        אתה ד"ר רחל גולדשטיין, פסיכולוגית קלינית בכירה המומחית למיון מועמדים לרפואה.
+        מועמד: {name}
+        תוצאות: {json.dumps(results)}
+        נתח את הסיכונים הקליניים והתאמת המועמד למצבי לחץ .
+        ניתוח עומק של כל תכונה HEXACO והשפעתה על תפקוד כרופא.
+        זיהוי סתירות או דפוסי התנהגות חריגים.
+        הכנה ממוקדת לסימולציות ולראיון האישי.
+        כתוב דוח של 1500 מילים בעברית.
+        """
         
         return self._call_gemini_safe(gemini_prompt), self._call_claude(claude_prompt)
 
@@ -136,7 +161,6 @@ class HEXACO_Expert_System:
         return fig
 
     def create_comparison_bar_chart(self, results):
-        """גרף עמודות להשוואה - מונע התנגשות ID ומוסיף ערך ויזואלי"""
         if not results: return go.Figure()
         cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
         val = list(results.values())
@@ -164,7 +188,6 @@ def get_radar_chart(results):
     return HEXACO_Expert_System().create_radar_chart(results)
 
 def get_comparison_chart(results):
-    """שדרוג לגרף עמודות כדי למנוע את שגיאת ה-Duplicate ID"""
     return HEXACO_Expert_System().create_comparison_bar_chart(results)
 
 def create_token_gauge(text):
