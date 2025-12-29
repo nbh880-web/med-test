@@ -66,6 +66,10 @@ st.markdown("""
         background-color: #fffafa; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         line-height: 1.8; text-align: right; font-size: 17px; white-space: pre-wrap;
     }
+    .copyright-footer {
+        text-align: center; color: #6c757d; font-size: 0.9em; padding: 20px;
+        border-top: 1px solid #dee2e6; margin-top: 30px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -142,6 +146,10 @@ def show_admin_dashboard():
             if "results" in row:
                 st.plotly_chart(get_radar_chart(row["results"]), width="stretch", key=f"admin_radar_{selected_idx}_{st.session_state.run_id}")
 
+# --- הוספת זכויות יוצרים לתפריט הצד ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("<div style='text-align: center; color: #6c757d;'>© זכויות יוצרים לניתאי מלכה</div>", unsafe_allow_html=True)
+
 # --- 5. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
@@ -190,6 +198,9 @@ elif st.session_state.step == 'HOME':
                             show_modal(entry)
             else: 
                 st.info("לא נמצאו מבדקים קודמים עבורך.")
+    
+    # זכויות יוצרים בעמוד הבית
+    st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_refresh")
@@ -266,3 +277,6 @@ elif st.session_state.step == 'RESULTS':
             init_session()
             st.session_state.user_name = current_name
             st.rerun()
+            
+    # זכויות יוצרים בתחתית הדוח
+    st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
