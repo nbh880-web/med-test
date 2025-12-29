@@ -34,7 +34,7 @@ try:
 except ImportError:
     st.error("⚠️ חלק מקבצי העזר (database/gemini_ai) חסרים בתיקייה.")
 
-# --- 1. הגדרות דף ו-CSS (תמיכה מלאה ב-RTL) ---
+# --- 1. הגדרות דף ו-CSS (ביטול מוחלט של הסרגל) ---
 st.set_page_config(
     page_title="Mednitai HEXACO System", 
     layout="wide",
@@ -43,19 +43,30 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+    /* העלמת הסרגל הצדדי והכפתור שלו לחלוטין */
+    [data-testid="stSidebar"], [data-testid="stSidebarNav"], [data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+    }
+    
+    /* התאמת כיוון הטקסט ל-RTL */
     .stApp { direction: rtl; text-align: right; }
-    [data-testid="stSidebar"] { min-width: 280px !important; background-color: #f1f3f6; }
+    
+    /* עיצוב כפתורים */
     div.stButton > button {
         width: 100%; border-radius: 8px; height: 60px !important; 
         font-size: 18px !important; background-color: white; color: #212529;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s;
     }
     div.stButton > button:hover { border-color: #1e3a8a; color: #1e3a8a; }
+    
+    /* עיצוב טקסט שאלות */
     .question-text { 
         font-size: 32px; font-weight: 800; text-align: center; 
         padding: 40px 20px; color: #1a2a6c; background-color: #f8f9fa; 
         border-radius: 15px; margin-bottom: 25px; border: 1px solid #e9ecef;
     }
+    
+    /* עיצוב קופסאות דוח AI */
     .ai-report-box { 
         padding: 25px; border-right: 8px solid #1e3a8a; border-radius: 12px; 
         background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
@@ -66,6 +77,8 @@ st.markdown("""
         background-color: #fffafa; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         line-height: 1.8; text-align: right; font-size: 17px; white-space: pre-wrap;
     }
+    
+    /* עיצוב זכויות יוצרים בתחתית הדף */
     .copyright-footer {
         text-align: center; color: #6c757d; font-size: 0.9em; padding: 20px;
         border-top: 1px solid #dee2e6; margin-top: 30px; width: 100%;
@@ -107,10 +120,9 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-# --- 4. ממשק ניהול (ADMIN) ---
+# --- 4. ממשק ניהול (מוצג כעת בתוך הדף הראשי) ---
 def show_admin_dashboard():
-    st.sidebar.markdown(f"### 🔑 מחובר כסופר-אדמין")
-    if st.sidebar.button("🚪 התנתק", key="admin_logout"):
+    if st.button("🚪 התנתק וחזור לבית", key="admin_logout"):
         st.session_state.step = 'HOME'; st.rerun()
 
     st.title("📊 מערכת ניהול ובקרת מבדקים")
@@ -149,10 +161,6 @@ def show_admin_dashboard():
         with col_viz:
             if "results" in row:
                 st.plotly_chart(get_radar_chart(row["results"]), width="stretch", key=f"admin_radar_{selected_idx}_{st.session_state.run_id}")
-
-# --- הוספת זכויות יוצרים לתפריט הצד ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("<div style='text-align: center; color: #6c757d;'>© זכויות יוצרים לניתאי מלכה</div>", unsafe_allow_html=True)
 
 # --- 5. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
