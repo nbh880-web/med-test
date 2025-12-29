@@ -19,13 +19,15 @@ def calculate_score(answer, reverse_value):
     """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
     try:
         rev_str = str(reverse_value).strip().upper()
-        is_reverse = rev_str in ["TRUE", "1", "YES", "T", "ת"]
+        # תמיכה רחבה בערכי Boolean שונים מהאקסל
+        is_reverse = rev_str in ["TRUE", "1", "YES", "T", "ת", "אמת"]
         val = int(answer)
         if is_reverse:
             return 6 - val
         return val
-    except:
-        return int(answer) if str(answer).isdigit() else 3
+    except (ValueError, TypeError):
+        # במקרה של תקלה בנתון, נחזיר ערך נייטרלי (3)
+        return 3
 
 def get_static_interpretation(trait, score):
     """מחזיר פרשנות מובנית מבוססת טווחים"""
@@ -53,7 +55,7 @@ def get_static_interpretation(trait, score):
 
 def calculate_medical_fit(summary_df):
     """חישוב מדד התאמה משופר - מחשב פערים (Gap Analysis)"""
-    if summary_df.empty: return 0
+    if summary_df is None or summary_df.empty: return 0
     total_penalty = 0
     traits_found = 0
     
@@ -81,12 +83,14 @@ def check_response_time(duration):
 def get_inconsistent_questions(df_raw):
     """זיהוי שאלות סותרות עם לוגיקת סף דינמית"""
     inconsistencies = []
-    if df_raw.empty: return []
+    if df_raw is None or df_raw.empty: return []
+    
     for trait in df_raw['trait'].unique():
         trait_qs = df_raw[df_raw['trait'] == trait]
         for i in range(len(trait_qs)):
             for j in range(i + 1, len(trait_qs)):
-                q1 = trait_qs.iloc[i]; q2 = trait_qs.iloc[j]
+                q1 = trait_qs.iloc[i]
+                q2 = trait_qs.iloc[j]
                 diff = abs(q1['final_score'] - q2['final_score'])
                 if diff >= 2.5:
                     inconsistencies.append({
@@ -101,10 +105,10 @@ def get_inconsistent_questions(df_raw):
 
 def calculate_reliability_index(df_raw):
     """ציון אמינות (0-100) - שדרוג: נוספו משקולות סטטיסטיות"""
-    if df_raw.empty: return 100
+    if df_raw is None or df_raw.empty: return 100
     penalty = 0
     
-    # 1. קנס על מהירות
+    # 1. קנס על מהירות (משקולת גבוהה)
     fast_count = len(df_raw[df_raw['time_taken'] < 1.4])
     penalty += (fast_count / len(df_raw)) * 70 
     
@@ -123,7 +127,7 @@ def calculate_reliability_index(df_raw):
 def analyze_consistency(df):
     """ניתוח עקביות ומגמות זמן"""
     inconsistency_alerts = []
-    if df.empty or 'trait' not in df.columns: return inconsistency_alerts
+    if df is None or df.empty or 'trait' not in df.columns: return inconsistency_alerts
     
     avg_time = df['time_taken'].mean()
     if avg_time < 2.2:
@@ -170,13 +174,13 @@ def fix_heb(text):
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """יצירת דוח PDF עם עיצוב מלא - כל הלוגיקה והעיצוב המקוריים"""
+    """יצירת דוח PDF עם עיצוב מלא"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     try:
         pdf.add_font('Assistant', '', 'Assistant.ttf', uni=True)
         font_main = 'Assistant'
-    except:
-        font_main = 'Helvetica'
+    except Exception:
+        font_main = 'Arial' # Fallback בטוח
 
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
@@ -203,7 +207,7 @@ def create_pdf_report(summary_df, raw_responses):
     # טבלת תוצאות מעוצבת
     pdf.set_fill_color(30, 58, 138)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font(font_main, size=12, style='B')
+    pdf.set_font(font_main, size=12) # הסרת style='B' כי פונטים מקוסטמים לפעמים לא תומכים בו
     
     cols = [("זמן ממוצע", 40), ("סטטוס", 40), ("ציון", 30), ("תכונה", 70)]
     for txt, width in cols:
@@ -223,7 +227,7 @@ def create_pdf_report(summary_df, raw_responses):
     alerts = analyze_consistency(raw_responses)
     if alerts:
         pdf.ln(10)
-        pdf.set_font(font_main, size=14, style='B')
+        pdf.set_font(font_main, size=14)
         pdf.cell(180, 10, txt=fix_heb("ממצאים בולטים באמינות המענה:"), ln=True, align='R')
         pdf.set_font(font_main, size=11)
         for alert in alerts:
@@ -244,5 +248,13 @@ def get_balanced_questions(df, total_limit):
         count = min(len(trait_qs), qs_per_trait)
         if count > 0:
             selected_qs.extend(random.sample(trait_qs, count))
+    
+    # השלמה אם לא הגענו למכסה בגלל חוסר בשאלות בתכונות מסוימות
+    if len(selected_qs) < total_limit:
+        remaining_count = total_limit - len(selected_qs)
+        all_unused = [q for q in df.to_dict('records') if q not in selected_qs]
+        if all_unused:
+            selected_qs.extend(random.sample(all_unused, min(len(all_unused), remaining_count)))
+            
     random.shuffle(selected_qs)
     return selected_qs
