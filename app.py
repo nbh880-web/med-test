@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 from datetime import datetime
 import uuid
 
-# ייבוא לוגיקה עסקית (logic.py)
+# --- ייבוא לוגיקה עסקית (logic.py) ---
 from logic import (
     calculate_score, 
     process_results, 
@@ -22,7 +22,7 @@ from logic import (
     get_balanced_questions
 )
 
-# ייבוא שכבת הנתונים וה-AI (database.py, gemini_ai.py)
+# --- ייבוא שכבת הנתונים וה-AI (database.py, gemini_ai.py) ---
 try:
     from database import save_to_db, get_db_history, get_all_tests
     from gemini_ai import (
@@ -68,10 +68,14 @@ st.markdown("""
     }
     .copyright-footer {
         text-align: center; color: #6c757d; font-size: 0.9em; padding: 20px;
-        border-top: 1px solid #dee2e6; margin-top: 30px;
+        border-top: 1px solid #dee2e6; margin-top: 30px; width: 100%;
     }
     </style>
     """, unsafe_allow_html=True)
+
+# פונקציית עזר להצגת זכויות יוצרים בסוף כל דף
+def show_copyright():
+    st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
 
 # --- 2. אתחול Session State ---
 def init_session():
@@ -153,6 +157,7 @@ st.sidebar.markdown("<div style='text-align: center; color: #6c757d;'>© זכו�
 # --- 5. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
+    show_copyright()
 
 elif st.session_state.step == 'HOME':
     st.markdown('<h1 style="color: #1e3a8a; text-align: center;">🏥 Mednitai: סימולטור HEXACO לרפואה</h1>', unsafe_allow_html=True)
@@ -182,25 +187,19 @@ elif st.session_state.step == 'HOME':
                 for i, entry in enumerate(history):
                     with st.expander(f"📅 מבדק מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
                         st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_chart_{i}_{st.session_state.run_id}", width="stretch")
-                        
-                        # כפתור לפתיחת חלונית ניתוח AI
                         if st.button(f"🔍 הצג ניתוח AI מלא", key=f"view_rep_btn_{i}"):
                             @st.dialog(f"דוח מפורט - מבדק מיום {entry.get('test_date')}", width="large")
                             def show_modal(data):
                                 st.write(f"### חוות דעת מומחי AI עבור {name_input}")
                                 reps = data.get("ai_report", ["אין נתונים", "אין נתונים"])
                                 t_gem, t_cld = st.tabs(["Gemini Analysis", "Claude Expert"])
-                                with t_gem:
-                                    st.markdown(f'<div class="ai-report-box">{reps[0]}</div>', unsafe_allow_html=True)
-                                with t_cld:
-                                    st.markdown(f'<div class="claude-report-box">{reps[1]}</div>', unsafe_allow_html=True)
-                            
+                                with t_gem: st.markdown(f'<div class="ai-report-box">{reps[0]}</div>', unsafe_allow_html=True)
+                                with t_cld: st.markdown(f'<div class="claude-report-box">{reps[1]}</div>', unsafe_allow_html=True)
                             show_modal(entry)
             else: 
                 st.info("לא נמצאו מבדקים קודמים עבורך.")
     
-    # זכויות יוצרים בעמוד הבית
-    st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
+    show_copyright()
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_refresh")
@@ -230,6 +229,7 @@ elif st.session_state.step == 'QUIZ':
                 st.rerun()
     else:
         st.session_state.step = 'RESULTS'; st.rerun()
+    show_copyright()
 
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח ניתוח אישיות - {st.session_state.user_name}')
@@ -247,7 +247,7 @@ elif st.session_state.step == 'RESULTS':
     with c2: st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
 
     if st.session_state.gemini_report is None:
-        with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI (Gemini & Claude)..."):
+        with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
                 hist = get_db_history(st.session_state.user_name)
                 gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
@@ -256,11 +256,9 @@ elif st.session_state.step == 'RESULTS':
                 save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
             except Exception as e:
                 st.error(f"שגיאה בהפקת דוח: {e}")
-                st.session_state.gemini_report = "שגיאת תקשורת עם המנוע."
-                st.session_state.claude_report = "שגיאת תקשורת עם המנוע."
 
     st.subheader("💡 ניתוח מומחי AI משולב")
-    rep_tab1, rep_tab2 = st.tabs(["📝 חוות דעת Gemini (פסיכולוג ארגוני)", "🩺 חוות דעת Claude (ד\"ר רחל גולדשטיין)"])
+    rep_tab1, rep_tab2 = st.tabs(["📝 חוות דעת Gemini", "🩺 חוות דעת Claude"])
     with rep_tab1: st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
     with rep_tab2: st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
 
@@ -278,5 +276,4 @@ elif st.session_state.step == 'RESULTS':
             st.session_state.user_name = current_name
             st.rerun()
             
-    # זכויות יוצרים בתחתית הדוח
-    st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
+    show_copyright()
