@@ -79,11 +79,11 @@ class HEXACO_Expert_System:
         
         # רשימת מודלים מעודכנת למניעת 404 (דצמבר 2024 - יוני 2025)
         models_to_try = [
-            "claude-sonnet-4-20250514",      # Claude 4.5 Sonnet המומלץ
-            "claude-3-5-sonnet-20241022",    # Claude 3.5 Sonnet המעודכן
-            "claude-3-5-sonnet-latest"       # גרסה כללית יציבה
+            "claude-sonnet-4-20250514",      # המודל החדש שזמין לך
+            "claude-3-5-sonnet-20241022",    # גרסה יציבה
+            "claude-3-5-sonnet-latest"       # תמיד מעודכן
         ]
-        
+                
         headers = {
             "x-api-key": self.claude_key, 
             "anthropic-version": "2023-06-01", 
