@@ -5,7 +5,7 @@ from datetime import datetime
 import numpy as np
 import random 
 
-# הגדרת הפרופיל האידיאלי (TRAIT_RANGES)
+# 1. הגדרת הפרופיל האידיאלי (TRAIT_RANGES)
 IDEAL_RANGES = {
     'Conscientiousness': (4.3, 4.8),
     'Honesty-Humility': (4.2, 4.9),
@@ -90,9 +90,12 @@ def get_inconsistent_questions(df_raw):
                 diff = abs(q1['final_score'] - q2['final_score'])
                 if diff >= 2.5:
                     inconsistencies.append({
-                        'trait': trait, 'q1_text': q1['question'],
-                        'q1_ans': q1['original_answer'], 'q2_text': q2['question'],
-                        'q2_ans': q2['original_answer'], 'diff': round(diff, 2)
+                        'trait': trait, 
+                        'q1_text': q1.get('question', q1.get('q', 'שאלה')),
+                        'q1_ans': q1.get('original_answer', q1['final_score']), 
+                        'q2_text': q2.get('question', q2.get('q', 'שאלה')),
+                        'q2_ans': q2.get('original_answer', q2['final_score']), 
+                        'diff': round(diff, 2)
                     })
     return inconsistencies
 
@@ -101,7 +104,7 @@ def calculate_reliability_index(df_raw):
     if df_raw.empty: return 100
     penalty = 0
     
-    # 1. קנס על מהירות (חוסר קריאה)
+    # 1. קנס על מהירות
     fast_count = len(df_raw[df_raw['time_taken'] < 1.4])
     penalty += (fast_count / len(df_raw)) * 70 
     
@@ -111,7 +114,7 @@ def calculate_reliability_index(df_raw):
     
     # 3. דפוס תשובה מונוטוני (SD נמוך מאוד)
     if len(df_raw) > 15:
-        std_dev = df_raw['original_answer'].std()
+        std_dev = df_raw['final_score'].std()
         if std_dev < 0.35: penalty += 45
         elif std_dev < 0.5: penalty += 20
         
@@ -126,7 +129,7 @@ def analyze_consistency(df):
     if avg_time < 2.2:
         inconsistency_alerts.append({"text": "קצב מענה מהיר מהממוצע - דורש בדיקת אמינות", "level": "orange"})
     elif avg_time > 15:
-        inconsistency_alerts.append({"text": "מענה איטי במיוחד - ייתכן ניסיון לניתוח יתר של השאלות", "level": "blue"})
+        inconsistency_alerts.append({"text": "מענה איטי במיוחד - ייתכן ניסיון לניתוח יתר", "level": "blue"})
 
     for trait in df['trait'].unique():
         trait_data = df[df['trait'] == trait]
@@ -147,13 +150,15 @@ def process_results(user_responses):
     
     summary = df.groupby('trait').agg({
         'final_score': 'mean', 
-        'time_taken': 'mean',
-        'original_answer': 'std' 
+        'time_taken': 'mean'
     }).reset_index()
+    
+    # חישוב עקביות פנימית לתכונה
+    std_by_trait = df.groupby('trait')['final_score'].std().fillna(0)
+    summary['consistency_score'] = summary['trait'].map(lambda x: round((1 - (std_by_trait[x] / 4)).clip(0, 1), 2))
     
     summary['final_score'] = summary['final_score'].round(2)
     summary['avg_time'] = summary['time_taken'].round(1)
-    summary['consistency_score'] = (1 - (summary['original_answer'].fillna(0) / 4)).clip(0, 1).round(2)
     
     return df, summary
 
@@ -165,7 +170,7 @@ def fix_heb(text):
     return clean_text[::-1]
 
 def create_pdf_report(summary_df, raw_responses):
-    """יצירת דוח PDF עם עיצוב מלא"""
+    """יצירת דוח PDF עם עיצוב מלא - כל הלוגיקה והעיצוב המקוריים"""
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     try:
         pdf.add_font('Assistant', '', 'Assistant.ttf', uni=True)
@@ -214,7 +219,7 @@ def create_pdf_report(summary_df, raw_responses):
         pdf.cell(30, 10, str(row['final_score']), 1, 0, 'C')
         pdf.cell(70, 10, fix_heb(row['trait']), 1, 1, 'R')
 
-    # חלק ניתוח איכותני
+    # חלק ניתוח איכותני והתראות
     alerts = analyze_consistency(raw_responses)
     if alerts:
         pdf.ln(10)
