@@ -4,10 +4,8 @@ from google.oauth2 import service_account
 from datetime import datetime
 
 class DB_Manager:
-    _instance = None
-
     def __init__(self):
-        # אתחול ה-Client רק אם הוא לא קיים כדי לחסוך בביצועים
+        # אתחול ה-Client
         self.db = self._init_firebase()
 
     def _init_firebase(self):
@@ -24,19 +22,18 @@ class DB_Manager:
             creds = service_account.Credentials.from_service_account_info(fb_info)
             return firestore.Client(credentials=creds, project=fb_info["project_id"])
         except Exception as e:
-            # אנחנו לא רוצים שהאפליקציה תתרסק אם אין חיבור לבסיס הנתונים
             print(f"❌ חיבור ל-Firebase נכשל: {e}")
             return None
 
-    def save_test(self, user_name, results, report):
-        """שמירת תוצאות מבדק חדש"""
+    def save_test(self, user_name, results, report, collection="hexaco_results"):
+        """שמירת תוצאות מבדק חדש (תומך בכל סוגי המבדקים)"""
         if not self.db or not user_name: 
             return
         try:
             now = datetime.now()
             user_id = user_name.strip().lower()
             
-            self.db.collection("hexaco_results").add({
+            self.db.collection(collection).add({
                 "user_name": user_name,
                 "user_id": user_id,
                 "results": results,
@@ -48,23 +45,23 @@ class DB_Manager:
         except Exception as e:
             st.error(f"⚠️ שגיאה בשמירת נתונים: {e}")
 
-    def fetch_history(self, user_name):
-        """שליפת היסטוריה עבור משתמש ספציפי (עד 10 מבדקים)"""
+    def fetch_history(self, user_name, collection="hexaco_results"):
+        """שליפת היסטוריה עבור משתמש ספציפי עם מנגנון Fallback לשגיאות אינדקס"""
         if not self.db or not user_name: 
             return []
         
         user_id = user_name.strip().lower()
         try:
             # ניסיון שליפה עם מיון (דורש Index ב-Firestore)
-            docs = self.db.collection("hexaco_results")\
+            docs = self.db.collection(collection)\
                           .where("user_id", "==", user_id)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .limit(10).stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            # Fallback למקרה שאין Index או שיש שגיאת מיון - שליפה ומיון מקומי
+            # Fallback: שליפה ללא מיון בשרת ומיון מקומי ב-Python
             try:
-                docs = self.db.collection("hexaco_results")\
+                docs = self.db.collection(collection)\
                               .where("user_id", "==", user_id)\
                               .limit(20).stream()
                 raw = [doc.to_dict() for doc in docs]
@@ -72,18 +69,18 @@ class DB_Manager:
             except:
                 return []
 
-    def fetch_all_tests_admin(self):
-        """שליפת כל המבדקים הקיימים עבור ממשק הניהול"""
+    def fetch_all_tests_admin(self, collection="hexaco_results"):
+        """שליפת כל המבדקים עבור ממשק הניהול"""
         if not self.db: 
             return []
         try:
-            docs = self.db.collection("hexaco_results")\
+            docs = self.db.collection(collection)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
                           .stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
             try:
-                docs = self.db.collection("hexaco_results").stream()
+                docs = self.db.collection(collection).stream()
                 raw = [doc.to_dict() for doc in docs]
                 return sorted(raw, key=lambda x: str(x.get('timestamp', '')), reverse=True)
             except:
@@ -92,14 +89,33 @@ class DB_Manager:
 # --- פונקציות גשר (Interface) עבור app.py ---
 
 def save_to_db(name, res, rep):
-    """קריאה ישירה לשמירה מהאפליקציה"""
-    manager = DB_Manager()
-    manager.save_test(name, res, rep)
+    """שמירת מבדק HEXACO"""
+    DB_Manager().save_test(name, res, rep, "hexaco_results")
 
-def get_db_history(name):
-    """קריאה ישירה להיסטוריה מהאפליקציה"""
-    return DB_Manager().fetch_history(name)
+def save_integrity_test_to_db(name, res, rep):
+    """שמירת מבדק אמינות"""
+    DB_Manager().save_test(name, res, rep, "integrity_results")
 
-def get_all_tests():
-    """קריאה עבור דף ה-Admin"""
-    return DB_Manager().fetch_all_tests_admin()
+def save_combined_test_to_db(name, res, rep):
+    """שמירת מבדק משולב"""
+    DB_Manager().save_test(name, res, rep, "combined_results")
+
+def get_db_history(name, test_type="hexaco"):
+    """קבלת היסטוריה לפי סוג מבחן"""
+    collections = {
+        "hexaco": "hexaco_results",
+        "integrity": "integrity_results",
+        "combined": "combined_results"
+    }
+    col = collections.get(test_type, "hexaco_results")
+    return DB_Manager().fetch_history(name, col)
+
+def get_all_tests(test_type="hexaco"):
+    """קריאה עבור דף ה-Admin לפי סוג מבחן"""
+    collections = {
+        "hexaco": "hexaco_results",
+        "integrity": "integrity_results",
+        "combined": "combined_results"
+    }
+    col = collections.get(test_type, "hexaco_results")
+    return DB_Manager().fetch_all_tests_admin(col)
