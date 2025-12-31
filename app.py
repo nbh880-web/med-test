@@ -22,6 +22,22 @@ from logic import (
     get_balanced_questions
 )
 
+# --- ייבוא לוגיקת אמינות (integrity_logic.py) - תוספת חדשה ---
+try:
+    from integrity_logic import (
+        get_integrity_questions,
+        calculate_integrity_score,
+        process_integrity_results,
+        calculate_reliability_score,
+        get_integrity_interpretation,
+        detect_contradictions,
+        get_category_risk_level,
+        INTEGRITY_CATEGORIES
+    )
+    INTEGRITY_AVAILABLE = True
+except ImportError:
+    INTEGRITY_AVAILABLE = False
+
 # --- ייבוא שכבת הנתונים וה-AI (database.py, gemini_ai.py) ---
 try:
     from database import save_to_db, get_db_history, get_all_tests
@@ -31,6 +47,22 @@ try:
         get_radar_chart, 
         create_token_gauge
     )
+    # תוספת חדשה - פונקציות AI לאמינות
+    if INTEGRITY_AVAILABLE:
+        try:
+            from gemini_ai import get_integrity_ai_analysis, get_combined_ai_analysis
+        except ImportError:
+            pass
+    # תוספת חדשה - פונקציות DB לאמינות
+    try:
+        from database import (
+            save_integrity_test_to_db,
+            save_combined_test_to_db,
+            get_integrity_history,
+            get_combined_history
+        )
+    except ImportError:
+        pass
 except ImportError:
     st.error("⚠️ חלק מקבצי העזר (database/gemini_ai) חסרים בתיקייה.")
 
@@ -83,6 +115,11 @@ st.markdown("""
         text-align: center; color: #6c757d; font-size: 0.9em; padding: 20px;
         border-top: 1px solid #dee2e6; margin-top: 30px; width: 100%;
     }
+    
+    /* תוספת חדשה - עיצוב רמות סיכון */
+    .risk-high { color: #dc3545; font-weight: bold; }
+    .risk-medium { color: #fd7e14; font-weight: bold; }
+    .risk-low { color: #28a745; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -96,7 +133,11 @@ def init_session():
         'step': 'HOME', 'responses': [], 'current_q': 0, 
         'user_name': "", 'questions': [], 'start_time': 0, 
         'gemini_report': None, 'claude_report': None,
-        'run_id': str(uuid.uuid4())[:8]
+        'run_id': str(uuid.uuid4())[:8],
+        # תוספת חדשה
+        'test_type': 'HEXACO',
+        'reliability_score': None,
+        'contradictions': []
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -110,12 +151,29 @@ def load_questions_data():
     try: return pd.read_csv('data/questions.csv')
     except: return pd.DataFrame()
 
+# תוספת חדשה - פונקציה משופרת לרישום תשובות
 def record_answer(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
-    score = calculate_score(ans_value, q_data['reverse'])
+    
+    # זיהוי סוג השאלה
+    origin = q_data.get('origin', st.session_state.test_type)
+    
+    # חישוב ציון לפי סוג השאלה
+    if origin == 'INTEGRITY' and INTEGRITY_AVAILABLE:
+        score = calculate_integrity_score(ans_value, q_data['reverse'])
+    else:
+        score = calculate_score(ans_value, q_data['reverse'])
+    
     st.session_state.responses.append({
-        'question': q_data['q'], 'trait': q_data['trait'], 'original_answer': ans_value,
-        'final_score': score, 'time_taken': duration, 'reverse': q_data['reverse']
+        'question': q_data['q'], 
+        'trait': q_data.get('trait') or q_data.get('category'),
+        'category': q_data.get('category', ''),
+        'control_type': q_data.get('control_type', 'none'),
+        'origin': origin,
+        'original_answer': ans_value,
+        'final_score': score, 
+        'time_taken': duration, 
+        'reverse': q_data['reverse']
     })
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
@@ -181,13 +239,69 @@ elif st.session_state.step == 'HOME':
         with tab_new:
             all_qs_df = load_questions_data()
             if not all_qs_df.empty:
-                st.info(f"שלום {name_input}, ברוך הבא לסימולטור. בחר את אורך המבדק הרצוי:")
-                col1, col2, col3 = st.columns(3)
-                config = [("⏳ תרגול קצר (36)", 36), ("📋 סימולציה (120)", 120), ("🔍 מבדק מלא (300)", 300)]
-                for i, (label, count) in enumerate(config):
-                    if [col1, col2, col3][i].button(label, key=f"cfg_{count}_{st.session_state.run_id}"):
-                        st.session_state.questions = get_balanced_questions(all_qs_df, count)
-                        st.session_state.step = 'QUIZ'; st.session_state.start_time = time.time(); st.rerun()
+                st.info(f"שלום {name_input}, ברוך הבא לסימולטור. בחר את סוג ואורך המבדק:")
+                
+                # תוספת חדשה - בחירת סוג מבחן
+                if INTEGRITY_AVAILABLE:
+                    test_type = st.radio(
+                        "סוג המבדק:",
+                        ["אישיות HEXACO", "אמינות ויושרה", "🌟 מבחן משולב"],
+                        horizontal=True,
+                        key="test_type_selector"
+                    )
+                else:
+                    test_type = "אישיות HEXACO"
+                
+                # אישיות HEXACO
+                if test_type == "אישיות HEXACO":
+                    st.session_state.test_type = 'HEXACO'
+                    col1, col2, col3 = st.columns(3)
+                    config = [("⏳ תרגול קצר (36)", 36), ("📋 סימולציה (120)", 120), ("🔍 מבדק מלא (300)", 300)]
+                    for i, (label, count) in enumerate(config):
+                        if [col1, col2, col3][i].button(label, key=f"cfg_{count}_{st.session_state.run_id}"):
+                            st.session_state.questions = get_balanced_questions(all_qs_df, count)
+                            for q in st.session_state.questions:
+                                q['origin'] = 'HEXACO'
+                            st.session_state.step = 'QUIZ'
+                            st.session_state.start_time = time.time()
+                            st.rerun()
+                
+                # תוספת חדשה - מבחן אמינות
+                elif test_type == "אמינות ויושרה" and INTEGRITY_AVAILABLE:
+                    st.session_state.test_type = 'INTEGRITY'
+                    st.markdown("**מבחן יושרה ואמינות מקיף** - בודק התנהגות אתית, יושרה ועקביות תשובות")
+                    col1, col2, col3, col4 = st.columns(4)
+                    int_config = [("⚡ קצר (60)", 60), ("📋 רגיל (100)", 100), ("🔍 מקיף (140)", 140), ("💯 מלא (160)", 160)]
+                    for i, (label, count) in enumerate(int_config):
+                        if [col1, col2, col3, col4][i].button(label, key=f"int_{count}_{st.session_state.run_id}"):
+                            st.session_state.questions = get_integrity_questions(count)
+                            for q in st.session_state.questions:
+                                q['origin'] = 'INTEGRITY'
+                            st.session_state.step = 'QUIZ'
+                            st.session_state.start_time = time.time()
+                            st.rerun()
+                
+                # תוספת חדשה - מבחן משולב
+                elif test_type == "🌟 מבחן משולב" and INTEGRITY_AVAILABLE:
+                    st.session_state.test_type = 'COMBINED'
+                    st.markdown("**מבחן משולב מתקדם** - 60 שאלות HEXACO + 40 שאלות אמינות (מעורבבים)")
+                    if st.button("🚀 התחל מבחן משולב (100 שאלות)", key=f"combined_{st.session_state.run_id}"):
+                        hex_pool = get_balanced_questions(all_qs_df, 60)
+                        int_pool = get_integrity_questions(40)
+                        
+                        for q in hex_pool: q['origin'] = 'HEXACO'
+                        for q in int_pool: q['origin'] = 'INTEGRITY'
+                        
+                        # מעורבב ביחס 6:4
+                        combined = []
+                        for i in range(10):
+                            combined.extend(hex_pool[i*6:(i+1)*6])
+                            combined.extend(int_pool[i*4:(i+1)*4])
+                        
+                        st.session_state.questions = combined
+                        st.session_state.step = 'QUIZ'
+                        st.session_state.start_time = time.time()
+                        st.rerun()
         
         with tab_archive:
             history = get_db_history(name_input)
@@ -241,27 +355,110 @@ elif st.session_state.step == 'QUIZ':
 
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח ניתוח אישיות - {st.session_state.user_name}')
-    df_raw, summary_df = process_results(st.session_state.responses)
+    
+    # הפרדת נתונים לפי מקור (תוספת חדשה)
+    resp_df = pd.DataFrame(st.session_state.responses)
+    hex_data = resp_df[resp_df.get('origin', 'HEXACO') == 'HEXACO'] if 'origin' in resp_df.columns else resp_df
+    int_data = resp_df[resp_df.get('origin', '') == 'INTEGRITY'] if 'origin' in resp_df.columns else pd.DataFrame()
+    
+    # עיבוד נתוני HEXACO (קיים)
+    df_raw, summary_df = process_results(hex_data.to_dict('records') if not hex_data.empty else st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
 
+    # מטריקות ראשיות
     m1, m2, m3 = st.columns(3)
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
-    m2.metric("🛡️ מדד אמינות", f"{calculate_reliability_index(df_raw)}%")
-    m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} שניות")
+    
+    # תוספת חדשה - חישוב אמינות אם יש נתוני אמינות
+    if not int_data.empty and INTEGRITY_AVAILABLE:
+        df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
+        reliability_score = calculate_reliability_score(df_int_raw)
+        contradictions = detect_contradictions(df_int_raw)
+        int_scores = int_summary.set_index('category_name')['final_score'].to_dict()
+        
+        m2.metric("🛡️ מדד אמינות", f"{reliability_score}%")
+        interp = get_integrity_interpretation(reliability_score)
+        m3.markdown(f"**רמה:** {interp['level']}")
+        
+        st.session_state.reliability_score = reliability_score
+        st.session_state.contradictions = contradictions
+    else:
+        m2.metric("🛡️ מדד אמינות", f"{calculate_reliability_index(df_raw)}%")
+        m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} שניות")
 
+    # גרפים
     c1, c2 = st.columns(2)
-    with c1: st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
-    with c2: st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
+    with c1: 
+        st.subheader("פרופיל אישיות HEXACO")
+        st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
+    with c2:
+        # תוספת חדשה - גרף אמינות אם קיים
+        if not int_data.empty and INTEGRITY_AVAILABLE:
+            st.subheader("מדדי אמינות")
+            st.plotly_chart(get_radar_chart(int_scores), width="stretch", key=f"int_radar_{st.session_state.run_id}")
+        else:
+            st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
+    
+    # תוספת חדשה - הצגת סתירות
+    if not int_data.empty and INTEGRITY_AVAILABLE and contradictions:
+        st.divider()
+        st.subheader("⚠️ ממצאי עקביות")
+        critical = [c for c in contradictions if c.get('severity') == 'critical']
+        high = [c for c in contradictions if c.get('severity') == 'high']
+        
+        if critical:
+            st.error(f"🚨 נמצאו {len(critical)} סתירות קריטיות")
+            for c in critical[:3]:
+                st.markdown(f"- **{c.get('category')}**: {c.get('message', 'סתירה בתשובות')}")
+        if high:
+            st.warning(f"⚠️ נמצאו {len(high)} סתירות חמורות")
 
+    # ניתוח AI
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
                 hist = get_db_history(st.session_state.user_name)
-                gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
+                
+                # תוספת חדשה - בחירת פונקציית AI לפי סוג המבחן
+                if st.session_state.test_type == 'COMBINED' and INTEGRITY_AVAILABLE and not int_data.empty:
+                    gem_rep, cld_rep = get_combined_ai_analysis(
+                        st.session_state.user_name,
+                        trait_scores,
+                        st.session_state.reliability_score,
+                        st.session_state.contradictions,
+                        hist
+                    )
+                elif st.session_state.test_type == 'INTEGRITY' and INTEGRITY_AVAILABLE:
+                    gem_rep, cld_rep = get_integrity_ai_analysis(
+                        st.session_state.user_name,
+                        st.session_state.reliability_score,
+                        st.session_state.contradictions,
+                        int_scores,
+                        hist
+                    )
+                else:
+                    gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
+                
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
-                save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
+                
+                # שמירה (תוספת חדשה - שמירה לפי סוג)
+                if st.session_state.test_type == 'COMBINED' and not int_data.empty:
+                    try:
+                        save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, 
+                                                st.session_state.reliability_score, [gem_rep, cld_rep])
+                    except:
+                        save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
+                elif st.session_state.test_type == 'INTEGRITY' and not int_data.empty:
+                    try:
+                        save_integrity_test_to_db(st.session_state.user_name, int_scores, 
+                                                 st.session_state.reliability_score, [gem_rep, cld_rep])
+                    except:
+                        save_to_db(st.session_state.user_name, int_scores, [gem_rep, cld_rep])
+                else:
+                    save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
+                    
             except Exception as e:
                 st.error(f"שגיאה בהפקת דוח: {e}")
 
