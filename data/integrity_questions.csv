@@ -1,0 +1,170 @@
+q,category,reverse,control_type
+האם אי פעם גנבת משהו מהעבודה?,theft,FALSE,none
+האם לקחת פריט שלא שייך לך ממקום העבודה?,theft,FALSE,main_control
+האם כל הציוד שיש לך בבית הגיע בדרך חוקית לחלוטין?,theft,TRUE,main_control
+האם אי פעם הוצאת ציוד ממקום עבודה בלי רשות?,theft,FALSE,none
+האם אי פעם החזרת ציוד שלקחת מהעבודה בטעות?,theft,TRUE,none
+האם אי פעם לקחת משהו קטן מהעבודה כי חשבת שזה לא משנה?,theft,FALSE,none
+האם כל החפצים שברשותך נרכשו בכספך או שניתנו לך באופן חוקי?,theft,TRUE,main_control
+האם אי פעם השתמשת בציוד של המעסיק לצרכים אישיים בלי אישור?,theft,FALSE,none
+האם אי פעם העתקת במבחן או בחינה?,academic,FALSE,none
+האם אי פעם עזרת למישהו אחר להעתיק במבחן?,academic,FALSE,none
+האם תמיד כתבת את כל העבודות שלך בעצמך בלי עזרה אסורה?,academic,TRUE,none
+האם אי פעם שלחת מישהו אחר במקומך לבחינה?,academic,FALSE,none
+האם אי פעם השתמשת בחומרים אסורים במבחן?,academic,FALSE,none
+האם אי פעם הגשת עבודה שמישהו אחר כתב בשבילך?,academic,FALSE,none
+האם תמיד פעלת על פי כללי היושרה האקדמית?,academic,TRUE,none
+האם אי פעם שיקרת למרצה לגבי סיבת איחור בהגשת עבודה?,academic,FALSE,none
+האם פוטרת אי פעם מעבודה?,termination,FALSE,none
+האם אי פעם התבקשת לעזוב מקום עבודה?,termination,FALSE,none
+האם תמיד עזבת מקומות עבודה בהסכמה הדדית או ביוזמתך?,termination,TRUE,none
+האם אי פעם פוטרת בגלל בעיות משמעת?,termination,FALSE,none
+האם אי פעם עזבת עבודה לפני תום תקופת ההודעה המוקדמת?,termination,FALSE,none
+האם אי פעם פוטרת בגלל התנהגות לא הולמת?,termination,FALSE,none
+האם בכל מקומות העבודה שלך עזבת ביחסים טובים?,termination,TRUE,none
+האם אי פעם התפטרת כדי להימנע מפיטורים?,termination,FALSE,none
+האם אי פעם הימרת סכום כסף של יותר מ-100 שקלים?,gambling,FALSE,none
+האם אי פעם הימרת באינטרנט?,gambling,FALSE,none
+האם אי פעם השתתפת במשחקי הימורים לא חוקיים?,gambling,FALSE,none
+האם אי פעם הפסדת כסף בהימורים?,gambling,FALSE,none
+האם אי פעם הימרת סכום שהיה קשה לך להרשות לעצמך להפסיד?,gambling,FALSE,none
+האם אי פעם היה לך קושי לעצור את ההימורים?,gambling,FALSE,none
+האם תמיד נמנעת לחלוטין מכל סוג של הימורים?,gambling,TRUE,none
+האם אי פעם ביקרת בבית קזינו?,gambling,FALSE,none
+האם אי פעם השתמשת בסמים בלתי חוקיים?,drugs,FALSE,none
+האם אי פעם השתמשת בקנאביס או מריחואנה?,drugs,FALSE,none
+האם אי פעם ניסית סמים קשים?,drugs,FALSE,none
+האם אי פעם נהגת תחת השפעת אלכוהול או סמים?,drugs,FALSE,none
+האם תמיד היית נקי לחלוטין מכל שימוש בסמים?,drugs,TRUE,none
+האם אי פעם השתמשת בתרופות מרשם שלא נרשמו לך?,drugs,FALSE,none
+האם אי פעם מכרת או העברת סמים למישהו אחר?,drugs,FALSE,none
+האם אי פעם הגעת לעבודה תחת השפעת אלכוהול או סמים?,drugs,FALSE,none
+האם היית מדווח על עובד שגנב מהחברה?,whistleblowing,FALSE,none
+האם היית מדווח על התנהגות בלתי חוקית של קולגה?,whistleblowing,FALSE,none
+האם היית שומר בסוד אם היית רואה עובד גונב?,whistleblowing,TRUE,none
+האם היית מודיע למנהל אם היית רואה התנהגות לא אתית חמורה?,whistleblowing,FALSE,none
+האם היית שותק אם היית רואה מישהו מזייף מסמכים?,whistleblowing,TRUE,none
+האם היית מתעלם מהתנהגות מסוכנת של עמית לעבודה?,whistleblowing,TRUE,none
+האם חשוב לך לדווח על עוולות גם אם זה יפגע בעמיתים?,whistleblowing,FALSE,none
+האם היית מוכן להיחשב ל"מלשין" אם זה מונע נזק?,whistleblowing,FALSE,none
+האם היית מעיר לעמית שטועה בביצוע משימה חשובה?,feedback,FALSE,none
+האם היית מתקן עמית שעושה טעות שעלולה לפגוע במישהו?,feedback,FALSE,none
+האם היית שותק אם היית רואה עמית עושה טעות מקצועית?,feedback,TRUE,none
+האם חשוב לך לעזור לעמיתים לשפר את עצמם דרך משוב?,feedback,FALSE,none
+האם היית נמנע מלהעיר הערה ביקורתית כדי לא לפגוע?,feedback,TRUE,none
+האם היית מעדיף להתעלם מטעות של עמית כדי לשמור על שלום?,feedback,TRUE,none
+האם היית מתקן מישהו שעושה משהו לא בטוח?,feedback,FALSE,none
+האם היית מוכן לתת משוב קשה אם זה יעזור לעמית?,feedback,FALSE,none
+האם אתה מעדיף לעבוד בצוות או לבד?,teamwork,FALSE,none
+האם אתה תורם באופן פעיל לעבודת הצוות?,teamwork,FALSE,none
+האם אתה מעדיף לעשות הכל בעצמך מאשר להסתמך על אחרים?,teamwork,TRUE,none
+האם אתה נהנה משיתוף פעולה עם אחרים?,teamwork,FALSE,none
+האם אתה מרגיש שאתה עובד טוב יותר לבד?,teamwork,TRUE,none
+האם אתה מוכן להקריב מהזמן שלך כדי לעזור לצוות?,teamwork,FALSE,none
+האם אתה מאמין שעבודה קבוצתית יעילה יותר?,teamwork,FALSE,none
+האם אתה נוטה להימנע מפרויקטים קבוצתיים?,teamwork,TRUE,none
+האם התנהגת אי פעם בצורה לא אתית בעבודה?,unethical,FALSE,none
+האם אי פעם עשית משהו שהיה נגד הכללים אבל לא נתפסת?,unethical,FALSE,none
+האם תמיד פעלת על פי הכללים והאתיקה המקצועית?,unethical,TRUE,none
+האם אי פעם ידעת על משהו לא בסדר ולא דיווחת על זה?,unethical,FALSE,none
+האם אי פעם הפרת נוהל בטיחות כי זה היה נוח יותר?,unethical,FALSE,none
+האם אי פעם ניצלת את המידע שלך לטובה אישית?,unethical,FALSE,none
+האם תמיד היית ישר בכל אינטראקציה מקצועית?,unethical,TRUE,none
+האם אי פעם עשית משהו שהיית מתבייש בו אם זה היה נחשף?,unethical,FALSE,none
+האם אתה מוכן לעשות בדיקת פוליגרף לאמת את תשובותיך?,polygraph,FALSE,meta
+האם תסכים לבדיקת אמת על כל מה שענית כאן?,polygraph,FALSE,meta
+האם אתה בטוח שתעבור בדיקת פוליגרף על התשובות שלך?,polygraph,FALSE,meta
+האם היית מוכן להשבע על אמיתות כל התשובות שלך?,polygraph,FALSE,meta
+האם תרגיש בנוח אם היו בודקים את התשובות שלך במכונת אמת?,polygraph,FALSE,meta
+האם אתה מתחרט על אחת מהתשובות שענית?,regret,FALSE,meta
+האם יש תשובה שהיית רוצה לשנות עכשיו?,regret,FALSE,meta
+האם אתה מרגיש שכל התשובות שלך היו מדויקות לחלוטין?,regret,TRUE,meta
+האם אתה חושב שענית בצורה הכי כנה שאפשר?,regret,TRUE,meta
+האם אתה מרגיש בנוח עם כל מה שענית עד כה?,regret,TRUE,meta
+האם ענית על כל השאלות בכנות מוחלטת?,honesty_meta,FALSE,meta
+האם היית כן לחלוטין בכל תשובותיך?,honesty_meta,FALSE,meta
+האם כל מה שכתבת כאן הוא האמת המלאה?,honesty_meta,FALSE,meta
+האם ניסית להציג את עצמך בצורה טובה יותר מהמציאות?,honesty_meta,TRUE,meta
+האם כל התשובות שלך משקפות באמת מי שאתה?,honesty_meta,FALSE,meta
+האם אי פעם שיקרת למעסיק שלך?,unethical,FALSE,none
+האם אי פעם התחלת לעבוד במקום חדש בזמן שעדיין עבדת במקום אחר בלי לספר?,unethical,FALSE,none
+האם אי פעם זייפת חתימה או מסמך?,unethical,FALSE,none
+האם אי פעם התחזית למישהו אחר?,unethical,FALSE,none
+האם אי פעם השמצת מישהו במקום העבודה?,unethical,FALSE,none
+האם אי פעם צפית בפורנוגרפיה במחשב של העבודה?,unethical,FALSE,none
+האם אי פעם הורדת תוכנה לא חוקית על מחשב העבודה?,unethical,FALSE,none
+האם אי פעם התקשרת לעבודה ואמרת שאתה חולה כשלא היית?,academic,FALSE,none
+האם אי פעם ביקשת חופש ממחלה כשלא היית ממש חולה?,academic,FALSE,none
+האם תמיד דיווחת על שעות העבודה שלך בדיוק?,unethical,TRUE,none
+האם אי פעם ניפחת דוח הוצאות?,unethical,FALSE,none
+האם אי פעם קיבלת תשלום על עבודה שלא עשית באמת?,unethical,FALSE,none
+האם אי פעם פגעת במישהו פיזית בעבודה?,unethical,FALSE,none
+האם אי פעם איימת על מישהו במקום העבודה?,unethical,FALSE,none
+האם אי פעם השתמשת בשפה פוגענית או מינית במקום העבודה?,unethical,FALSE,none
+האם אי פעם הפלית מישהו על בסיס גזע דת או מין?,unethical,FALSE,none
+האם אי פעם פרסמת מידע סודי של החברה?,unethical,FALSE,none
+האם אי פעם התחרית בחברה בה עבדת בזמן שעבדת בה?,unethical,FALSE,none
+האם אי פעם לקחת שוחד או טובת הנאה תמורת החלטה מקצועית?,unethical,FALSE,none
+האם אי פעם ניסית לשחד מישהו?,unethical,FALSE,none
+האם אי פעם הסתרת מידע חשוב מהממונים עליך?,unethical,FALSE,none
+האם אי פעם גרמת נזק מכוון לרכוש של המעסיק?,theft,FALSE,none
+האם אי פעם מכרת משהו ששייך לחברה?,theft,FALSE,none
+האם אי פעם גנבת זמן עבודה בכך שלא עבדת כשאמרת שעבדת?,theft,FALSE,none
+האם אי פעם השתמשת בטלפון של העבודה לשיחות אישיות ארוכות?,unethical,FALSE,none
+האם אי פעם גלשת באינטרנט לצרכים אישיים בשעות העבודה?,unethical,FALSE,none
+האם אי פעם יצאת מהעבודה מוקדם בלי רשות?,unethical,FALSE,none
+האם אי פעם הגעת לעבודה באיחור משמעותי ושיקרת לגבי הסיבה?,unethical,FALSE,none
+האם אי פעם לקחת הפסקה ארוכה מהמותר?,unethical,FALSE,none
+האם אי פעם נמצאת באיחור לפגישה חשובה בכוונה?,unethical,FALSE,none
+האם אי פעם התעלמת ממשוב שליל של מנהל?,unethical,FALSE,none
+האם אי פעם סירבת לבצע משימה לגיטימית שביקשו ממך?,unethical,FALSE,none
+האם אי פעם עבדת בשכרות או בהשפעת סמים?,drugs,FALSE,none
+האם אי פעם הפצת שמועות שקריות על קולגה?,unethical,FALSE,none
+האם אי פעם ניסית להזיק לקריירה של מישהו אחר?,unethical,FALSE,none
+האם אי פעם גנבת רעיון של מישהו אחר והצגת אותו כשלך?,academic,FALSE,none
+האם אי פעם שיבחת את המעסיק הקודם שלך למעסיק החדש?,unethical,FALSE,none
+האם אי פעם לקחת ימי חופש שלא היו מגיעים לך?,unethical,FALSE,none
+האם אי פעם התפטרת בלי הודעה מוקדמת כשהיית חייב לתת?,termination,FALSE,none
+האם אי פעם עזבת עבודה באמצע פרויקט קריטי?,termination,FALSE,none
+האם אי פעם התפטרת ממקום עבודה מתוך נקמה?,termination,FALSE,none
+האם אי פעם מכרת סודות מסחריים של מעסיק קודם?,unethical,FALSE,none
+האם אי פעם התחרית במעסיק הקודם שלך בניגוד להסכם?,unethical,FALSE,none
+האם אי פעם גנבת לקוחות ממעסיק קודם?,theft,FALSE,none
+האם אי פעם פיברקת ניסיון עבודה בקורות החיים שלך?,academic,FALSE,none
+האם אי פעם שיקרת על השכלה או הסמכה שאין לך?,academic,FALSE,none
+האם אי פעם זייפת מכתב המלצה?,academic,FALSE,none
+האם אי פעם שיקרת בראיון עבודה על יכולות שאין לך?,academic,FALSE,none
+האם אי פעם העלמת מידע שלילי על עצמך בראיון עבודה?,unethical,FALSE,none
+האם אי פעם עבדת בשני מקומות במקביל בלי לספר לאף אחד?,unethical,FALSE,none
+האם אי פעם לקחת ציוד ממקום עבודה קודם כשעזבת?,theft,FALSE,none
+האם אי פעם מחקת קבצים חשובים בכוונה כשעזבת עבודה?,unethical,FALSE,none
+האם אי פעם פגעת בעסק של מעסיק קודם מתוך נקמה?,unethical,FALSE,none
+האם אי פעם דיברת רע על מעסיק קודם בפומבי?,unethical,FALSE,none
+האם אי פעם התחזית לחולה כדי לקבל פיצויים?,unethical,FALSE,none
+האם אי פעם ניצלת את ההטבות של העבודה באופן לא הוגן?,unethical,FALSE,none
+האם אי פעם הימרת בזמן שעות העבודה?,gambling,FALSE,none
+האם אי פעם התעללת נפשית בעמית לעבודה?,unethical,FALSE,none
+האם אי פעם התעללת רגשית במישהו במקום העבודה?,unethical,FALSE,none
+האם אי פעם יצרת סביבת עבודה עוינת במכוון?,unethical,FALSE,none
+האם אי פעם סחטת מישהו או איימת עליו בעבודה?,unethical,FALSE,none
+האם אי פעם עשית משהו בלתי חוקי במקום העבודה?,unethical,FALSE,none
+האם אי פעם הורשעת בעבירה פלילית?,unethical,FALSE,none
+האם אי פעם נעצרת על ידי המשטרה?,unethical,FALSE,none
+האם אי פעם הייתה נגדך תלונה במשטרה?,unethical,FALSE,none
+האם אי פעם היה נגדך צו הגנה?,unethical,FALSE,none
+האם אי פעם איימת על מישהו באלימות?,unethical,FALSE,none
+האם אי פעם השתמשת באלימות פיזית במקום עבודה?,unethical,FALSE,none
+האם אי פעם גנבת מחברים או מבני משפחה?,theft,FALSE,none
+האם אי פעם החזקת סמים במקום העבודה?,drugs,FALSE,none
+האם אי פעם מכרת סמים?,drugs,FALSE,none
+האם אי פעם נהגת בשכרות?,drugs,FALSE,none
+האם אי פעם היית מעורב בתאונת דרכים בגלל שכרות או סמים?,drugs,FALSE,none
+האם אי פעם איבדת רישיון נהיגה בגלל עבירה חמורה?,unethical,FALSE,none
+האם אי פעם ברחת ממקום תאונה?,unethical,FALSE,none
+האם אי פעם נהגת בלי ביטוח בכוונה?,unethical,FALSE,none
+האם אי פעם הימרת במשחק לא חוקי?,gambling,FALSE,none
+האם אי פעם חייב כסף להימורים שלא החזרת?,gambling,FALSE,none
+האם אי פעם שיקרת למשפחתך לגבי הימורים?,gambling,FALSE,none
+האם אי פעם לווית כסף להימורים?,gambling,FALSE,none
+האם אי פעם הימרת כסף שהיה מיועד לדברים אחרים?,gambling,FALSE,none
+האם אי פעם התווכחת עם מישהו באלימות בגלל הימור?,gambling,FALSE,none
