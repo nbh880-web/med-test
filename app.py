@@ -144,30 +144,34 @@ init_session()
 
 # --- 3. פונקציית הלחץ החדשה (Stress Effect) ---
 def trigger_stress_effect():
-    """מציג הודעת אזהרה וציר זמן למשך 30 שניות"""
+    """מציג הודעת אזהרה למשך 5 שניות"""
     messages = [
         "מזהה סתירה פוטנציאלית בתשובותיך...",
         "מחשב מדד אמינות רגעית... נא להמתין",
-        "האם אתה בטוח בתשובות האחרונות?",
         "מערכת הבקרה זיהתה חוסר עקביות בנתונים"
     ]
-    st.session_state.stress_msg = random.choice(messages)
+    msg = random.choice(messages)
     
+    # יצירת מקום להודעה
     placeholder = st.empty()
     
-    with placeholder.container():
-        st.markdown(f"""
-            <div class="stress-overlay">
-                <h1 style="color: #ff3b3b; font-size: 40px;">⚠️ לבדיקת המערכת</h1>
-                <h2 style="text-align: center; padding: 0 20px;">{st.session_state.stress_msg}</h2>
-                <div class="progress-container">
-                    <div class="progress-bar-fill"></div>
+    # ספירה לאחור של 5 שניות
+    for i in range(5, 0, -1):
+        with placeholder.container():
+            st.markdown(f"""
+                <div class="stress-overlay">
+                    <h1 style="color: #ff3b3b; font-size: 40px;">⚠️ לבדיקת המערכת</h1>
+                    <h2 style="text-align: center; padding: 0 20px;">{msg}</h2>
+                    <div class="progress-container" style="width: 300px; height: 15px; background: #333; margin: 20px auto; border-radius: 10px; overflow: hidden;">
+                        <div style="height: 100%; background: #ff3b3b; width: {(i / 5) * 100}%; transition: width 1s linear;"></div>
+                    </div>
+                    <p style="font-size: 20px;">המבדק ימשך בעוד {i} שניות...</p>
+                    <div style="margin-top: 50px; color: #555;">© זכויות יוצרים לניתאי מלכה</div>
                 </div>
-                <p style="margin-top: 20px; color: #aaa;">נא להמתין, המבדק ימשך מיד...</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-    time.sleep(30) 
+            """, unsafe_allow_html=True)
+        time.sleep(1) # מחכה שנייה אחת
+    
+    # מוחק את ההודעה כדי להמשיך בשאלות
     placeholder.empty()
 
 # --- 4. פונקציות עזר לממשק ---
@@ -183,7 +187,7 @@ def record_answer(ans_value, q_data):
     if origin == 'INTEGRITY' and INTEGRITY_AVAILABLE:
         score = calculate_integrity_score(ans_value, q_data['reverse'])
     else:
-        score = calculate_score(ans_value, q_data['reverse'])
+        score = calculate_score(ans_value, q_value=ans_value, reverse=q_data['reverse'])
     
     st.session_state.responses.append({
         'question': q_data['q'], 
@@ -197,14 +201,21 @@ def record_answer(ans_value, q_data):
         'reverse': q_data['reverse']
     })
 
+    # בודק אם השאלה הזו אמורה להפעיל לחץ
     is_meta = q_data.get('is_stress_meta') or q_data.get('stress_mode')
     
+    # מקדם לשאלה הבאה
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
-    
+
+    # --- השינוי כאן ---
+    # אם התנאי מתקיים, המערכת תפעיל את האפקט ותחכה 5 שניות לפני שהיא ממשיכה
     if is_meta:
         trigger_stress_effect()
-
+    
+    # פקודה שמרעננת את המסך לשאלה הבאה
+    st.rerun()
+    
 # --- 5. ממשק ניהול (Admin) ---
 def show_admin_dashboard():
     if st.button("🚪 התנתק וחזור לבית", key="admin_logout"):
