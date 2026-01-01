@@ -110,6 +110,13 @@ st.markdown("""
         from { width: 100%; }
         to { width: 0%; }
     }
+    
+    .copyright-footer {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+        font-size: 14px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -126,7 +133,7 @@ def init_session():
         'test_type': 'HEXACO',
         'reliability_score': None,
         'contradictions': [],
-        'show_stress': False, # דגל להצגת אפקט הלחץ
+        'show_stress': False,
         'stress_msg': ""
     }
     for key, val in defaults.items():
@@ -137,7 +144,7 @@ init_session()
 
 # --- 3. פונקציית הלחץ החדשה (Stress Effect) ---
 def trigger_stress_effect():
-    """מציג הודעת אזהרה וציר זמן למשך 3 שניות"""
+    """מציג הודעת אזהרה וציר זמן למשך 30 שניות"""
     messages = [
         "מזהה סתירה פוטנציאלית בתשובותיך...",
         "מחשב מדד אמינות רגעית... נא להמתין",
@@ -146,7 +153,6 @@ def trigger_stress_effect():
     ]
     st.session_state.stress_msg = random.choice(messages)
     
-    # יצירת מיכל ריק להודעה
     placeholder = st.empty()
     
     with placeholder.container():
@@ -161,8 +167,8 @@ def trigger_stress_effect():
             </div>
         """, unsafe_allow_html=True)
         
-    time.sleep(30) # השהיה של 30 שניות בדיוק
-    placeholder.empty() # הסרת ההודעה
+    time.sleep(30) 
+    placeholder.empty()
 
 # --- 4. פונקציות עזר לממשק ---
 @st.cache_data
@@ -191,7 +197,6 @@ def record_answer(ans_value, q_data):
         'reverse': q_data['reverse']
     })
 
-    # בדיקה האם זו שאלת מטא שצריכה להפעיל את אפקט הלחץ
     is_meta = q_data.get('is_stress_meta') or q_data.get('stress_mode')
     
     st.session_state.current_q += 1
@@ -381,25 +386,17 @@ elif st.session_state.step == 'RESULTS':
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
     
-        if not int_data.empty and INTEGRITY_AVAILABLE:
-            df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
-            reliability_score = calculate_reliability_score(df_int_raw)
-            contradictions = detect_contradictions(df_int_raw)
+    if not int_data.empty and INTEGRITY_AVAILABLE:
+        df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
+        reliability_score = calculate_reliability_score(df_int_raw)
+        contradictions = detect_contradictions(df_int_raw)
         
-        # תיקון בטוח: שליפת מילון הציונים לפי מיקום עמודות ולא לפי שם
         try:
             int_scores = int_summary.set_index(int_summary.columns[0])[int_summary.columns[-1]].to_dict()
         except:
             int_scores = {}
             st.error("⚠️ תקלה במבנה נתוני האמינות")
             
-        m2.metric("🛡️ מדד אמינות", f"{reliability_score}%")
-        interp = get_integrity_interpretation(reliability_score)
-        m3.markdown(f"**רמה:** {interp['level']}")
-        
-        st.session_state.reliability_score = reliability_score
-        st.session_state.contradictions = contradictions
-        
         m2.metric("🛡️ מדד אמינות", f"{reliability_score}%")
         interp = get_integrity_interpretation(reliability_score)
         m3.markdown(f"**רמה:** {interp['level']}")
