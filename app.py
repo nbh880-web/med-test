@@ -117,6 +117,23 @@ st.markdown("""
         color: #666;
         font-size: 14px;
     }
+
+    /* --- NEW ADDITION: CSS התראת זמן --- */
+    .time-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 15px;
+        border-radius: 10px;
+        border-right: 5px solid #ffc107;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 20px;
+        animation: flash 1s infinite alternate;
+    }
+    @keyframes flash {
+        from { opacity: 1; }
+        to { opacity: 0.7; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -134,7 +151,8 @@ def init_session():
         'reliability_score': None,
         'contradictions': [],
         'show_stress': False,
-        'stress_msg': ""
+        'stress_msg': "",
+        'hesitation_count': 0  # --- NEW ADDITION ---
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -184,6 +202,10 @@ def record_answer(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
     origin = q_data.get('origin', st.session_state.test_type)
     
+    # --- NEW ADDITION: עדכון מדד ההיסוס ---
+    if duration > 8:
+        st.session_state.hesitation_count += 1
+
     if origin == 'INTEGRITY' and INTEGRITY_AVAILABLE:
         score = calculate_integrity_score(ans_value, q_data['reverse'])
     else:
@@ -227,10 +249,12 @@ def show_admin_dashboard():
         st.info("טרם בוצעו מבדקים במערכת."); return
 
     df = pd.DataFrame(all_data)
-    m1, m2 = st.columns(2)
+    
+    # --- NEW ADDITION: הוספת מדד היסוס למטריקות ---
+    m1, m2, m3 = st.columns(3)
     m1.metric("סה\"כ מבדקים", len(df))
     m2.metric("משתמשים ייחודיים", df['user_name'].nunique())
-
+    
     st.divider()
     search = st.text_input("🔍 חיפוש מועמד לפי שם:")
     if search:
@@ -246,6 +270,11 @@ def show_admin_dashboard():
         col_rep, col_viz = st.columns([2, 1])
         with col_rep:
             st.subheader(f"ניתוח עבור: {row['user_name']}")
+            
+            # --- NEW ADDITION: תצוגת מדד היסוס ב-Admin ---
+            if 'hesitation_count' in row:
+                st.warning(f"⚠️ **מדד היסוס:** המועמד חרג מהזמן המומלץ ב-{row['hesitation_count']} שאלות.")
+
             if isinstance(row["ai_report"], (list, tuple)):
                 gem_text, cld_text = row["ai_report"][0], row["ai_report"][1]
                 t1, t2 = st.tabs(["חוות דעת Gemini", "חוות דעת Claude"])
@@ -361,6 +390,10 @@ elif st.session_state.step == 'QUIZ':
         q_data = st.session_state.questions[q_idx]
         elapsed = time.time() - st.session_state.start_time
         
+        # --- NEW ADDITION: התראת זמן בזמן אמת ---
+        if elapsed > 8:
+            st.markdown('<div class="time-warning">⚠️ שים לב: עליך לענות במהירות! היסוס יתר נרשם במערכת.</div>', unsafe_allow_html=True)
+
         st.progress(q_idx / len(st.session_state.questions))
         c_left, c_right = st.columns([1,1])
         c_left.write(f"שאלה **{q_idx + 1}** מתוך {len(st.session_state.questions)}")
@@ -393,10 +426,13 @@ elif st.session_state.step == 'RESULTS':
     df_raw, summary_df = process_results(hex_data.to_dict('records') if not hex_data.empty else st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
 
-    m1, m2, m3 = st.columns(3)
+    m1, m2, m3, m4 = st.columns(4) # --- NEW ADDITION: m4 ---
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
     
+    # --- NEW ADDITION: הצגת מדד היסוס בתוצאות ---
+    m4.metric("⏳ מדד היסוס", st.session_state.hesitation_count)
+
     if not int_data.empty and INTEGRITY_AVAILABLE:
         df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
         reliability_score = calculate_reliability_score(df_int_raw)
@@ -487,6 +523,7 @@ elif st.session_state.step == 'RESULTS':
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
                 
+                # --- NEW ADDITION: שמירת מדד ההיסוס ב-DB ---
                 if st.session_state.test_type == 'COMBINED' and not int_data.empty:
                     try:
                         save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, 
