@@ -22,7 +22,7 @@ from logic import (
     get_balanced_questions
 )
 
-# --- ייבוא לוגיקת אמינות (integrity_logic.py) - תוספת חדשה ---
+# --- ייבוא לוגיקת אמינות (integrity_logic.py) ---
 try:
     from integrity_logic import (
         get_integrity_questions,
@@ -47,13 +47,11 @@ try:
         get_radar_chart, 
         create_token_gauge
     )
-    # תוספת חדשה - פונקציות AI לאמינות
     if INTEGRITY_AVAILABLE:
         try:
             from gemini_ai import get_integrity_ai_analysis, get_combined_ai_analysis
         except ImportError:
             pass
-    # תוספת חדשה - פונקציות DB לאמינות
     try:
         from database import (
             save_integrity_test_to_db,
@@ -66,7 +64,7 @@ try:
 except ImportError:
     st.error("⚠️ חלק מקבצי העזר (database/gemini_ai) חסרים בתיקייה.")
 
-# --- 1. הגדרות דף ו-CSS (ביטול מוחלט של הסרגל) ---
+# --- 1. הגדרות דף ו-CSS מורחב ---
 st.set_page_config(
     page_title="Mednitai HEXACO System", 
     layout="wide",
@@ -75,12 +73,9 @@ st.set_page_config(
 
 st.markdown("""
     <style>
-    /* העלמת הסרגל הצדדי והכפתור שלו לחלוטין */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"], [data-testid="stSidebarCollapsedControl"] {
         display: none !important;
     }
-    
-    /* התאמת כיוון הטקסט ל-RTL */
     .stApp { direction: rtl; text-align: right; }
     
     /* עיצוב כפתורים */
@@ -91,39 +86,33 @@ st.markdown("""
     }
     div.stButton > button:hover { border-color: #1e3a8a; color: #1e3a8a; }
     
-    /* עיצוב טקסט שאלות */
     .question-text { 
         font-size: 32px; font-weight: 800; text-align: center; 
         padding: 40px 20px; color: #1a2a6c; background-color: #f8f9fa; 
         border-radius: 15px; margin-bottom: 25px; border: 1px solid #e9ecef;
     }
-    
-    /* עיצוב קופסאות דוח AI */
-    .ai-report-box { 
-        padding: 25px; border-right: 8px solid #1e3a8a; border-radius: 12px; 
-        background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        line-height: 1.8; text-align: right; font-size: 17px; white-space: pre-wrap;
+
+    /* סגנון לשכבת הלחץ */
+    .stress-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); z-index: 9999;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        color: white; font-family: sans-serif;
     }
-    .claude-report-box { 
-        padding: 25px; border-right: 8px solid #c83737; border-radius: 12px; 
-        background-color: #fffafa; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        line-height: 1.8; text-align: right; font-size: 17px; white-space: pre-wrap;
+    .progress-container {
+        width: 300px; height: 12px; background: #333; border-radius: 6px; margin-top: 20px; overflow: hidden;
     }
-    
-    /* עיצוב זכויות יוצרים בתחתית הדף */
-    .copyright-footer {
-        text-align: center; color: #6c757d; font-size: 0.9em; padding: 20px;
-        border-top: 1px solid #dee2e6; margin-top: 30px; width: 100%;
+    .progress-bar-fill {
+        height: 100%; background: #ff3b3b; width: 100%;
+        animation: shrink 3s linear forwards;
     }
-    
-    /* תוספת חדשה - עיצוב רמות סיכון */
-    .risk-high { color: #dc3545; font-weight: bold; }
-    .risk-medium { color: #fd7e14; font-weight: bold; }
-    .risk-low { color: #28a745; font-weight: bold; }
+    @keyframes shrink {
+        from { width: 100%; }
+        to { width: 0%; }
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# פונקציית עזר להצגת זכויות יוצרים בסוף כל דף
 def show_copyright():
     st.markdown('<div class="copyright-footer">© זכויות יוצרים לניתאי מלכה</div>', unsafe_allow_html=True)
 
@@ -134,10 +123,11 @@ def init_session():
         'user_name': "", 'questions': [], 'start_time': 0, 
         'gemini_report': None, 'claude_report': None,
         'run_id': str(uuid.uuid4())[:8],
-        # תוספת חדשה
         'test_type': 'HEXACO',
         'reliability_score': None,
-        'contradictions': []
+        'contradictions': [],
+        'show_stress': False, # דגל להצגת אפקט הלחץ
+        'stress_msg': ""
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -145,20 +135,45 @@ def init_session():
 
 init_session()
 
-# --- 3. פונקציות עזר לממשק ---
+# --- 3. פונקציית הלחץ החדשה (Stress Effect) ---
+def trigger_stress_effect():
+    """מציג הודעת אזהרה וציר זמן למשך 3 שניות"""
+    messages = [
+        "מזהה סתירה פוטנציאלית בתשובותיך...",
+        "מחשב מדד אמינות רגעית... נא להמתין",
+        "האם אתה בטוח בתשובות האחרונות?",
+        "מערכת הבקרה זיהתה חוסר עקביות בנתונים"
+    ]
+    st.session_state.stress_msg = random.choice(messages)
+    
+    # יצירת מיכל ריק להודעה
+    placeholder = st.empty()
+    
+    with placeholder.container():
+        st.markdown(f"""
+            <div class="stress-overlay">
+                <h1 style="color: #ff3b3b; font-size: 40px;">⚠️ לבדיקת המערכת</h1>
+                <h2 style="text-align: center; padding: 0 20px;">{st.session_state.stress_msg}</h2>
+                <div class="progress-container">
+                    <div class="progress-bar-fill"></div>
+                </div>
+                <p style="margin-top: 20px; color: #aaa;">נא להמתין, המבדק ימשך מיד...</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    time.sleep(3) # השהיה של 3 שניות בדיוק
+    placeholder.empty() # הסרת ההודעה
+
+# --- 4. פונקציות עזר לממשק ---
 @st.cache_data
 def load_questions_data():
     try: return pd.read_csv('data/questions.csv')
     except: return pd.DataFrame()
 
-# תוספת חדשה - פונקציה משופרת לרישום תשובות
 def record_answer(ans_value, q_data):
     duration = time.time() - st.session_state.start_time
-    
-    # זיהוי סוג השאלה
     origin = q_data.get('origin', st.session_state.test_type)
     
-    # חישוב ציון לפי סוג השאלה
     if origin == 'INTEGRITY' and INTEGRITY_AVAILABLE:
         score = calculate_integrity_score(ans_value, q_data['reverse'])
     else:
@@ -175,10 +190,17 @@ def record_answer(ans_value, q_data):
         'time_taken': duration, 
         'reverse': q_data['reverse']
     })
+
+    # בדיקה האם זו שאלת מטא שצריכה להפעיל את אפקט הלחץ
+    is_meta = q_data.get('is_stress_meta') or q_data.get('stress_mode')
+    
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
+    
+    if is_meta:
+        trigger_stress_effect()
 
-# --- 4. ממשק ניהול (מוצג כעת בתוך הדף הראשי) ---
+# --- 5. ממשק ניהול (Admin) ---
 def show_admin_dashboard():
     if st.button("🚪 התנתק וחזור לבית", key="admin_logout"):
         st.session_state.step = 'HOME'; st.rerun()
@@ -220,7 +242,7 @@ def show_admin_dashboard():
             if "results" in row:
                 st.plotly_chart(get_radar_chart(row["results"]), width="stretch", key=f"admin_radar_{selected_idx}_{st.session_state.run_id}")
 
-# --- 5. ניווט ראשי ---
+# --- 6. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
     show_copyright()
@@ -241,7 +263,6 @@ elif st.session_state.step == 'HOME':
             if not all_qs_df.empty:
                 st.info(f"שלום {name_input}, ברוך הבא לסימולטור. בחר את סוג ואורך המבדק:")
                 
-                # תוספת חדשה - בחירת סוג מבחן
                 if INTEGRITY_AVAILABLE:
                     test_type = st.radio(
                         "סוג המבדק:",
@@ -252,7 +273,6 @@ elif st.session_state.step == 'HOME':
                 else:
                     test_type = "אישיות HEXACO"
                 
-                # אישיות HEXACO
                 if test_type == "אישיות HEXACO":
                     st.session_state.test_type = 'HEXACO'
                     col1, col2, col3 = st.columns(3)
@@ -266,7 +286,6 @@ elif st.session_state.step == 'HOME':
                             st.session_state.start_time = time.time()
                             st.rerun()
                 
-                # תוספת חדשה - מבחן אמינות
                 elif test_type == "אמינות ויושרה" and INTEGRITY_AVAILABLE:
                     st.session_state.test_type = 'INTEGRITY'
                     st.markdown("**מבחן יושרה ואמינות מקיף** - בודק התנהגות אתית, יושרה ועקביות תשובות")
@@ -281,23 +300,18 @@ elif st.session_state.step == 'HOME':
                             st.session_state.start_time = time.time()
                             st.rerun()
                 
-                # תוספת חדשה - מבחן משולב
                 elif test_type == "🌟 מבחן משולב" and INTEGRITY_AVAILABLE:
                     st.session_state.test_type = 'COMBINED'
                     st.markdown("**מבחן משולב מתקדם** - 60 שאלות HEXACO + 40 שאלות אמינות (מעורבבים)")
                     if st.button("🚀 התחל מבחן משולב (100 שאלות)", key=f"combined_{st.session_state.run_id}"):
                         hex_pool = get_balanced_questions(all_qs_df, 60)
                         int_pool = get_integrity_questions(40)
-                        
                         for q in hex_pool: q['origin'] = 'HEXACO'
                         for q in int_pool: q['origin'] = 'INTEGRITY'
-                        
-                        # מעורבב ביחס 6:4
                         combined = []
                         for i in range(10):
                             combined.extend(hex_pool[i*6:(i+1)*6])
                             combined.extend(int_pool[i*4:(i+1)*4])
-                        
                         st.session_state.questions = combined
                         st.session_state.step = 'QUIZ'
                         st.session_state.start_time = time.time()
@@ -347,7 +361,7 @@ elif st.session_state.step == 'QUIZ':
         if q_idx > 0:
             if st.button("⬅️ חזור לשאלה הקודמת", key=f"back_btn_{st.session_state.run_id}"):
                 st.session_state.current_q -= 1
-                st.session_state.responses.pop()
+                if st.session_state.responses: st.session_state.responses.pop()
                 st.rerun()
     else:
         st.session_state.step = 'RESULTS'; st.rerun()
@@ -356,21 +370,17 @@ elif st.session_state.step == 'QUIZ':
 elif st.session_state.step == 'RESULTS':
     st.markdown(f'# 📊 דוח ניתוח אישיות - {st.session_state.user_name}')
     
-    # הפרדת נתונים לפי מקור (תוספת חדשה)
     resp_df = pd.DataFrame(st.session_state.responses)
     hex_data = resp_df[resp_df.get('origin', 'HEXACO') == 'HEXACO'] if 'origin' in resp_df.columns else resp_df
     int_data = resp_df[resp_df.get('origin', '') == 'INTEGRITY'] if 'origin' in resp_df.columns else pd.DataFrame()
     
-    # עיבוד נתוני HEXACO (קיים)
     df_raw, summary_df = process_results(hex_data.to_dict('records') if not hex_data.empty else st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
 
-    # מטריקות ראשיות
     m1, m2, m3 = st.columns(3)
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
     
-    # תוספת חדשה - חישוב אמינות אם יש נתוני אמינות
     if not int_data.empty and INTEGRITY_AVAILABLE:
         df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
         reliability_score = calculate_reliability_score(df_int_raw)
@@ -387,20 +397,17 @@ elif st.session_state.step == 'RESULTS':
         m2.metric("🛡️ מדד אמינות", f"{calculate_reliability_index(df_raw)}%")
         m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} שניות")
 
-    # גרפים
     c1, c2 = st.columns(2)
     with c1: 
         st.subheader("פרופיל אישיות HEXACO")
         st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
     with c2:
-        # תוספת חדשה - גרף אמינות אם קיים
         if not int_data.empty and INTEGRITY_AVAILABLE:
             st.subheader("מדדי אמינות")
             st.plotly_chart(get_radar_chart(int_scores), width="stretch", key=f"int_radar_{st.session_state.run_id}")
         else:
             st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
     
-    # תוספת חדשה - הצגת סתירות
     if not int_data.empty and INTEGRITY_AVAILABLE and contradictions:
         st.divider()
         st.subheader("⚠️ ממצאי עקביות")
@@ -414,13 +421,11 @@ elif st.session_state.step == 'RESULTS':
         if high:
             st.warning(f"⚠️ נמצאו {len(high)} סתירות חמורות")
 
-    # ניתוח AI
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
                 hist = get_db_history(st.session_state.user_name)
                 
-                # תוספת חדשה - בחירת פונקציית AI לפי סוג המבחן
                 if st.session_state.test_type == 'COMBINED' and INTEGRITY_AVAILABLE and not int_data.empty:
                     gem_rep, cld_rep = get_combined_ai_analysis(
                         st.session_state.user_name,
@@ -443,7 +448,6 @@ elif st.session_state.step == 'RESULTS':
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
                 
-                # שמירה (תוספת חדשה - שמירה לפי סוג)
                 if st.session_state.test_type == 'COMBINED' and not int_data.empty:
                     try:
                         save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, 
