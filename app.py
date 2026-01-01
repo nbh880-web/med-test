@@ -407,16 +407,34 @@ elif st.session_state.step == 'RESULTS':
         m2.metric("🛡️ מדד אמינות", f"{calculate_reliability_index(df_raw)}%")
         m3.metric("⏱️ זמן מענה ממוצע", f"{summary_df['avg_time'].mean():.1f} שניות")
 
-    c1, c2 = st.columns(2)
-    with c1: 
-        st.subheader("פרופיל אישיות HEXACO")
-        st.plotly_chart(get_radar_chart(trait_scores), width="stretch", key=f"final_radar_{st.session_state.run_id}")
-    with c2:
+    # --- תצוגת גרפים מותאמת לסוג המבחן ---
+    if st.session_state.test_type == 'INTEGRITY':
+        st.subheader("📊 ניתוח מדדי אמינות ויושרה")
         if not int_data.empty and INTEGRITY_AVAILABLE:
-            st.subheader("מדדי אמינות")
-            st.plotly_chart(get_radar_chart(int_scores), width="stretch", key=f"int_radar_{st.session_state.run_id}")
+            st.plotly_chart(get_radar_chart(int_scores), use_container_width=True, key=f"int_only_radar_{st.session_state.run_id}")
         else:
-            st.plotly_chart(get_comparison_chart(trait_scores), width="stretch", key=f"final_bar_{st.session_state.run_id}")
+            st.info("לא נמצאו נתוני אמינות להצגה")
+             
+    elif st.session_state.test_type == 'HEXACO':
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("פרופיל אישיות HEXACO")
+            st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True, key=f"hex_only_radar_{st.session_state.run_id}")
+        with c2:
+            st.subheader("השוואת נורמות (Bar Chart)")
+            st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True, key=f"hex_only_bar_{st.session_state.run_id}")
+            
+    elif st.session_state.test_type == 'COMBINED':
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("פרופיל אישיות HEXACO")
+            st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True, key=f"comb_hex_radar_{st.session_state.run_id}")
+        with c2:
+            st.subheader("מדדי אמינות")
+            if not int_data.empty and INTEGRITY_AVAILABLE:
+                st.plotly_chart(get_radar_chart(int_scores), use_container_width=True, key=f"comb_int_radar_{st.session_state.run_id}")
+            else:
+                st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True, key=f"comb_bar_fallback_{st.session_state.run_id}")
     
     if not int_data.empty and INTEGRITY_AVAILABLE and contradictions:
         st.divider()
