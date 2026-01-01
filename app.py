@@ -104,7 +104,7 @@ st.markdown("""
     }
     .progress-bar-fill {
         height: 100%; background: #ff3b3b; width: 100%;
-        animation: shrink 10s linear forwards;
+        animation: shrink 30s linear forwards;
     }
     @keyframes shrink {
         from { width: 100%; }
@@ -161,7 +161,7 @@ def trigger_stress_effect():
             </div>
         """, unsafe_allow_html=True)
         
-    time.sleep(10) # השהיה של 3 שניות בדיוק
+    time.sleep(30) # השהיה של 30 שניות בדיוק
     placeholder.empty() # הסרת ההודעה
 
 # --- 4. פונקציות עזר לממשק ---
