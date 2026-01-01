@@ -381,10 +381,10 @@ elif st.session_state.step == 'RESULTS':
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
     
-   if not int_data.empty and INTEGRITY_AVAILABLE:
-        df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
-        reliability_score = calculate_reliability_score(df_int_raw)
-        contradictions = detect_contradictions(df_int_raw)
+        if not int_data.empty and INTEGRITY_AVAILABLE:
+            df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
+            reliability_score = calculate_reliability_score(df_int_raw)
+            contradictions = detect_contradictions(df_int_raw)
         
         # תיקון בטוח: שליפת מילון הציונים לפי מיקום עמודות ולא לפי שם
         try:
