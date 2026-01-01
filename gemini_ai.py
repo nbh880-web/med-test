@@ -190,3 +190,60 @@ def get_comparison_chart(results):
 
 def create_token_gauge(text):
     return HEXACO_Expert_System().create_token_gauge(text)
+    
+# --- פונקציות חסרות לניתוח אמינות ומשולב ---
+
+def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_scores, history):
+    """
+    מפיק ניתוח AI עבור מבדק אמינות ויושרה.
+    משתמש במערכת המומחה הקיימת.
+    """
+    expert = HEXACO_Expert_System()
+    
+    # בניית הקשר אמינות לפרומפט
+    rel_info = f"מדד אמינות: {reliability_score}%\n"
+    if contradictions:
+        rel_info += "סתירות שזוהו בתשובות המועמד:\n" + "\n".join([f"- {c.get('message')}" for c in contradictions])
+    
+    # יצירת פרומפט מותאם לאמינות
+    prompt = f"""
+    אתה פסיכולוג תעסוקתי המנתח מבדק אמינות (Integrity Test).
+    מועמד: {user_name}
+    תוצאות מדדים: {json.dumps(int_scores)}
+    {rel_info}
+    היסטוריה: {history}
+    
+    נתח את רמת היושרה והסיכון התעסוקתי של המועמד.
+    כתוב דוח מפורט בעברית.
+    © זכויות יוצרים לניתאי מלכה.
+    """
+    
+    # שימוש במנגנוני ה-Failover הקיימים של HEXACO_Expert_System
+    return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
+
+
+def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contradictions, history):
+    """
+    מפיק ניתוח AI משולב (HEXACO + אמינות).
+    משתמש במערכת המומחה הקיימת.
+    """
+    expert = HEXACO_Expert_System()
+    
+    # בניית הקשר משולב לפרומפט
+    rel_info = f"מדד אמינות שאלון: {reliability_score}%\n"
+    if contradictions:
+        rel_info += "אזהרת עקביות - נמצאו סתירות:\n" + "\n".join([f"- {c.get('message')}" for c in contradictions])
+        
+    prompt = f"""
+    אתה פסיכולוג בכיר המנתח מבדק משולב: אישיות (HEXACO) ואמינות.
+    מועמד: {user_name}
+    ציוני אישיות: {json.dumps(trait_scores)}
+    {rel_info}
+    
+    נתח את הקשר בין תכונות האישיות לבין רמת האמינות שהופגנה.
+    התייחס להתאמה הכוללת לתפקידי רפואה/ניהול.
+    כתוב דוח מעמיק בעברית.
+    © זכויות יוצרים לניתאי מלכה.
+    """
+    
+    return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
