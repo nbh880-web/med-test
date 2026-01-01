@@ -104,7 +104,7 @@ st.markdown("""
     }
     .progress-bar-fill {
         height: 100%; background: #ff3b3b; width: 100%;
-        animation: shrink 3s linear forwards;
+        animation: shrink 10s linear forwards;
     }
     @keyframes shrink {
         from { width: 100%; }
@@ -161,7 +161,7 @@ def trigger_stress_effect():
             </div>
         """, unsafe_allow_html=True)
         
-    time.sleep(3) # השהיה של 3 שניות בדיוק
+    time.sleep(10) # השהיה של 3 שניות בדיוק
     placeholder.empty() # הסרת ההודעה
 
 # --- 4. פונקציות עזר לממשק ---
@@ -381,11 +381,24 @@ elif st.session_state.step == 'RESULTS':
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
     
-    if not int_data.empty and INTEGRITY_AVAILABLE:
+   if not int_data.empty and INTEGRITY_AVAILABLE:
         df_int_raw, int_summary = process_integrity_results(int_data.to_dict('records'))
         reliability_score = calculate_reliability_score(df_int_raw)
         contradictions = detect_contradictions(df_int_raw)
-        int_scores = int_summary.set_index('category_name')['final_score'].to_dict()
+        
+        # תיקון בטוח: שליפת מילון הציונים לפי מיקום עמודות ולא לפי שם
+        try:
+            int_scores = int_summary.set_index(int_summary.columns[0])[int_summary.columns[-1]].to_dict()
+        except:
+            int_scores = {}
+            st.error("⚠️ תקלה במבנה נתוני האמינות")
+            
+        m2.metric("🛡️ מדד אמינות", f"{reliability_score}%")
+        interp = get_integrity_interpretation(reliability_score)
+        m3.markdown(f"**רמה:** {interp['level']}")
+        
+        st.session_state.reliability_score = reliability_score
+        st.session_state.contradictions = contradictions
         
         m2.metric("🛡️ מדד אמינות", f"{reliability_score}%")
         interp = get_integrity_interpretation(reliability_score)
