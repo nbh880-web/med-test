@@ -209,7 +209,7 @@ def record_answer(ans_value, q_data):
     if origin == 'INTEGRITY' and INTEGRITY_AVAILABLE:
         score = calculate_integrity_score(ans_value, q_data['reverse'])
     else:
-        score = calculate_score(ans_value, q_value=ans_value, reverse=q_data['reverse'])
+        score = calculate_score(ans_value, reverse=q_data.get('reverse', False))
     
     st.session_state.responses.append({
         'question': q_data['q'], 
