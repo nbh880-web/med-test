@@ -349,21 +349,41 @@ elif st.session_state.step == 'HOME':
                 
                 elif test_type == "🌟 מבחן משולב" and INTEGRITY_AVAILABLE:
                     st.session_state.test_type = 'COMBINED'
-                    st.markdown("**מבחן משולב מתקדם** - 60 שאלות HEXACO + 40 שאלות אמינות (מעורבבים)")
-                    if st.button("🚀 התחל מבחן משולב (100 שאלות)", key=f"combined_{st.session_state.run_id}"):
+                    st.markdown("**מבחן משולב מתקדם** - 100 שאלות בסיס + שאלות מטא מפעילות לחץ")
+                    if st.button("🚀 התחל מבחן משולב", key=f"combined_{st.session_state.run_id}"):
+                        # 1. יצירת ה-100 המקוריות (60 HEXACO + 40 אמינות)
                         hex_pool = get_balanced_questions(all_qs_df, 60)
                         int_pool = get_integrity_questions(40)
+                        
                         for q in hex_pool: q['origin'] = 'HEXACO'
                         for q in int_pool: q['origin'] = 'INTEGRITY'
+                        
                         combined = []
                         for i in range(10):
                             combined.extend(hex_pool[i*6:(i+1)*6])
                             combined.extend(int_pool[i*4:(i+1)*4])
+                        
+                        # 2. הוספת שאלות מטא כתוספת (מעבר ל-100)
+                        if 'is_stress_meta' in all_qs_df.columns:
+                            # סינון שאלות המטא מהמאגר
+                            meta_qs = all_qs_df[all_qs_df['is_stress_meta'] == 1].to_dict('records')
+                            
+                            if meta_qs:
+                                # נבחר למשל 5-7 שאלות מטא להזרקה (תוכל לשנות את הכמות)
+                                meta_to_inject = random.sample(meta_qs, min(6, len(meta_qs)))
+                                
+                                for mq in meta_to_inject:
+                                    mq['origin'] = 'INTEGRITY'
+                                    # הגרלת מיקום להזרקה בין שאלה 10 לשאלה 95
+                                    insert_pos = random.randint(10, len(combined) - 5)
+                                    combined.insert(insert_pos, mq)
+
+                        # 3. שמירת הרשימה (עכשיו היא תהיה בערך 106 שאלות)
                         st.session_state.questions = combined
                         st.session_state.step = 'QUIZ'
                         st.session_state.start_time = time.time()
                         st.rerun()
-        
+                        
         with tab_archive:
             history = get_db_history(name_input)
             if history:
