@@ -2,17 +2,15 @@ name: Wake Up Streamlit App
 
 on:
   schedule:
-    # הקרון הזה רץ פעמיים ביום. 
-    # שים לב: הזמנים הם ב-UTC (זמן עולמי). 
-    # 06:00 UTC זה 08:00 בבוקר בישראל (שעון חורף).
-    # 18:00 UTC זה 20:00 בערב בישראל.
-    - cron: '0 6,18 * * *'
-  workflow_dispatch: # מאפשר לך להריץ את זה ידנית מהטאב Actions לבדיקה
+    # רץ בכל שעה עגולה (24 פעמים ביום)
+    - cron: '0 * * * *'
+  workflow_dispatch: 
 
 jobs:
   ping_app:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Streamlit App
+      - name: Ping Streamlit App with Browser Identity
         run: |
-          curl -I https://hexaco-med-test.streamlit.app
+          curl -I -L -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+          https://hexaco-med-test.streamlit.app
