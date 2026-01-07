@@ -349,12 +349,14 @@ elif st.session_state.step == 'HOME':
                 
                 elif test_type == "🌟 מבחן משולב" and INTEGRITY_AVAILABLE:
                     st.session_state.test_type = 'COMBINED'
-                    st.markdown("**מבחן משולב מתקדם** - 100 שאלות בסיס + שאלות מטא מפעילות לחץ")
+                    st.markdown("**מבחן משולב מתקדם** - 100 שאלות בסיס + הזרקת שאלות מטא")
                     if st.button("🚀 התחל מבחן משולב", key=f"combined_{st.session_state.run_id}"):
-                        # 1. יצירת ה-100 המקוריות (60 HEXACO + 40 אמינות)
+                        # 1. טעינה מפורשת של הנתונים
+                        all_qs_df = load_questions_data()
+                        
+                        # 2. בניית ה-100 המקוריות (60 HEXACO + 40 אמינות)
                         hex_pool = get_balanced_questions(all_qs_df, 60)
                         int_pool = get_integrity_questions(40)
-                        
                         for q in hex_pool: q['origin'] = 'HEXACO'
                         for q in int_pool: q['origin'] = 'INTEGRITY'
                         
@@ -363,21 +365,31 @@ elif st.session_state.step == 'HOME':
                             combined.extend(hex_pool[i*6:(i+1)*6])
                             combined.extend(int_pool[i*4:(i+1)*4])
                         
-                        # 2. הוספת שאלות מטא כתוספת (מעבר ל-100)
+                        # 3. הזרקת שאלות מטא - בדיקה קפדנית של העמודה
+                        # מוודא שהעמודה קיימת ושיש בה ערכים (ממיר ל-numeric ליתר ביטחון)
                         if 'is_stress_meta' in all_qs_df.columns:
-                            # סינון שאלות המטא מהמאגר
-                            meta_qs = all_qs_df[all_qs_df['is_stress_meta'] == 1].to_dict('records')
+                            all_qs_df['is_stress_meta'] = pd.to_numeric(all_qs_df['is_stress_meta'], errors='coerce').fillna(0)
+                            meta_qs_df = all_qs_df[all_qs_df['is_stress_meta'] == 1]
                             
-                            if meta_qs:
-                                # נבחר למשל 5-7 שאלות מטא להזרקה (תוכל לשנות את הכמות)
-                                meta_to_inject = random.sample(meta_qs, min(6, len(meta_qs)))
+                            if not meta_qs_df.empty:
+                                meta_list = meta_qs_df.to_dict('records')
+                                # בוחר 6 שאלות מטא להזרקה
+                                num_to_inject = min(6, len(meta_list))
+                                meta_to_inject = random.sample(meta_list, num_to_inject)
                                 
                                 for mq in meta_to_inject:
                                     mq['origin'] = 'INTEGRITY'
-                                    # הגרלת מיקום להזרקה בין שאלה 10 לשאלה 95
-                                    insert_pos = random.randint(10, len(combined) - 5)
+                                    # הזרקה במיקומים אקראיים לאורך המבחן
+                                    insert_pos = random.randint(10, len(combined) - 2)
                                     combined.insert(insert_pos, mq)
-
+                        
+                        # 4. עדכון ה-Session וריצה
+                        st.session_state.questions = combined
+                        st.session_state.current_q = 0 # איפוס ליתר ביטחון
+                        st.session_state.step = 'QUIZ'
+                        st.session_state.start_time = time.time()
+                        st.rerun()
+                        
                         # 3. שמירת הרשימה (עכשיו היא תהיה בערך 106 שאלות)
                         st.session_state.questions = combined
                         st.session_state.step = 'QUIZ'
