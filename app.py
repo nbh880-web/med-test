@@ -346,7 +346,7 @@ elif st.session_state.step == 'HOME':
                             st.session_state.step = 'QUIZ'
                             st.session_state.start_time = time.time()
                             st.rerun()
-                
+                            
                 elif test_type == "🌟 מבחן משולב" and INTEGRITY_AVAILABLE:
                     st.session_state.test_type = 'COMBINED'
                     st.markdown("**מבחן משולב מתקדם** - 100 שאלות בסיס + הזרקת שאלות מטא")
@@ -360,14 +360,14 @@ elif st.session_state.step == 'HOME':
                         for q in hex_pool: q['origin'] = 'HEXACO'
                         for q in int_pool: q['origin'] = 'INTEGRITY'
                         
-                        combined = []
+                        combined_list = []
                         for i in range(10):
-                            combined.extend(hex_pool[i*6:(i+1)*6])
-                            combined.extend(int_pool[i*4:(i+1)*4])
+                            combined_list.extend(hex_pool[i*6:(i+1)*6])
+                            combined_list.extend(int_pool[i*4:(i+1)*4])
                         
-                        # 3. הזרקת שאלות מטא - בדיקה קפדנית של העמודה
-                        # מוודא שהעמודה קיימת ושיש בה ערכים (ממיר ל-numeric ליתר ביטחון)
+                        # 3. הזרקת שאלות מטא (בנוסף ל-100)
                         if 'is_stress_meta' in all_qs_df.columns:
+                            # המרה למספר וסינון
                             all_qs_df['is_stress_meta'] = pd.to_numeric(all_qs_df['is_stress_meta'], errors='coerce').fillna(0)
                             meta_qs_df = all_qs_df[all_qs_df['is_stress_meta'] == 1]
                             
@@ -379,23 +379,17 @@ elif st.session_state.step == 'HOME':
                                 
                                 for mq in meta_to_inject:
                                     mq['origin'] = 'INTEGRITY'
-                                    # הזרקה במיקומים אקראיים לאורך המבחן
-                                    insert_pos = random.randint(10, len(combined) - 2)
-                                    combined.insert(insert_pos, mq)
+                                    # הזרקה במיקום אקראי (החל משאלה 10)
+                                    insert_pos = random.randint(10, len(combined_list) - 5)
+                                    combined_list.insert(insert_pos, mq)
                         
-                        # 4. עדכון ה-Session וריצה
-                        st.session_state.questions = combined
-                        st.session_state.current_q = 0 # איפוס ליתר ביטחון
+                        # 4. עדכון ה-Session וריצה (שים לב: אין דריסה של combined_list כאן)
+                        st.session_state.questions = combined_list
+                        st.session_state.current_q = 0
                         st.session_state.step = 'QUIZ'
                         st.session_state.start_time = time.time()
                         st.rerun()
-                        
-                        # 3. שמירת הרשימה (עכשיו היא תהיה בערך 106 שאלות)
-                        st.session_state.questions = combined
-                        st.session_state.step = 'QUIZ'
-                        st.session_state.start_time = time.time()
-                        st.rerun()
-                        
+               
         with tab_archive:
             history = get_db_history(name_input)
             if history:
