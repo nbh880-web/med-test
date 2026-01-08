@@ -172,7 +172,7 @@ q,trait,reverse
 אני מרגיש סיפוק כשאני יודע שאנשים רואים בי סמכות מקצועית.,Extraversion,FALSE
 אני תמיד משתדל להיות הוגן גם כשאף אחד לא מסתכל,Honesty-Humility,False
 אני אוהב ליצור דברים חדשים,Openness,False
-אם אדע שלעולם לא יתפסו אותי, הייתי מוכן לגנוב מיליון דולר,Honesty-Humility,TRUE
+אם אדע שלעולם לא יתפסו אותי הייתי מוכן לגנוב מיליון דולר,Honesty-Humility,TRUE
 אני לא משתמש במחמאות כדי לגרום לאנשים לעשות מה שאני רוצה,Honesty-Humility,False
 אני תמיד מקפיד לסיים את הדיווחים שלי לפני שאני עוזב את העבודה.,Conscientiousness,FALSE
 אני מוצא את זה קשה לסלוח לאנשים שפגעו ברגשותיי בכוונה.,Agreeableness,TRUE
@@ -214,7 +214,7 @@ q,trait,reverse
 אני חושש לנסוע במצבי מזג אוויר קיצוני,Emotionality,FALSE
 אני נהנה ללמוד על מבנה המוח האנושי ופעולתו.,Openness to Experience,FALSE
 אני תמיד משתדל להחזיר חובות בזמן,Honesty-Humility,False
-אני תמיד שומר על קור רוח, גם כשהתוכניות משתבשות ברגע האחרון.,Agreeableness,FALSE
+אני תמיד שומר על קור רוח גם כשהתוכניות משתבשות ברגע האחרון.,Agreeableness,FALSE
 אני אוהב אנשים שיש להם תפיסות ודעות לא שגרתיות.,Openness to Experience,FALSE
 אני מרגיש שהחובה המוסרית שלי היא לשים את טובת האחר לפני טובתי.,Honesty-Humility,FALSE
 אני מוצא את זה קל מאוד לסלוח לאנשים שפגעו בי בעבר.,Agreeableness,FALSE
