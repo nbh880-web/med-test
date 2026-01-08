@@ -511,7 +511,7 @@ q,trait,reverse
 אני מרגיש חמלה רבה כלפי בעלי חיים שסובלים.,Emotionality,FALSE
 אני תמיד מקפיד לשלם את המיסים שלי עד השקל האחרון.,Honesty-Humility,FALSE
 אני תמיד מחפש את הדרך העדינה ביותר לבשר בשורה לא נעימה.,Agreeableness,FALSE
-אני מתכנן קדימה ומארגן את הדברים, כדי להימנע מערבול ברגע האחרון.,Conscientiousness,FALSE
+אני מתכנן קדימה ומארגן את הדברים כדי להימנע מערבול ברגע האחרון.,Conscientiousness,FALSE
 אני מאמין שרוב האנשים הם טובים מיסודם.,Agreeableness,FALSE
 אני נוטה לדאוג לגבי דברים שמשפיעים עליי,Emotionality,True
 אני נוטה להחמיא לאנשים על העבודה הטובה שהם עושים.,Agreeableness,FALSE
@@ -538,7 +538,7 @@ q,trait,reverse
 אני תמיד מוכן לשמוע על רעיונות שנראים לאחרים בלתי אפשריים.,Openness to Experience,FALSE
 אני מוצא את זה קשה להסתיר את הכעס שלי כשאני נתקל בחוסר צדק.,Agreeableness,TRUE
 אני נהנה לחשוב על הדרכים שבהן העולם ישתנה בעוד 50 שנה.,Openness to Experience,FALSE
-אני נוטה לקחת ללב הערות ביקורתיות, גם אם הן בונות.,Emotionality,FALSE
+אני נוטה לקחת ללב הערות ביקורתיות גם אם הן בונות.,Emotionality,FALSE
 אני תמיד מחפש הזדמנויות להרחיב את המעגל החברתי שלי.,Extraversion,FALSE
 אני נוטה להרגיש מתח כשאני צריך לקבל החלטות מהירות,Emotionality,True
 אני מרגיש שצניעות היא הבסיס ללמידה אמיתית לאורך כל החיים.,Honesty-Humility,FALSE
@@ -565,11 +565,11 @@ q,trait,reverse
 אני אוהב לחקור רעיונות חדשים,Openness,False
 אני חושב שצניעות היא תכונה של אנשים חלשים.,Honesty-Humility,TRUE
 אני מרגיש בטוח בעצמי כשאני מציג רעיונות,Extraversion,False
-לא הייתי משתמש בחנופה כדי לקבל העלאה, גם אם חשבתי שזה יצליח,Honesty-Humility,FALSE
+לא הייתי משתמש בחנופה כדי לקבל העלאה גם אם חשבתי שזה יצליח,Honesty-Humility,FALSE
 אני נהנה ללמוד על הדרך שבה מדענים הגיעו לתגליות הגדולות שלהם.,Openness to Experience,FALSE
 אני נוטה ליזום מפגשים מקצועיים להחלפת ידע עם קולגות.,Extraversion,FALSE
 אני מרגיש מאוד בטוח בעצמי כשאני מדבר עם דמויות סמכותיות.,Extraversion,FALSE
-אני נוטה לדאוג לגבי החלטות שקיבלתי בעבר, ותוהה אם צדקתי.,Emotionality,FALSE
+אני נוטה לדאוג לגבי החלטות שקיבלתי בעבר ותוהה אם צדקתי.,Emotionality,FALSE
 אני נוטה להאשים את עצמי כשדברים לא מסתדרים כמו שרציתי.,Emotionality,FALSE
 אני מרגיש רגש עז כשאני שומע מוזיקה יפה במיוחד.,Openness to Experience,FALSE
 אני חושב שזה בזבוז זמן להתעכב על רגשות במקום להתקדם בביצוע המשימה.,Emotionality,TRUE
@@ -596,7 +596,7 @@ q,trait,reverse
 אני סקרן לגבי תרבויות עתיקות,Openness,False
 אני תמיד מנסה למצוא פשרה שתרצה את כולם בוויכוח.,Agreeableness,FALSE
 אני מרגיש רגש עז כשאני רואה נוף טבעי מרהיב.,Openness to Experience,FALSE
-אני תמיד אומר את האמת, גם אם זה עלול לפגוע במישהו,Honesty-Humility,False
+אני תמיד אומר את האמת גם אם זה עלול לפגוע במישהו,Honesty-Humility,False
 אני תמיד מוכן להתפשר על הנוחות שלי למען הצלחת הטיפול הקבוצתי.,Agreeableness,FALSE
 אני מרגיש לעיתים קרובות מתח רגשי,Emotionality,True
 אני נוטה להגיב בשלווה גם כשאנשים צועקים עליי.,Agreeableness,FALSE
@@ -612,7 +612,7 @@ q,trait,reverse
 אני נוטה לבקש סליחה גם כשאני לא בטוח שטעיתי.,Agreeableness,FALSE
 אני מרגיש בנוח להתעמת עם דמויות סמכותיות כשזה לטובת המטופל.,Extraversion,FALSE
 אני נוטה להרגיש חרדה כשאני צריך לבצע משימה תחת פיקוח צמוד.,Emotionality,FALSE
-גם כשאני כועס מאוד, אני לא מרים את הקול על אנשים אחרים.,Agreeableness,FALSE
+גם כשאני כועס מאוד אני לא מרים את הקול על אנשים אחרים.,Agreeableness,FALSE
 אני לא מרגיש צורך להתבלט על חשבון אחרים,Honesty-Humility,False
 אני נוטה להימנע מלהאשים אחרים בטעויות,Agreeableness,False
 אני תמיד מעדיף לחלוק בקרדיט על הצלחה מאשר לקחת אותו לעצמי.,Honesty-Humility,FALSE
@@ -629,7 +629,7 @@ q,trait,reverse
 אני משתדל להיות אדיב גם כשאני לחוץ,Agreeableness,False
 אני נוטה להציע רעיונות לשיפור הגיבוש החברתי בצוות.,Extraversion,FALSE
 אני נוטה להרגיש חוסר נוחות בסיטואציות חברתיות לא מוכרות.,Extraversion,TRUE
-אני מעדיף להרוויח כסף בדרכים ישרות, גם אם זה אומר להרוויח פחות,Honesty-Humility,False
+אני מעדיף להרוויח כסף בדרכים ישרות גם אם זה אומר להרוויח פחות,Honesty-Humility,False
 אני חושב ששימוש בכוח הוא לעיתים הדרך היחידה להשיג כבוד.,Honesty-Humility,TRUE
 אני חושב שזה בסדר להשתמש במידע חסוי לטובתי האישית.,Honesty-Humility,TRUE
 אני לעולם לא אשתמש במידע אישי של קולגה כדי לקדם את מעמדי.,Honesty-Humility,FALSE
@@ -647,19 +647,19 @@ q,trait,reverse
 אני מרגיש בנוח לבקש הנחה או הטבה כשאני קונה משהו.,Extraversion,FALSE
 לדעתי, רוב האנשים דואגים לאינטרסים שלהם יותר מאשר לערכי מוסר.,Honesty-Humility,TRUE
 אני מרגיש מלא מרץ כשאני צריך לעבוד בצוות גדול ותוסס.,Extraversion,FALSE
-ברוב הימים, אני מרגיש עליז ואופטימי.,Extraversion,FALSE
+ברוב הימים אני מרגיש עליז ואופטימי.,Extraversion,FALSE
 אני נוטה להישאר רגוע גם כשאנשים מנסים לעורר את כעסי.,Agreeableness,FALSE
 אני מרגיש שהאישיות שלי היא מושכת ומעניינת עבור אחרים.,Extraversion,FALSE
-אני מקפיד לסיים כל מה שהתחלתי, גם אם זה כבר לא מעניין אותי.,Conscientiousness,FALSE
+אני מקפיד לסיים כל מה שהתחלתי גם אם זה כבר לא מעניין אותי.,Conscientiousness,FALSE
 אני תמיד מנסה למצוא פשרה שתמנע מריבות מיותרות.,Agreeableness,FALSE
 אני מרגיש נוח לעבוד עם אנשים בעלי דעות שונות,Agreeableness,False
 אני תמיד משתדל לעזור לאנשים סביבי להרגיש בנוח.,Agreeableness,FALSE
 אני מרגיש התרגשות רבה כשאני נחשף ליצירת אמנות עוצמתית.,Openness to Experience,FALSE
-אני תמיד פתוח לשמוע דעות שונות משלי, גם אם הן נראות לי מוזרות.,Openness to Experience,FALSE
+אני תמיד פתוח לשמוע דעות שונות משלי גם אם הן נראות לי מוזרות.,Openness to Experience,FALSE
 אני מרגיש משיכה לרעיונות לא קונבנציונליים,Openness,False
 אני חושב שחשוב מאוד לשמור על מסורות ישנות.,Openness to Experience,TRUE
 אני מרגיש רגוע מאוד כשאני צריך לנהל שיחת טלפון חשובה עם אדם זר.,Extraversion,FALSE
-אם אני רוצה משהו ממישהו, אני צוחק מהבדיחות הגרועות ביותר שלו.,Honesty-Humility,TRUE
+אם אני רוצה משהו ממישהו אני צוחק מהבדיחות הגרועות ביותר שלו.,Honesty-Humility,TRUE
 אני נוטה להיות יסודי בעבודה שלי,Conscientiousness,False
 אני אוהב לפגוש אנשים עם תחומי עניין דומים,Extraversion,False
 אני מקפיד על סדר מופתי בתיק המקצועי ובשולחן העבודה שלי.,Conscientiousness,FALSE
