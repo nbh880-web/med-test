@@ -705,7 +705,7 @@ q,trait,reverse
 אני נהנה להיות זה שמארגן את המפגשים החברתיים של החברים.,Extraversion,FALSE
 אני תמיד מקפיד לסגור את כל המטלות שלי לפני סוף היום.,Conscientiousness,FALSE
 אני מרגיש נוח להביע את דעותיי בפומבי,Extraversion,False
-אם מישהו מדבר אליי בגסות, אני מתקשה להישאר נחמד אליו.,Agreeableness,TRUE
+אם מישהו מדבר אליי בגסות אני מתקשה להישאר נחמד אליו.,Agreeableness,TRUE
 אני נוטה להאמין שרוב האנשים ירמו אם רק תינתן להם ההזדמנות.,Honesty-Humility,TRUE
 אני נהנה ללמוד על התפתחויות בתחום האנרגיה הירוקה.,Openness to Experience,FALSE
 אני תמיד מוודא שכל המכשור הרפואי כויל בדיוק לפי ההוראות.,Conscientiousness,FALSE
@@ -718,10 +718,10 @@ q,trait,reverse
 אני מרגיש משיכה לאמנות חזותית,Openness,False
 אני מרגיש התרגשות רבה כשאני רואה מופע מחול מקצועי.,Openness to Experience,FALSE
 אני מאבד את הסבלנות מהר כשאנשים מסביבי לא מבינים אותי.,Agreeableness,TRUE
-אם אדע שלעולם לא יתפסו אותי, הייתי מוכן לגנוב מיליון דולר.,Honesty-Humility,TRUE
+אם אדע שלעולם לא יתפסו אותי הייתי מוכן לגנוב מיליון דולר.,Honesty-Humility,TRUE
 אני מרגיש חסר אונים כשדברים לא מסתדרים לפי התוכנית שלי.,Emotionality,FALSE
 אני מרגיש מלא חיים כשאני נמצא במרכז רחבה רוקדת.,Extraversion,FALSE
-כשאני נמצא בקבוצה, אני בדרך כלל נותן לאחרים להוביל את השיחה.,Extraversion,TRUE
+כשאני נמצא בקבוצה אני בדרך כלל נותן לאחרים להוביל את השיחה.,Extraversion,TRUE
 אני תמיד בודק שוב את האבחנה שלי אם יש לי ספק ולו הקטן ביותר.,Conscientiousness,FALSE
 לעתים קרובות כשאני מנסה להשיג מטרה אני דוחף את עצמי קשה מאוד.,Conscientiousness,FALSE
 אני אוהב להשתתף באירועים חברתיים,Extraversion,False
@@ -828,7 +828,7 @@ q,trait,reverse
 אני נהנה לקרוא על פריצות דרך בתחום חקר החלל.,Openness to Experience,FALSE
 אני מוכן לקבל ביקורת מאחרים,Agreeableness,False
 אני מרגיש חסר סבלנות כשאנשים מסביבי מתלוננים על בעיות קטנות.,Agreeableness,TRUE
-כאשר אני סובל מחוויה מכאיבה, אני צריך מישהו שיגרום לי להרגיש בנוח.,Emotionality,FALSE
+כאשר אני סובל מחוויה מכאיבה אני צריך מישהו שיגרום לי להרגיש בנוח.,Emotionality,FALSE
 אני חושב שזה לגיטימי להשתמש בחנופה כדי להשיג את מה שרוצים מאנשים בעלי כוח.,Honesty-Humility,TRUE
 אני מרגיש נוח לשתף פעולה עם אחרים,Agreeableness,False
 אני תמיד מחפש דרכים לשלב אמנות ועיצוב בחיי היומיום שלי.,Openness to Experience,FALSE
@@ -879,7 +879,7 @@ q,trait,reverse
 אני נוטה להימנע מלהרים את הקול בוויכוחים,Agreeableness,False
 אני נהנה ללמוד על תחומים לא מוכרים,Openness,False
 אני תמיד משתדל להיות ישר עם עצמי לגבי היכולות שלי.,Honesty-Humility,FALSE
-כשמדובר בסכנה פיזית, אני מאוד חושש.,Emotionality,FALSE
+כשמדובר בסכנה פיזית אני מאוד חושש.,Emotionality,FALSE
 אני נוטה להכין רשימת ציוד מפורטת לפני כל הליך רפואי.,Conscientiousness,FALSE
 אני מרגיש משיכה לחוויות לא שגרתיות,Openness,False
 אני נוטה להרגיש חרדה כשאני צריך להתמודד עם בירוקרטיה מסובכת.,Emotionality,FALSE
