@@ -553,7 +553,7 @@ q,trait,reverse
 אני מאמין שכל אדם צריך להרוויח את מעמדו בעבודה קשה ולא בקשרים.,Honesty-Humility,FALSE
 אני חושב שזה בזבוז זמן לנסות להבין רגשות של אנשים שהתנהגו אליי רע.,Agreeableness,TRUE
 אני תמיד מחפש דרכים להרחיב את האופקים האינטלקטואליים שלי.,Openness to Experience,FALSE
-אני תמיד משתדל להישאר אדיב, גם כשאני נמצא תחת לחץ כבד.,Agreeableness,FALSE
+אני תמיד משתדל להישאר אדיב גם כשאני נמצא תחת לחץ כבד.,Agreeableness,FALSE
 אני תמיד פתוח ללמוד שיטות למידה חדשות ויעילות יותר.,Openness to Experience,FALSE
 אני מרגיש עצב כשאני רואה מישהו סובל,Emotionality,False
 אני נוטה להרגיש מתח במצבים תחרותיים,Emotionality,True
@@ -582,7 +582,7 @@ q,trait,reverse
 אני מרגיש בנוח להציג שאלות קשות במהלך הרצאות מקצועיות.,Extraversion,FALSE
 קשה לי מאוד להירדם בלילה אם אני יודע שיש לי משימה לא פתורה.,Conscientiousness,FALSE
 אני מרגיש בנוח להוביל קבוצה של אנשים שאינני מכיר היטב.,Extraversion,FALSE
-אני תמיד משתדל להיות מנומס, גם כלפי אנשים שלא נחמדים אליי.,Agreeableness,FALSE
+אני תמיד משתדל להיות מנומס גם כלפי אנשים שלא נחמדים אליי.,Agreeableness,FALSE
 אני מעדיף ללכת בדרכים מוכרות מאשר לנסות דרך חדשה שאולי תקצר את הזמן.,Openness to Experience,TRUE
 אני תמיד משתדל להשלים משימות בזמן,Conscientiousness,False
 אני מרגיש בנוח לדבר על ההישגים שלי מבלי להרגיש שחצן.,Extraversion,FALSE
@@ -667,8 +667,8 @@ q,trait,reverse
 אני נוטה להרגיש חוסר מנוחה כשאני נמצא במקום סגור לאורך זמן.,Emotionality,FALSE
 אני משתדל להיות מסודר בעבודה שלי,Conscientiousness,False
 אני לעולם לא אעלים עין מהתנהגות לא אתית של חבר לצוות.,Honesty-Humility,FALSE
-אם אוכל להרוויח סכום כסף גדול בדרך לא אתית אך חוקית, אעשה זאת.,Honesty-Humility,TRUE
-אני תמיד מסיים את מה שאני אוכל, כדי לא לבזבז אוכל.,Conscientiousness,FALSE
+אם אוכל להרוויח סכום כסף גדול בדרך לא אתית אך חוקית אעשה זאת.,Honesty-Humility,TRUE
+אני תמיד מסיים את מה שאני אוכל כדי לא לבזבז אוכל.,Conscientiousness,FALSE
 אני תמיד משתדל להיות ישר עם הממונים עלי לגבי הקשיים שלי.,Honesty-Humility,FALSE
 אני לא מרגיש צורך להראות שאני מוצלח יותר מאחרים,Honesty-Humility,False
 אני סקרן לגבי תופעות טבע,Openness,False
@@ -677,7 +677,7 @@ q,trait,reverse
 אני מובך לקבל מחמאות.,Honesty-Humility,FALSE
 אני משתדל להיות אדיב גם במצבים קשים,Agreeableness,False
 קשה לי מאוד לסלוח לקולגה שהכשיל אותי בביצוע משימה.,Agreeableness,TRUE
-לדעתי, להיות עשיר ומפורסם זה אחד הדברים החשובים ביותר בחיים.,Honesty-Humility,TRUE
+לדעתי להיות עשיר ומפורסם זה אחד הדברים החשובים ביותר בחיים.,Honesty-Humility,TRUE
 אני מעדיף לתכנן את חופשותיי לפרטי פרטים ולא להשאיר דבר ליד המקרה.,Conscientiousness,FALSE
 אני נוטה לדאוג לגבי העתיד המקצועי שלי באופן תמידי.,Emotionality,FALSE
 אני סקרן לגבי תרבויות שונות,Openness,False
@@ -693,7 +693,7 @@ q,trait,reverse
 אני מעדיף להפסיד מאשר לנצח בדרכים לא הוגנות,Honesty-Humility,False
 אני נוטה לעבוד בצורה יסודית ומדויקת,Conscientiousness,False
 אני מרגיש אשמה אם אני לוקח קרדיט על עבודה שלא עשיתי,Honesty-Humility,False
-אני תמיד מחפש הזדמנויות ללמוד דברים חדשים, גם אם הם לא קשורים לעיסוקי.,Openness to Experience,FALSE
+אני תמיד מחפש הזדמנויות ללמוד דברים חדשים גם אם הם לא קשורים לעיסוקי.,Openness to Experience,FALSE
 אני מרגיש פגוע מאוד כשאנשים מבקרים את היכולות המקצועיות שלי.,Agreeableness,TRUE
 אני חש אי נוחות כשאני צריך להתפאר בהישגיי,Honesty-Humility,False
 אני חושב שזה חשוב להבין את הרקע ההיסטורי של כל תופעה חברתית.,Openness to Experience,FALSE
