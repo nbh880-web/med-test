@@ -37,7 +37,7 @@ q,trait,reverse
 אני מוכן להקשיב לבעיות של אחרים במשך זמן רב.,Agreeableness,FALSE
 אני מרגיש שמח כשאני משתף אחרים ברעיונותיי,Extraversion,False
 אני נוטה להרגיש חרדה במצבים לא מוכרים,Emotionality,True
-כשאני עושה טעות, אני מודה בה מיד ולא מנסה להסתיר אותה.,Honesty-Humility,FALSE
+כשאני עושה טעות אני מודה בה מיד ולא מנסה להסתיר אותה.,Honesty-Humility,FALSE
 אני מקפיד לבדוק את תוקף הרישיון והביטוח שלי חודש מראש.,Conscientiousness,FALSE
 אני לעולם לא אשתמש במידע אישי שגיליתי על מטופל לצרכים חברתיים.,Honesty-Humility,FALSE
 אני תמיד דואג שהציוד שלי יהיה במצב תקין ומוכן לשימוש.,Conscientiousness,FALSE
@@ -96,7 +96,7 @@ q,trait,reverse
 אני מקפיד לבדוק את העבודה שלי פעמיים גם כשיש לחץ זמן.,Conscientiousness,FALSE
 אני מרגיש רגוע ושלו גם כשאני נמצא תחת עומס עבודה כבד.,Emotionality,TRUE
 אני מוצא את זה משעמם לנהל שיחות חולין עם זרים.,Extraversion,TRUE
-אני נוטה לקחת ללב כישלונות מקצועיים, גם אם הם קטנים.,Emotionality,FALSE
+אני נוטה לקחת ללב כישלונות מקצועיים גם אם הם קטנים.,Emotionality,FALSE
 אני מוצא את עצמי נלחץ מאוד כשאני צריך לקבל החלטה גורלית תחת לחץ.,Emotionality,FALSE
 אני נהנה לחקור את ההיסטוריה של האדריכלות בעולם.,Openness to Experience,FALSE
 אני מוכן לקבל ביקורת בונה מאחרים,Agreeableness,False
@@ -126,7 +126,7 @@ q,trait,reverse
 אני מרגיש נוח לעבוד עם אנשים שונים ממני,Agreeableness,False
 אני משתדל להקשיב לדעות של אחרים גם אם אני לא מסכים,Agreeableness,False
 אני חושב שחשוב להשקיע זמן בלימוד אמנויות לחימה או הגנה עצמית.,Openness to Experience,FALSE
-אני תמיד מחפש את הדרך המדויקת ביותר לבצע משימה, גם אם זה לוקח יותר זמן.,Conscientiousness,FALSE
+אני תמיד מחפש את הדרך המדויקת ביותר לבצע משימה גם אם זה לוקח יותר זמן.,Conscientiousness,FALSE
 אני מרגיש לעיתים קרובות צורך להגן על עצמי,Emotionality,True
 אני מרגיש משיכה לשירה וספרות,Openness,False
 אני נהנה לחקור את הקשר שבין דת למדע לאורך ההיסטוריה.,Openness to Experience,FALSE
