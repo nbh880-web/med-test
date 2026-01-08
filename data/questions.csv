@@ -734,7 +734,7 @@ q,trait,reverse
 אני משתדל להיות סבלני גם במצבים מאתגרים,Agreeableness,False
 אני לא מנסה להרשים אנשים על ידי התנהגות מלאכותית,Honesty-Humility,False
 אני לא מחפש דרכים להשיג יתרונות על חשבון אחרים,Honesty-Humility,False
-לעולם לא אעגל פינות בדיווח רפואי, גם אם זה ידרוש ממני שעות נוספות.,Honesty-Humility,FALSE
+לעולם לא אעגל פינות בדיווח רפואי גם אם זה ידרוש ממני שעות נוספות.,Honesty-Humility,FALSE
 אני תמיד מוודא שכל המסמכים שלי חתומים ומאושרים כנדרש.,Conscientiousness,FALSE
 אנשים חושבים עליי כמישהו שיש לו מזג חם.,Agreeableness,TRUE
 אני כמעט ולא מביע את הדעות שלי במפגשים קבוצתיים.,Extraversion,TRUE
