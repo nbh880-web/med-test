@@ -259,7 +259,7 @@ q,trait,reverse
 אני תמיד מקפיד לתעד כל פעולה רפואית מיד לאחר ביצועה.,Conscientiousness,FALSE
 אני נהנה לנסות מאכלים חדשים ומשונים שלא טעמתי מעולם.,Openness to Experience,FALSE
 אני אוהב יעדים אקזוטיים,Openness to Experience,FALSE
-אני מרגיש מחויבות לדווח על טעות שעשיתי, גם אם אף אחד לא הבחין בה.,Honesty-Humility,FALSE
+אני מרגיש מחויבות לדווח על טעות שעשיתי גם אם אף אחד לא הבחין בה.,Honesty-Humility,FALSE
 אני מושפע בקלות מהרגשות של אנשים אחרים,Emotionality,False
 אני נוטה ליזום שיתופי פעולה עם מחלקות אחרות בבית החולים.,Extraversion,FALSE
 אני נוטה לראות את חצי הכוס המלאה בכל סיטואציה קשה.,Extraversion,FALSE
@@ -283,7 +283,7 @@ q,trait,reverse
 אני מרגיש אנרגטי כשאני משתתף במסיבות,Extraversion,False
 אני תמיד מנסה להכניס אנרגיה חיובית לחדר האוכל של הצוות.,Extraversion,FALSE
 אני נוטה לתכנן את המשימות שלי מראש,Conscientiousness,False
-אני מרגיש שכל חבר בצוות, מהמנקה ועד המנהל, ראוי לאותו כבוד.,Honesty-Humility,FALSE
+אני מרגיש שכל חבר בצוות, מהמנקה ועד המנהל ראוי לאותו כבוד.,Honesty-Humility,FALSE
 אני מקפיד לעבור על כל התיק הרפואי של המטופל לפני הפגישה.,Conscientiousness,FALSE
 אני מרגיש רגש עז של הכרת תודה כלפי אנשים שעוזרים לי.,Emotionality,FALSE
 אני נוטה להשאיר משימות קשות לרגע האחרון.,Conscientiousness,TRUE
@@ -315,12 +315,12 @@ q,trait,reverse
 אני מוצא את עצמי בוכה בקלות כשאני צופה בסיפורי הצלחה מרגשים.,Emotionality,FALSE
 קשה לי מאוד לשלוח יד ולבקש עזרה כשאני בצרה.,Emotionality,TRUE
 אני תמיד משתדל להשלים משימות בזמן,Conscientiousness,False
-אני תמיד משתדל להיות כנה, גם כשהאמת אינה נעימה לשמיעה.,Honesty-Humility,FALSE
-אני תמיד מקפיד להחזיר כסף שחייבתי, גם אם מדובר בסכום זניח.,Honesty-Humility,FALSE
+אני תמיד משתדל להיות כנה גם כשהאמת אינה נעימה לשמיעה.,Honesty-Humility,FALSE
+אני תמיד מקפיד להחזיר כסף שחייבתי גם אם מדובר בסכום זניח.,Honesty-Humility,FALSE
 אני תמיד מוכן להודות בטעות מקצועית מול הקולגות שלי.,Honesty-Humility,FALSE
 אני נהנה לחשוב על רעיונות מופשטים,Openness,False
 אני מרגיש לא בנוח כשאני לא עומד בציפיות,Conscientiousness,True
-לעולם לא אקח משהו שלא שייך לי, גם אם אף אחד לא ידע,Honesty-Humility,False
+לעולם לא אקח משהו שלא שייך לי גם אם אף אחד לא ידע,Honesty-Humility,False
 אני מוכן לעזור לאנשים גם אם זה דורש מאמץ,Agreeableness,False
 אני מרגיש עצב כשאני שומע חדשות רעות,Emotionality,False
 אני נהנה להצחיק אנשים סביבי,Extraversion,False
@@ -376,7 +376,7 @@ q,trait,reverse
 אני נוטה להרגיש לחוץ כשאני צריך לעמוד בלוח זמנים צפוף מאוד.,Emotionality,FALSE
 אני סקרן לגבי רעיונות פילוסופיים,Openness,False
 אני מרגיש חוסר אונים כשאני לא מצליח לעזור לאדם קרוב שכואב לו.,Emotionality,FALSE
-אני מרגיש רגוע כמעט בכל מצב, גם כשיש סביבי כאוס.,Emotionality,TRUE
+אני מרגיש רגוע כמעט בכל מצב גם כשיש סביבי כאוס.,Emotionality,TRUE
 אני מרגיש שמח כשאני מוביל פעילויות,Extraversion,False
 אני מרגיש צורך חזק להגן על ילדים מפני כל פגיעה.,Emotionality,FALSE
 אני תמיד מוודא שכל הנתונים במערכת מעודכנים עד הפרט האחרון.,Conscientiousness,FALSE
@@ -388,7 +388,7 @@ q,trait,reverse
 אני נוטה להרגיש פאניקה אם אני לא מוצא את הטלפון שלי מיד.,Emotionality,FALSE
 אם הייתה לי ההזדמנות, הייתי רוצה להשתתף בקונצרט מוסיקה קלאסית.,Openness to Experience,FALSE
 אני תמיד מנסה למצוא את המשותף ביני לבין אנשים שאני פוגש.,Agreeableness,FALSE
-אני אהנה ליצור יצירת אמנות, כמו לכתוב רומן, שיר או ציור.,Openness to Experience,FALSE
+אני אהנה ליצור יצירת אמנות, כמו לכתוב רומן שיר או ציור.,Openness to Experience,FALSE
 אני לא מנסה להשיג דברים על ידי הטעיית אחרים,Honesty-Humility,False
 אני חושב שזה חיוני להיחשף לדעות פוליטיות מנוגדות לשלי.,Openness to Experience,FALSE
 שיהיה לי הרבה כסף זה לא משהו שחשוב לי באופן מיוחד.,Honesty-Humility,FALSE
