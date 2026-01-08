@@ -809,7 +809,7 @@ q,trait,reverse
 אני לא משתמש בתחמונים כדי להשיג את מבוקשי,Honesty-Humility,False
 אני תמיד מחפש דרכים להפוך את העבודה שלי למקצועית יותר.,Conscientiousness,FALSE
 אני נהנה לקרוא על פיתוחים חדשים בתחום המחשוב והבינה המלאכותית.,Openness to Experience,FALSE
-כאשר עובדים, לפעמים יש לי קשיים בשל היותי לא מאורגן.,Conscientiousness,TRUE
+כאשר עובדים לפעמים יש לי קשיים בשל היותי לא מאורגן.,Conscientiousness,TRUE
 אני משתדל להיות הוגן גם כשאני כועס,Agreeableness,False
 אני נוטה להתווכח עם אנשים שמעבירים ביקורת על דעותיי המקצועיות.,Agreeableness,TRUE
 אני נלחץ מאוד כשאני צריך לבצע משימה תחת צפייה של אחרים.,Emotionality,FALSE
@@ -818,7 +818,7 @@ q,trait,reverse
 אני מרגיש לא בנוח כשאני משאיר משימות לא גמורות,Conscientiousness,True
 אני נוטה להימנע מעימותים גם כשאני צודק,Agreeableness,False
 אני תמיד מנסה להרחיב את המעגל החברתי שלי בעבודה.,Extraversion,FALSE
-אני נוטה להרגיש פחד מפני מחלות קשות, גם אם אין סימנים לכך.,Emotionality,FALSE
+אני נוטה להרגיש פחד מפני מחלות קשות גם אם אין סימנים לכך.,Emotionality,FALSE
 אני נוטה להיות פעיל מאוד בדיוני קבוצת הוואטסאפ המקצועית.,Extraversion,FALSE
 אני נהנה להיות זה שמדריך את הסטודנטים החדשים במחלקה.,Extraversion,FALSE
 אני נהנה לפרק דברים לחלקים כדי להבין איך הם עובדים.,Openness to Experience,FALSE
