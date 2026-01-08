@@ -8,10 +8,10 @@ q,trait,reverse
 כשאני בלחץ קל לי מאוד להתרגז על האנשים הקרובים אליי.,Agreeableness,TRUE
 אני לעולם לא אקח משהו שלא שייך לי גם אם הוא נראה נטוש.,Honesty-Humility,FALSE
 אני נהנה לקרוא שירה או ספרות קלאסית בזמני הפנוי.,Openness to Experience,FALSE
-אני תמיד מחזיר עודף שקיבלתי בטעות, גם אם הוא קטן.,Honesty-Humility,FALSE
+אני תמיד מחזיר עודף שקיבלתי בטעות גם אם הוא קטן.,Honesty-Humility,FALSE
 אני נוטה להחמיא לקולגות שלי על הצלחות מקצועיות.,Agreeableness,FALSE
 אני תמיד מקשיב לכל הצדדים בוויכוח לפני שאני מגבש דעה.,Agreeableness,FALSE
-אם אגלה שעשיתי טעות שפגעה במישהו, לא אנוח עד שאתקן אותה.,Honesty-Humility,FALSE
+אם אגלה שעשיתי טעות שפגעה במישהו לא אנוח עד שאתקן אותה.,Honesty-Humility,FALSE
 אני נוטה להיבהל בקלות מרעשים פתאומיים או מצבים לא צפויים.,Emotionality,FALSE
 אני נהנה להיות בחברת אנשים שמאתגרים אותי חברתית.,Extraversion,FALSE
 אני תמיד מוכן ללמוד מאנשים שצעירים ממני או פחות מנוסים ממני.,Honesty-Humility,FALSE
@@ -26,7 +26,7 @@ q,trait,reverse
 אני משתדל לעבוד בצורה מסודרת ומאורגנת,Conscientiousness,False
 אני מוצא את זה קשה להסתיר את חוסר שביעות הרצון שלי מעבודה גרועה של אחרים.,Agreeableness,TRUE
 אני נוטה לסלוח מהר גם לאנשים שהפגינו כלפיי חוסר מקצועיות.,Agreeableness,FALSE
-אני תמיד מדבר ברוגע, גם כשאני מאוד כועס.,Agreeableness,FALSE
+אני תמיד מדבר ברוגע גם כשאני מאוד כועס.,Agreeableness,FALSE
 אני נוטה להגיב בכעס כשמישהו מעכב אותי בביצוע העבודה שלי.,Agreeableness,TRUE
 אני מרגיש אנרגיה כשאני נמצא באירועים ציבוריים,Extraversion,False
 אני נוטה לדאוג לגבי הבריאות של המטופלים שלי גם לאחר שעות העבודה.,Emotionality,FALSE
@@ -72,7 +72,7 @@ q,trait,reverse
 אני נוטה לדאוג למה שאחרים חושבים עליי,Emotionality,True
 אני אוהב לנסות דברים לא שגרתיים,Openness,False
 אני נוטה להרגיש פחד כשאני צריך לעבור במקומות חשוכים.,Emotionality,FALSE
-אני כמעט ולא שומר טינה, גם נגד אנשים שעשו לי עוול קשה.,Agreeableness,FALSE
+אני כמעט ולא שומר טינה גם נגד אנשים שעשו לי עוול קשה.,Agreeableness,FALSE
 אני נהנה ללמוד על תגליות חדשות בתחום הרפואה והביולוגיה.,Openness to Experience,FALSE
 אני אוהב להיות במרכז העניינים באירועים חברתיים.,Extraversion,FALSE
 אני מרגיש אשמה אם אני לא אומר את כל האמת,Honesty-Humility,False
@@ -86,7 +86,7 @@ q,trait,reverse
 אני מרגיש חמלה רבה כלפי דרי רחוב.,Emotionality,FALSE
 אני נוטה להזדהות עם אנשים שחווים קשיים,Emotionality,False
 אני תמיד מוודא שהסביבה הסטרילית נשמרת בקפדנות יתרה.,Conscientiousness,FALSE
-אני חושב שכל האנשים שווים, ללא קשר לתפקידם או עושרם.,Honesty-Humility,FALSE
+אני חושב שכל האנשים שווים ללא קשר לתפקידם או עושרם.,Honesty-Humility,FALSE
 אני נהנה ללמוד על הדרכים שבהן המוח מעבד מידע חזותי.,Openness to Experience,FALSE
 אני נוטה להשתעמם מהר אם אין לי אתגרים חדשים.,Openness to Experience,FALSE
 אני עובד טוב תחת לחץ.,Extraversion,FALSE
