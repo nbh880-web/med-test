@@ -767,7 +767,7 @@ q,trait,reverse
 אני נוטה לתכנן את עבודתי בצורה מפורטת,Conscientiousness,False
 אני נוטה לדאוג הרבה לגבי העתיד,Emotionality,True
 אני מרגיש שמגיע לי יחס מועדף כשאני עומד בתור ארוך.,Honesty-Humility,TRUE
-אני מוצא את עצמי חושב על מה היה קורה אילו, לגבי טעויות מהעבר.,Emotionality,FALSE
+אני מוצא את עצמי חושב על מה היה קורה אילו לגבי טעויות מהעבר.,Emotionality,FALSE
 אני נוטה להזדהות עם אנשים שחווים כאב,Emotionality,False
 אני נהנה לבקר במקומות חדשים שמעולם לא הייתי בהם קודם.,Openness to Experience,FALSE
 אני מוצא עניין רב בלימוד שיטות טיפול חדשניות ולא שגרתיות.,Openness to Experience,FALSE
@@ -775,7 +775,7 @@ q,trait,reverse
 אני לעולם לא אשתמש בסמכות שלי כדי להשפיל מישהו מתחתיי בדרגה.,Honesty-Humility,FALSE
 אני מרגיש לעיתים קרובות רגשות עזים,Emotionality,False
 אני נוטה להרגיש פחד כשאני צריך לעבור הליך רפואי פולשני.,Emotionality,FALSE
-אני תמיד עומד במילה שלי, גם אם זה לא נוח לי.,Conscientiousness,FALSE
+אני תמיד עומד במילה שלי גם אם זה לא נוח לי.,Conscientiousness,FALSE
 אני נוטה להרגיש חוסר ביטחון כשאני צריך לקבל החלטה ללא ליווי מקצועי.,Emotionality,FALSE
 אני מרגיש נוח כשאני צריך להציג את עצמי,Extraversion,False
 אני נהנה לדבר עם אנשים זרים בזמן המתנה בתור.,Extraversion,FALSE
@@ -856,7 +856,7 @@ q,trait,reverse
 אני נוטה להבליג על הערות פוגעניות כדי לא להרוס את הערב.,Agreeableness,FALSE
 אני מרגיש שאני אדם לא פופולארי.,Extraversion,TRUE
 אני נהנה להיות זה שמקבל את ההחלטות הקשות בקבוצה.,Extraversion,FALSE
-כשאני נתקל במושג חדש שאני לא מכיר, אני מיד מחפש עליו מידע.,Openness to Experience,FALSE
+כשאני נתקל במושג חדש שאני לא מכיר אני מיד מחפש עליו מידע.,Openness to Experience,FALSE
 אני נהנה לקחת אחריות על מקרים מורכבים שאחרים חוששים מהם.,Extraversion,FALSE
 אני חושב שלכל אדם יש מחיר ושזה רק עניין של סכום הכסף.,Honesty-Humility,TRUE
 אני לעולם לא אקבל קרדיט על עבודה שסטודנט שלי ביצע.,Honesty-Humility,FALSE
