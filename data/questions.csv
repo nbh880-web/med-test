@@ -386,7 +386,7 @@ q,trait,reverse
 אני מרגיש בנוח להיות זה שמעביר את הבשורות הקשות למשפחה.,Extraversion,FALSE
 אני תמיד מחפש דרכים לשפר את היכולות המקצועיות שלי.,Conscientiousness,FALSE
 אני נוטה להרגיש פאניקה אם אני לא מוצא את הטלפון שלי מיד.,Emotionality,FALSE
-אם הייתה לי ההזדמנות, הייתי רוצה להשתתף בקונצרט מוסיקה קלאסית.,Openness to Experience,FALSE
+אם הייתה לי ההזדמנות הייתי רוצה להשתתף בקונצרט מוסיקה קלאסית.,Openness to Experience,FALSE
 אני תמיד מנסה למצוא את המשותף ביני לבין אנשים שאני פוגש.,Agreeableness,FALSE
 אני אהנה ליצור יצירת אמנות כמו לכתוב רומן שיר או ציור.,Openness to Experience,FALSE
 אני לא מנסה להשיג דברים על ידי הטעיית אחרים,Honesty-Humility,False
@@ -397,7 +397,7 @@ q,trait,reverse
 אני תמיד מנסה להבין את נקודת המבט של הצד השני בוויכוח.,Agreeableness,FALSE
 אני נהנה לבקר בתערוכות שמציגות טכנולוגיות עתידניות.,Openness to Experience,FALSE
 אני מרגיש בנוח להודות כשאני לא יודע משהו.,Honesty-Humility,FALSE
-אני תמיד מקשיב בסבלנות לכל טענה, גם אם היא נשמעת לי לא הגיונית.,Agreeableness,FALSE
+אני תמיד מקשיב בסבלנות לכל טענה גם אם היא נשמעת לי לא הגיונית.,Agreeableness,FALSE
 אני אוהב מוזיקה רועשת,Extraversion,FALSE
 אני מרגיש מלא אנרגיה כשאני נמצא במחלקה עמוסה באנשים.,Extraversion,FALSE
 אני אוהב להשתתף בפעילויות קבוצתיות,Extraversion,False
@@ -407,7 +407,7 @@ q,trait,reverse
 אני מרגיש נוח לעבוד עם אנשים בעלי אופי שונה,Agreeableness,False
 אני מקפיד על הופעה חיצונית מסודרת ומקצועית בכל יום עבודה.,Conscientiousness,FALSE
 אני תמיד בודק שהציוד הרפואי שבידי מונח במקומו המדויק.,Conscientiousness,FALSE
-כשאני מבטיח משהו, אני מקיים אותו ללא קשר למאמץ שזה דורש.,Conscientiousness,FALSE
+כשאני מבטיח משהו אני מקיים אותו ללא קשר למאמץ שזה דורש.,Conscientiousness,FALSE
 אני נוטה להתווכח על עקרונותיי גם כשזה עלול לפגוע בי חברתית.,Agreeableness,TRUE
 אני תמיד משתדל להחזיר טובות לאחרים,Honesty-Humility,False
 אני נהנה להוביל יוזמות חברתיות חדשות בשכונה או במקום המגורים.,Extraversion,FALSE
@@ -427,7 +427,7 @@ q,trait,reverse
 אני תמיד מקפיד להחזיר חפצים שלקחתי בדיוק למקום שלהם.,Conscientiousness,FALSE
 אני מוכן לקבל משוב מאחרים כדי לשפר את עצמי,Agreeableness,False
 אני נוטה להרגיש חרדה אם התוכניות שלי משתנות ברגע האחרון.,Emotionality,FALSE
-אם אקבל עודף גדול מדי בטעות, לא תמיד ארגיש צורך לדווח על כך.,Honesty-Humility,TRUE
+אם אקבל עודף גדול מדי בטעות לא תמיד ארגיש צורך לדווח על כך.,Honesty-Humility,TRUE
 אני נוטה לדאוג לגבי הבטיחות שלי גם כשאני נמצא בסביבה בטוחה.,Emotionality,FALSE
 אני נהנה לקרוא על גילויים מדעיים חדשים בכתבי עת.,Openness to Experience,FALSE
 אני מוצא את זה קשה לקבל דעות שונות מאוד משלי בנושאים פוליטיים.,Agreeableness,TRUE
@@ -463,7 +463,7 @@ q,trait,reverse
 אני מרגיש סיפוק כשאני מצליח למנוע ויכוח מיותר בין חברים.,Agreeableness,FALSE
 אני נהנה לחשוב על פתרונות יצירתיים לבעיות יומיומיות פשוטות.,Openness to Experience,FALSE
 אני מרגיש מתח כשאני צריך להתמודד עם קונפליקטים,Emotionality,True
-אני לעולם לא אעתיק במבחן, גם אם אין שום סיכוי שייתפסו אותי.,Honesty-Humility,FALSE
+אני לעולם לא אעתיק במבחן גם אם אין שום סיכוי שייתפסו אותי.,Honesty-Humility,FALSE
 אני מרגיש שמח כשאני מוקף בחברים,Extraversion,False
 אני נוטה לסיים את כל הדיווחים שלי עוד לפני שהמשמרת נגמרת.,Conscientiousness,FALSE
 אני מרגיש צורך לבדוק שהכל נעשה כראוי,Conscientiousness,False
