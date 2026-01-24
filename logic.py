@@ -260,44 +260,48 @@ def get_balanced_questions(df, total_limit):
     random.shuffle(selected_qs)
     return selected_qs
 
-import pandas as pd
-import io
-
 def create_excel_download(responses):
     try:
         if not responses:
             return None
             
-        # יצירת DataFrame מהתגובות ב-Session State
         df = pd.DataFrame(responses)
         
-        # מיפוי עמודות - שים לב שזה תואם בדיוק ל-record_answer ב-app.py
+        # מיפוי עמודות המותאם ל-record_answer
         mapping = {
             'question': 'השאלה',
             'trait': 'תכונה/קטגוריה',
             'original_answer': 'תשובה גולמית (1-5)',
-            'final_score': 'ציון משוקלל',  # התיקון הקריטי כאן
+            'final_score': 'ציון משוקלל',
             'time_taken': 'זמן מענה (שניות)',
             'origin': 'מקור השאלה'
         }
         
-        # בחירת עמודות שקיימות בלבד כדי למנוע קריסה
+        # בחירת עמודות שקיימות בלבד
         available_cols = [c for c in mapping.keys() if c in df.columns]
         export_df = df[available_cols].rename(columns=mapping)
         
-        # יצירת הקובץ בזיכרון
         buffer = io.BytesIO()
         
-        # שימוש ב-xlsxwriter (מומלץ) או ב-openpyxl כברירת מחדל
+        # שימוש ב-Context Manager לכתיבה בטוחה
         try:
             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
                 export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
-        except:
-            # גיבוי למקרה ש-xlsxwriter לא מותקן
+                # הוספת תמיכה בעברית (RTL) לאקסל
+                workbook = writer.book
+                worksheet = writer.sheets['נתוני מבדק']
+                worksheet.set_right_to_left()
+        except Exception as e:
+            print(f"XlsxWriter failed: {e}, falling back to openpyxl")
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
-                
+        
+        # --- התיקון הקריטי כאן! ---
+        buffer.seek(0) 
+        # -------------------------
+        
         return buffer.getvalue()
     except Exception as e:
-        print(f"Excel Error: {e}") # הדפסה ללוג לצורך ניפוי שגיאות
+        print(f"Critical Excel Error: {e}")
         return None
+    
