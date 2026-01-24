@@ -541,8 +541,8 @@ elif st.session_state.step == 'RESULTS':
             key=f"pdf_dl_{st.session_state.run_id}",
             width='content'
         )
-
-   with col_excel:
+    
+    with col_excel:
         if "responses" in st.session_state and st.session_state.responses:
             # קבלת התוצאה מהפונקציה
             result = create_excel_download(st.session_state.responses)
