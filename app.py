@@ -542,24 +542,31 @@ elif st.session_state.step == 'RESULTS':
             use_container_width=True
         )
 
-    with col_excel:
+with col_excel:
         # פתרון לשגיאה: יצירת האקסל רק אם יש תשובות ב-Session
         if "responses" in st.session_state and st.session_state.responses:
             try:
                 excel_data = create_excel_download(st.session_state.responses)
-                st.download_button(
-                    label="📊 הורד פירוט תשובות (Excel)",
-                    data=excel_data,
-                    file_name=f"Answers_{st.session_state.user_name}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"excel_dl_{st.session_state.run_id}",
-                    use_container_width=True
-                )
+                
+                # בדיקה שהפונקציה ב-logic.py אכן הצליחה לייצר נתונים
+                if excel_data:
+                    st.download_button(
+                        label="📊 הורד פירוט תשובות (Excel)",
+                        data=excel_data,
+                        file_name=f"Answers_{st.session_state.user_name}_{st.session_state.run_id}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"excel_dl_{st.session_state.run_id}",
+                        width="stretch"  # עדכון לגרסת 2026: מחליף את use_container_width
+                    )
+                else:
+                    st.error("יצירת הקובץ נכשלה - בדוק את הנתונים")
             except Exception as e:
-                st.error("שגיאה בהכנת קובץ האקסל")
+                # מדפיס את השגיאה המדויקת לטרמינל כדי שנדע מה קרה
+                print(f"Error in UI Excel generation: {e}")
+                st.error(f"שגיאה בהכנת קובץ האקסל: {str(e)}")
         else:
-            st.warning("אין נתונים זמינים")
-
+            st.warning("אין נתונים זמינים להורדה")
+            
     with col_reset:
         if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", use_container_width=True):
             current_name = st.session_state.user_name
