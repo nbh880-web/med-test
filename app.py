@@ -324,7 +324,7 @@ elif st.session_state.step == 'HOME':
                     config = [("⏳ תרגול קצר (36)", 36), ("📋 סימולציה (120)", 120), ("🔍 מבדק מלא (300)", 300)]
                     for i, (label, count) in enumerate(config):
                         if [col1, col2, col3][i].button(label, key=f"cfg_{count}_{st.session_state.run_id}"):
-                            hex_traits = ['Honesty-Humility', 'Emotionality', 'Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness']
+                            hex_traits = ['Honesty-Humility', 'Emotionality', 'Extraversion', 'Agreeableness', 'Conscientiousness', 'Openness to Experience']
                             hex_only_df = all_qs_df[all_qs_df['trait'].isin(hex_traits)]
                             st.session_state.questions = get_balanced_questions(hex_only_df, count)
                             for q in st.session_state.questions:
