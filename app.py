@@ -19,7 +19,7 @@ from logic import (
     get_static_interpretation,
     calculate_medical_fit,
     calculate_reliability_index,
-    get_balanced_questions
+    get_balanced_questions,
     create_excel_download
 )
 
