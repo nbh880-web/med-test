@@ -264,36 +264,43 @@ def create_excel_download(responses):
     import io
     import pandas as pd
     try:
-        if not responses:
-            print("DEBUG: Responses list is empty")
+        # בדיקה אם הנתונים קיימים
+        if not responses or len(responses) == 0:
+            print("DEBUG: Responses list is empty or None")
             return None
             
-        df = pd.DataFrame(responses)
+        # המרה בטוחה ל-DataFrame
+        df = pd.DataFrame(list(responses))
         
-        # במקום לחפש עמודות ספציפיות, פשוט ננקה שמות טכניים אם הם קיימים
-        # נשנה שמות רק למה שבאמת נמצא ב-DF
-        rename_dict = {
+        # ניקוי שמות עמודות למניעת תקלות עם עברית/אנגלית
+        mapping = {
             'question': 'שאלה',
             'trait': 'תכונה',
-            'original_answer': 'תשובה',
             'final_score': 'ציון',
             'time_taken': 'זמן מענה'
         }
-        df = df.rename(columns={k: v for k, v in rename_dict.items() if k in df.columns})
+        df = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns})
 
+        # יצירת הקובץ
         output = io.BytesIO()
         
-        # שימוש במנוע הפשוט ביותר כדי למנוע שגיאות גרסה
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Results')
-            # הוספת זכויות היוצרים שלך בתוך האקסל!
-            worksheet = writer.sheets['Results']
-            worksheet.set_right_to_left()
-            # הוספת שורה של זכויות יוצרים בסוף הטבלה
-            worksheet.write(len(df) + 2, 0, "© זכויות יוצרים לניתאי מלכה")
+        # ניסיון כתיבה עם מנוע openpyxl (נחשב ליציב יותר ב-3.13)
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
             
+        # חובה להחזיר את הסמן להתחלה
         output.seek(0)
-        return output.getvalue()
+        data = output.getvalue()
+        
+        if not data:
+            print("DEBUG: Excel data generation returned empty bytes")
+            return None
+            
+        return data
+
     except Exception as e:
-        print(f"CRITICAL ERROR IN EXCEL: {e}")
+        # זה ידפיס לך בטרמינל את השגיאה האמיתית!
+        print(f"--- EXCEL CRITICAL ERROR ---")
+        print(f"Error Type: {type(e).__name__}")
+        print(f"Error Message: {str(e)}")
         return None
