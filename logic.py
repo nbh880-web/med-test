@@ -260,38 +260,44 @@ def get_balanced_questions(df, total_limit):
     random.shuffle(selected_qs)
     return selected_qs
 
+import pandas as pd
+import io
+
 def create_excel_download(responses):
-    import io
-    import pandas as pd
     try:
         if not responses:
             return None
             
+        # יצירת DataFrame מהתגובות ב-Session State
         df = pd.DataFrame(responses)
         
-        # מיפוי שמות עמודות לפי record_answer ב-app.py
-        column_mapping = {
-            'question': 'שאלה',
-            'trait': 'תכונה',
-            'original_answer': 'דירוג',
-            'final_score': 'ציון משוקלל',
-            'time_taken': 'זמן מענה'
+        # מיפוי עמודות - שים לב שזה תואם בדיוק ל-record_answer ב-app.py
+        mapping = {
+            'question': 'השאלה',
+            'trait': 'תכונה/קטגוריה',
+            'original_answer': 'תשובה גולמית (1-5)',
+            'final_score': 'ציון משוקלל',  # התיקון הקריטי כאן
+            'time_taken': 'זמן מענה (שניות)',
+            'origin': 'מקור השאלה'
         }
         
-        # לוקח רק מה שקיים ומשנה שם
-        export_df = df[[c for c in column_mapping.keys() if c in df.columns]].copy()
-        export_df = export_df.rename(columns=column_mapping)
+        # בחירת עמודות שקיימות בלבד כדי למנוע קריסה
+        available_cols = [c for c in mapping.keys() if c in df.columns]
+        export_df = df[available_cols].rename(columns=mapping)
         
-        output = io.BytesIO()
-        # שימוש ב-engine ברירת מחדל אם xlsxwriter לא מותקן
+        # יצירת הקובץ בזיכרון
+        buffer = io.BytesIO()
+        
+        # שימוש ב-xlsxwriter (מומלץ) או ב-openpyxl כברירת מחדל
         try:
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                export_df.to_excel(writer, index=False, sheet_name='Results')
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
         except:
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                export_df.to_excel(writer, index=False, sheet_name='Results')
+            # גיבוי למקרה ש-xlsxwriter לא מותקן
+            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
                 
-        return output.getvalue()
+        return buffer.getvalue()
     except Exception as e:
-        print(f"Excel critical error: {e}")
+        print(f"Excel Error: {e}") # הדפסה ללוג לצורך ניפוי שגיאות
         return None
