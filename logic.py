@@ -260,60 +260,38 @@ def get_balanced_questions(df, total_limit):
     random.shuffle(selected_qs)
     return selected_qs
 
-# --- תיקון פונקציית האקסל (הסרת st.error) ---
 def create_excel_download(responses):
+    import io
+    import pandas as pd
     try:
         if not responses:
             return None
             
         df = pd.DataFrame(responses)
         
-        # מיפוי שמתאים לשדות ב-CSV שלך + שדות שנוצרים בזמן ריצה
+        # מיפוי שמות עמודות לפי record_answer ב-app.py
         column_mapping = {
-            'q': 'השאלה',
-            'trait': 'תכונה/קטגוריה',
-            'original_answer': 'תשובה (1-5)',
+            'question': 'שאלה',
+            'trait': 'תכונה',
+            'original_answer': 'דירוג',
             'final_score': 'ציון משוקלל',
-            'time_taken': 'זמן מענה (שניות)',
-            'time_status': 'סטטוס זמן'
+            'time_taken': 'זמן מענה'
         }
         
-        existing_cols = [c for c in column_mapping.keys() if c in df.columns]
-        export_df = df[existing_cols].copy()
-        export_df.rename(columns=column_mapping, inplace=True)
+        # לוקח רק מה שקיים ומשנה שם
+        export_df = df[[c for c in column_mapping.keys() if c in df.columns]].copy()
+        export_df = export_df.rename(columns=column_mapping)
         
-        buffer = io.BytesIO()
-        # שימוש ב-engine אמין יותר
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
-        return buffer.getvalue()
+        output = io.BytesIO()
+        # שימוש ב-engine ברירת מחדל אם xlsxwriter לא מותקן
+        try:
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                export_df.to_excel(writer, index=False, sheet_name='Results')
+        except:
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                export_df.to_excel(writer, index=False, sheet_name='Results')
+                
+        return output.getvalue()
     except Exception as e:
-        print(f"Excel Export Error: {e}") # הדפסה ללוג במקום למסך
+        print(f"Excel critical error: {e}")
         return None
-
-# --- תיקון מנגנון השליפה (הגנה על Openness) ---
-def get_balanced_questions(df, total_limit):
-    if df.empty: return []
-    
-    # ניקוי רווחים מיותרים בשמות התכונות כדי למנוע אי-התאמות
-    df['trait'] = df['trait'].str.strip()
-    
-    traits = df['trait'].unique()
-    qs_per_trait = total_limit // len(traits) if len(traits) > 0 else 0
-    selected_qs = []
-    
-    for trait in traits:
-        trait_qs = df[df['trait'] == trait].to_dict('records')
-        count = min(len(trait_qs), qs_per_trait)
-        if count > 0:
-            selected_qs.extend(random.sample(trait_qs, count))
-    
-    # השלמה למכסה במידה וחסר
-    if len(selected_qs) < total_limit:
-        remaining_count = total_limit - len(selected_qs)
-        all_unused = [q for q in df.to_dict('records') if q not in selected_qs]
-        if all_unused:
-            selected_qs.extend(random.sample(all_unused, min(len(all_unused), remaining_count)))
-            
-    random.shuffle(selected_qs)
-    return selected_qs
