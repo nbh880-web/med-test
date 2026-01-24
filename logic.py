@@ -3,7 +3,8 @@ from fpdf import FPDF
 import re
 from datetime import datetime
 import numpy as np
-import random 
+import random
+import io
 
 # 1. הגדרת הפרופיל האידיאלי (TRAIT_RANGES)
 IDEAL_RANGES = {
@@ -258,3 +259,19 @@ def get_balanced_questions(df, total_limit):
             
     random.shuffle(selected_qs)
     return selected_qs
+
+def create_excel_download(responses):
+    # יצירת DataFrame מהתשובות
+    df = pd.DataFrame(responses)
+    
+    # בחירת העמודות הרלוונטיות ושינוי שמות לעברית כפי שביקשת
+    # הערה: השתמשתי בשמות השדות כפי שהם מופיעים ב-record_answer שלך
+    export_df = df[['question', 'trait', 'original_answer']].copy()
+    export_df.columns = ['שאלה', 'קטגוריה', 'התשובה שענה המשתמש']
+    
+    # יצירת אובייקט בזיכרון (Buffer)
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        export_df.to_excel(writer, index=False, sheet_name='תוצאות מבדק')
+        
+    return buffer.getvalue()
