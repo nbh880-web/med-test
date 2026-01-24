@@ -525,7 +525,6 @@ elif st.session_state.step == 'RESULTS':
         if high:
             st.warning(f"⚠️ נמצאו {len(high)} סתירות חמורות")
 
-    # --- חלק חדש: כפתורי הורדה לפני ניתוח ה-AI ---
     st.divider()
     st.subheader("📥 שמירת תוצאות והמשך")
     
@@ -543,31 +542,30 @@ elif st.session_state.step == 'RESULTS':
             width='content'
         )
 
-    with col_excel:
-            # פתרון לשגיאה: יצירת האקסל רק אם יש תשובות ב-Session
-            if "responses" in st.session_state and st.session_state.responses:
-                try:
-                    excel_data = create_excel_download(st.session_state.responses)
-                    
-                    # בדיקה שהפונקציה ב-logic.py אכן הצליחה לייצר נתונים
-                    if excel_data:
-                        st.download_button(
-                            label="📊 הורד פירוט תשובות (Excel)",
-                            data=excel_data,
-                            file_name=f"Answers_{st.session_state.user_name}_{st.session_state.run_id}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"excel_dl_{st.session_state.run_id}",
-                            width="stretch"  # עדכון לגרסת 2026: מחליף את use_container_width
-                        )
-                    else:
-                        st.error("יצירת הקובץ נכשלה - בדוק את הנתונים")
-                except Exception as e:
-                    # מדפיס את השגיאה המדויקת לטרמינל כדי שנדע מה קרה
-                    print(f"Error in UI Excel generation: {e}")
-                    st.error(f"שגיאה בהכנת קובץ האקסל: {str(e)}")
+   with col_excel:
+        if "responses" in st.session_state and st.session_state.responses:
+            # קבלת התוצאה מהפונקציה
+            result = create_excel_download(st.session_state.responses)
+            
+            # בדיקה: האם חזרו נתונים (bytes) או הודעת שגיאה (str)
+            if isinstance(result, bytes):
+                st.download_button(
+                    label="📊 הורד פירוט תשובות (Excel)",
+                    data=result,
+                    file_name=f"Answers_{st.session_state.user_name}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"excel_dl_{st.session_state.run_id}",
+                    width="stretch"
+                )
             else:
-                st.warning("אין נתונים זמינים להורדה")
-                
+                # כאן יופיע הפירוט המדויק למה זה נכשל
+                st.error(f"⚠️ יצירת האקסל נכשלה")
+                with st.expander("לצפייה בפרטי השגיאה הטכנית"):
+                    st.code(result)
+                    st.info("טיפ: וודא שספריית xlsxwriter מותקנת ב-requirements.txt")
+        else:
+            st.warning("אין נתונים זמינים להורדה")
+            
     with col_reset:
         if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", width='content'):
             current_name = st.session_state.user_name
