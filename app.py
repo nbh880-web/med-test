@@ -576,13 +576,33 @@ elif st.session_state.step == 'RESULTS':
     with rep_tab2: st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
 
     st.divider()
-    col_pdf, col_reset = st.columns(2)
+    # שינוי ל-3 עמודות כדי להכניס את האקסל באמצע
+    col_pdf, col_excel, col_reset = st.columns(3)
+    
     with col_pdf:
         pdf_data = create_pdf_report(summary_df, df_raw)
-        st.download_button("📥 הורד דוח PDF מלא", pdf_data, f"HEXACO_{st.session_state.user_name}.pdf", key=f"pdf_dl_{st.session_state.run_id}")
+        st.download_button(
+            "📥 הורד דוח PDF מלא", 
+            pdf_data, 
+            f"HEXACO_{st.session_state.user_name}.pdf", 
+            key=f"pdf_dl_{st.session_state.run_id}",
+            use_container_width=True
+        )
+
+    with col_excel:
+        # הפעלת הפונקציה שבנינו בלוגיקה
+        excel_data = create_excel_download(st.session_state.responses)
+        st.download_button(
+            label="📊 הורד פירוט תשובות (Excel)",
+            data=excel_data,
+            file_name=f"Answers_{st.session_state.user_name}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"excel_dl_{st.session_state.run_id}",
+            use_container_width=True
+        )
     
     with col_reset:
-        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}"):
+        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", use_container_width=True):
             current_name = st.session_state.user_name
             for key in list(st.session_state.keys()): del st.session_state[key]
             init_session()
