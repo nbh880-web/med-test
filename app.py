@@ -20,6 +20,7 @@ from logic import (
     calculate_medical_fit,
     calculate_reliability_index,
     get_balanced_questions
+    create_excel_download
 )
 
 # --- ייבוא לוגיקת אמינות (integrity_logic.py) ---
