@@ -261,19 +261,47 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def create_excel_download(responses):
-    df = pd.DataFrame(responses)
-    # שימוש ב-get למניעת שגיאת KeyError אם עמודה חסרה
-    columns_to_show = {
-        'question': 'שאלה',
-        'trait': 'קטגוריה',
-        'original_answer': 'התשובה שענה המשתמש'
-    }
-    # נשמור רק מה שקיים ב-DF
-    existing_cols = [c for c in columns_to_show.keys() if c in df.columns]
-    export_df = df[existing_cols].copy()
-    export_df.rename(columns=columns_to_show, inplace=True)
-    
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        export_df.to_excel(writer, index=False)
-    return buffer.getvalue()
+    try:
+        if not responses:
+            return None
+            
+        # יצירת DataFrame
+        df = pd.DataFrame(responses)
+        
+        # מיפוי עמודות אפשריות (תומך גם ב-HEXACO וגם ביושרה)
+        column_mapping = {
+            'question': 'שאלה',
+            'q': 'שאלה',
+            'trait': 'קטגוריה',
+            'category': 'קטגוריה',
+            'original_answer': 'תשובה',
+            'answer': 'תשובה',
+            'time_taken': 'זמן מענה (שניות)',
+            'origin': 'מקור השאלה'
+        }
+        
+        # נשמור רק עמודות שבאמת קיימות ב-DataFrame
+        existing_cols = [c for c in column_mapping.keys() if c in df.columns]
+        export_df = df[existing_cols].copy()
+        
+        # שינוי שמות לעברית
+        export_df.rename(columns=column_mapping, inplace=True)
+        
+        # יצירת הקובץ בזיכרון
+        buffer = io.BytesIO()
+        # שימוש ב-engine ברירת המחדל של pandas כדי למנוע בעיות התקנה
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            export_df.to_excel(writer, index=False, sheet_name='תוצאות מבדק')
+            
+            # עיצוב בסיסי (אופציונלי)
+            workbook = writer.book
+            worksheet = writer.sheets['תוצאות מבדק']
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
+            for col_num, value in enumerate(export_df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                worksheet.set_column(col_num, col_num, 25) # הרחבת עמודות
+                
+        return buffer.getvalue()
+    except Exception as e:
+        print(f"Excel Error: {e}")
+        return None
