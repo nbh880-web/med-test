@@ -260,6 +260,7 @@ def get_balanced_questions(df, total_limit):
     random.shuffle(selected_qs)
     return selected_qs
 
+# --- תיקון פונקציית האקסל (הסרת st.error) ---
 def create_excel_download(responses):
     try:
         if not responses:
@@ -267,24 +268,52 @@ def create_excel_download(responses):
             
         df = pd.DataFrame(responses)
         
-        # מיפוי שמתאים בדיוק לשדות ששלחת לי (q, trait)
+        # מיפוי שמתאים לשדות ב-CSV שלך + שדות שנוצרים בזמן ריצה
         column_mapping = {
             'q': 'השאלה',
             'trait': 'תכונה/קטגוריה',
-            'answer': 'התשובה שנבחרה',
-            'score': 'ציון (1-5)',
-            'time_taken': 'זמן מענה (שניות)'
+            'original_answer': 'תשובה (1-5)',
+            'final_score': 'ציון משוקלל',
+            'time_taken': 'זמן מענה (שניות)',
+            'time_status': 'סטטוס זמן'
         }
         
-        # סינון עמודות קיימות בלבד
         existing_cols = [c for c in column_mapping.keys() if c in df.columns]
         export_df = df[existing_cols].copy()
         export_df.rename(columns=column_mapping, inplace=True)
         
         buffer = io.BytesIO()
+        # שימוש ב-engine אמין יותר
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
         return buffer.getvalue()
     except Exception as e:
-        st.error(f"שגיאה פנימית באקסל: {str(e)}")
+        print(f"Excel Export Error: {e}") # הדפסה ללוג במקום למסך
         return None
+
+# --- תיקון מנגנון השליפה (הגנה על Openness) ---
+def get_balanced_questions(df, total_limit):
+    if df.empty: return []
+    
+    # ניקוי רווחים מיותרים בשמות התכונות כדי למנוע אי-התאמות
+    df['trait'] = df['trait'].str.strip()
+    
+    traits = df['trait'].unique()
+    qs_per_trait = total_limit // len(traits) if len(traits) > 0 else 0
+    selected_qs = []
+    
+    for trait in traits:
+        trait_qs = df[df['trait'] == trait].to_dict('records')
+        count = min(len(trait_qs), qs_per_trait)
+        if count > 0:
+            selected_qs.extend(random.sample(trait_qs, count))
+    
+    # השלמה למכסה במידה וחסר
+    if len(selected_qs) < total_limit:
+        remaining_count = total_limit - len(selected_qs)
+        all_unused = [q for q in df.to_dict('records') if q not in selected_qs]
+        if all_unused:
+            selected_qs.extend(random.sample(all_unused, min(len(all_unused), remaining_count)))
+            
+    random.shuffle(selected_qs)
+    return selected_qs
