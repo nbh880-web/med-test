@@ -264,24 +264,19 @@ def create_excel_download(responses):
     import io
     import pandas as pd
     try:
+        if not responses:
+            return "Error: No data in responses"
+            
         df = pd.DataFrame(responses)
-        if df.empty:
-            return None
-            
         output = io.BytesIO()
-        # שימוש במנוע xlsxwriter שמותקן בדרך כלל בסביבות Streamlit
+        
+        # ניסיון כתיבה
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='נתונים')
+            df.to_excel(writer, index=False)
             
-            # גישה לאובייקט הגיליון כדי להוסיף את הקרדיט שלך
-            workbook = writer.book
-            worksheet = writer.sheets['נתונים']
-            
-            # הוספת שורת זכויות יוצרים בסוף הטבלה
-            copyright_format = workbook.add_format({'bold': True, 'font_color': 'gray'})
-            worksheet.write(len(df) + 2, 0, "© זכויות יוצרים לניתאי מלכה", copyright_format)
-            
+        output.seek(0)
         return output.getvalue()
+        
     except Exception as e:
-        print(f"Excel Error: {e}")
-        return None
+        # מחזיר את תיאור השגיאה כטקסט כדי שה-UI יציג אותו
+        return f"System Error: {str(e)}"
