@@ -524,6 +524,52 @@ elif st.session_state.step == 'RESULTS':
         if high:
             st.warning(f"⚠️ נמצאו {len(high)} סתירות חמורות")
 
+    # --- חלק חדש: כפתורי הורדה לפני ניתוח ה-AI ---
+    st.divider()
+    st.subheader("📥 שמירת תוצאות והמשך")
+    
+    # יצירת 3 עמודות
+    col_pdf, col_excel, col_reset = st.columns(3)
+    
+    with col_pdf:
+        # יצירת ה-PDF (קיים אצלך)
+        pdf_data = create_pdf_report(summary_df, df_raw)
+        st.download_button(
+            "📥 הורד דוח PDF מלא", 
+            pdf_data, 
+            f"HEXACO_{st.session_state.user_name}.pdf", 
+            key=f"pdf_dl_{st.session_state.run_id}",
+            use_container_width=True
+        )
+
+    with col_excel:
+        # פתרון לשגיאה: יצירת האקסל רק אם יש תשובות ב-Session
+        if "responses" in st.session_state and st.session_state.responses:
+            try:
+                excel_data = create_excel_download(st.session_state.responses)
+                st.download_button(
+                    label="📊 הורד פירוט תשובות (Excel)",
+                    data=excel_data,
+                    file_name=f"Answers_{st.session_state.user_name}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"excel_dl_{st.session_state.run_id}",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error("שגיאה בהכנת קובץ האקסל")
+        else:
+            st.warning("אין נתונים זמינים")
+
+    with col_reset:
+        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", use_container_width=True):
+            current_name = st.session_state.user_name
+            for key in list(st.session_state.keys()): del st.session_state[key]
+            init_session()
+            st.session_state.user_name = current_name
+            st.rerun()
+
+    st.divider()
+    
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
@@ -575,38 +621,4 @@ elif st.session_state.step == 'RESULTS':
     with rep_tab1: st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
     with rep_tab2: st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
 
-    st.divider()
-    # שינוי ל-3 עמודות כדי להכניס את האקסל באמצע
-    col_pdf, col_excel, col_reset = st.columns(3)
-    
-    with col_pdf:
-        pdf_data = create_pdf_report(summary_df, df_raw)
-        st.download_button(
-            "📥 הורד דוח PDF מלא", 
-            pdf_data, 
-            f"HEXACO_{st.session_state.user_name}.pdf", 
-            key=f"pdf_dl_{st.session_state.run_id}",
-            use_container_width=True
-        )
-
-    with col_excel:
-        # הפעלת הפונקציה שבנינו בלוגיקה
-        excel_data = create_excel_download(st.session_state.responses)
-        st.download_button(
-            label="📊 הורד פירוט תשובות (Excel)",
-            data=excel_data,
-            file_name=f"Answers_{st.session_state.user_name}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key=f"excel_dl_{st.session_state.run_id}",
-            use_container_width=True
-        )
-    
-    with col_reset:
-        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", use_container_width=True):
-            current_name = st.session_state.user_name
-            for key in list(st.session_state.keys()): del st.session_state[key]
-            init_session()
-            st.session_state.user_name = current_name
-            st.rerun()
-            
     show_copyright()
