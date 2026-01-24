@@ -261,17 +261,19 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def create_excel_download(responses):
-    # יצירת DataFrame מהתשובות
     df = pd.DataFrame(responses)
+    # שימוש ב-get למניעת שגיאת KeyError אם עמודה חסרה
+    columns_to_show = {
+        'question': 'שאלה',
+        'trait': 'קטגוריה',
+        'original_answer': 'התשובה שענה המשתמש'
+    }
+    # נשמור רק מה שקיים ב-DF
+    existing_cols = [c for c in columns_to_show.keys() if c in df.columns]
+    export_df = df[existing_cols].copy()
+    export_df.rename(columns=columns_to_show, inplace=True)
     
-    # בחירת העמודות הרלוונטיות ושינוי שמות לעברית כפי שביקשת
-    # הערה: השתמשתי בשמות השדות כפי שהם מופיעים ב-record_answer שלך
-    export_df = df[['question', 'trait', 'original_answer']].copy()
-    export_df.columns = ['שאלה', 'קטגוריה', 'התשובה שענה המשתמש']
-    
-    # יצירת אובייקט בזיכרון (Buffer)
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        export_df.to_excel(writer, index=False, sheet_name='תוצאות מבדק')
-        
+        export_df.to_excel(writer, index=False)
     return buffer.getvalue()
