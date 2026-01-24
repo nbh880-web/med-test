@@ -487,7 +487,7 @@ elif st.session_state.step == 'RESULTS':
     if st.session_state.test_type == 'INTEGRITY':
         st.subheader("📊 ניתוח מדדי אמינות ויושרה")
         if not int_data.empty and INTEGRITY_AVAILABLE:
-            st.plotly_chart(get_radar_chart(int_scores), use_container_width=True, key=f"int_only_radar_{st.session_state.run_id}")
+            st.plotly_chart(get_radar_chart(int_scores), width='content', key=f"int_only_radar_{st.session_state.run_id}")
         else:
             st.info("לא נמצאו נתוני אמינות להצגה")
              
@@ -495,22 +495,22 @@ elif st.session_state.step == 'RESULTS':
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("פרופיל אישיות HEXACO")
-            st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True, key=f"hex_only_radar_{st.session_state.run_id}")
+            st.plotly_chart(get_radar_chart(trait_scores), width='content', key=f"hex_only_radar_{st.session_state.run_id}")
         with c2:
             st.subheader("השוואת נורמות (Bar Chart)")
-            st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True, key=f"hex_only_bar_{st.session_state.run_id}")
+            st.plotly_chart(get_comparison_chart(trait_scores), width='content', key=f"hex_only_bar_{st.session_state.run_id}")
             
     elif st.session_state.test_type == 'COMBINED':
         c1, c2 = st.columns(2)
         with c1:
             st.subheader("פרופיל אישיות HEXACO")
-            st.plotly_chart(get_radar_chart(trait_scores), use_container_width=True, key=f"comb_hex_radar_{st.session_state.run_id}")
+            st.plotly_chart(get_radar_chart(trait_scores), width='content', key=f"comb_hex_radar_{st.session_state.run_id}")
         with c2:
             st.subheader("מדדי אמינות")
             if not int_data.empty and INTEGRITY_AVAILABLE:
-                st.plotly_chart(get_radar_chart(int_scores), use_container_width=True, key=f"comb_int_radar_{st.session_state.run_id}")
+                st.plotly_chart(get_radar_chart(int_scores), width='content', key=f"comb_int_radar_{st.session_state.run_id}")
             else:
-                st.plotly_chart(get_comparison_chart(trait_scores), use_container_width=True, key=f"comb_bar_fallback_{st.session_state.run_id}")
+                st.plotly_chart(get_comparison_chart(trait_scores), width='content', key=f"comb_bar_fallback_{st.session_state.run_id}")
     
     if not int_data.empty and INTEGRITY_AVAILABLE and contradictions:
         st.divider()
@@ -540,7 +540,7 @@ elif st.session_state.step == 'RESULTS':
             pdf_data, 
             f"HEXACO_{st.session_state.user_name}.pdf", 
             key=f"pdf_dl_{st.session_state.run_id}",
-            use_container_width=True
+            width='content'
         )
 
     with col_excel:
@@ -569,7 +569,7 @@ elif st.session_state.step == 'RESULTS':
                 st.warning("אין נתונים זמינים להורדה")
                 
     with col_reset:
-        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", use_container_width=True):
+        if st.button("🏁 סיום וחזרה לתפריט", key=f"finish_reset_{st.session_state.run_id}", width='content'):
             current_name = st.session_state.user_name
             for key in list(st.session_state.keys()): del st.session_state[key]
             init_session()
