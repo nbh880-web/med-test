@@ -261,47 +261,39 @@ def get_balanced_questions(df, total_limit):
     return selected_qs
 
 def create_excel_download(responses):
+    import io
+    import pandas as pd
     try:
         if not responses:
+            print("DEBUG: Responses list is empty")
             return None
             
         df = pd.DataFrame(responses)
         
-        # מיפוי עמודות המותאם ל-record_answer
-        mapping = {
-            'question': 'השאלה',
-            'trait': 'תכונה/קטגוריה',
-            'original_answer': 'תשובה גולמית (1-5)',
-            'final_score': 'ציון משוקלל',
-            'time_taken': 'זמן מענה (שניות)',
-            'origin': 'מקור השאלה'
+        # במקום לחפש עמודות ספציפיות, פשוט ננקה שמות טכניים אם הם קיימים
+        # נשנה שמות רק למה שבאמת נמצא ב-DF
+        rename_dict = {
+            'question': 'שאלה',
+            'trait': 'תכונה',
+            'original_answer': 'תשובה',
+            'final_score': 'ציון',
+            'time_taken': 'זמן מענה'
         }
+        df = df.rename(columns={k: v for k, v in rename_dict.items() if k in df.columns})
+
+        output = io.BytesIO()
         
-        # בחירת עמודות שקיימות בלבד
-        available_cols = [c for c in mapping.keys() if c in df.columns]
-        export_df = df[available_cols].rename(columns=mapping)
-        
-        buffer = io.BytesIO()
-        
-        # שימוש ב-Context Manager לכתיבה בטוחה
-        try:
-            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
-                # הוספת תמיכה בעברית (RTL) לאקסל
-                workbook = writer.book
-                worksheet = writer.sheets['נתוני מבדק']
-                worksheet.set_right_to_left()
-        except Exception as e:
-            print(f"XlsxWriter failed: {e}, falling back to openpyxl")
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
-        
-        # --- התיקון הקריטי כאן! ---
-        buffer.seek(0) 
-        # -------------------------
-        
-        return buffer.getvalue()
+        # שימוש במנוע הפשוט ביותר כדי למנוע שגיאות גרסה
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Results')
+            # הוספת זכויות היוצרים שלך בתוך האקסל!
+            worksheet = writer.sheets['Results']
+            worksheet.set_right_to_left()
+            # הוספת שורה של זכויות יוצרים בסוף הטבלה
+            worksheet.write(len(df) + 2, 0, "© זכויות יוצרים לניתאי מלכה")
+            
+        output.seek(0)
+        return output.getvalue()
     except Exception as e:
-        print(f"Critical Excel Error: {e}")
+        print(f"CRITICAL ERROR IN EXCEL: {e}")
         return None
-    
