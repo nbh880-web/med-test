@@ -264,43 +264,24 @@ def create_excel_download(responses):
     import io
     import pandas as pd
     try:
-        # בדיקה אם הנתונים קיימים
-        if not responses or len(responses) == 0:
-            print("DEBUG: Responses list is empty or None")
+        df = pd.DataFrame(responses)
+        if df.empty:
             return None
             
-        # המרה בטוחה ל-DataFrame
-        df = pd.DataFrame(list(responses))
-        
-        # ניקוי שמות עמודות למניעת תקלות עם עברית/אנגלית
-        mapping = {
-            'question': 'שאלה',
-            'trait': 'תכונה',
-            'final_score': 'ציון',
-            'time_taken': 'זמן מענה'
-        }
-        df = df.rename(columns={k: v for k, v in mapping.items() if k in df.columns})
-
-        # יצירת הקובץ
         output = io.BytesIO()
-        
-        # ניסיון כתיבה עם מנוע openpyxl (נחשב ליציב יותר ב-3.13)
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
+        # שימוש במנוע xlsxwriter שמותקן בדרך כלל בסביבות Streamlit
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='נתונים')
             
-        # חובה להחזיר את הסמן להתחלה
-        output.seek(0)
-        data = output.getvalue()
-        
-        if not data:
-            print("DEBUG: Excel data generation returned empty bytes")
-            return None
+            # גישה לאובייקט הגיליון כדי להוסיף את הקרדיט שלך
+            workbook = writer.book
+            worksheet = writer.sheets['נתונים']
             
-        return data
-
+            # הוספת שורת זכויות יוצרים בסוף הטבלה
+            copyright_format = workbook.add_format({'bold': True, 'font_color': 'gray'})
+            worksheet.write(len(df) + 2, 0, "© זכויות יוצרים לניתאי מלכה", copyright_format)
+            
+        return output.getvalue()
     except Exception as e:
-        # זה ידפיס לך בטרמינל את השגיאה האמיתית!
-        print(f"--- EXCEL CRITICAL ERROR ---")
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Message: {str(e)}")
+        print(f"Excel Error: {e}")
         return None
