@@ -265,43 +265,26 @@ def create_excel_download(responses):
         if not responses:
             return None
             
-        # יצירת DataFrame
         df = pd.DataFrame(responses)
         
-        # מיפוי עמודות אפשריות (תומך גם ב-HEXACO וגם ביושרה)
+        # מיפוי שמתאים בדיוק לשדות ששלחת לי (q, trait)
         column_mapping = {
-            'question': 'שאלה',
-            'q': 'שאלה',
-            'trait': 'קטגוריה',
-            'category': 'קטגוריה',
-            'original_answer': 'תשובה',
-            'answer': 'תשובה',
-            'time_taken': 'זמן מענה (שניות)',
-            'origin': 'מקור השאלה'
+            'q': 'השאלה',
+            'trait': 'תכונה/קטגוריה',
+            'answer': 'התשובה שנבחרה',
+            'score': 'ציון (1-5)',
+            'time_taken': 'זמן מענה (שניות)'
         }
         
-        # נשמור רק עמודות שבאמת קיימות ב-DataFrame
+        # סינון עמודות קיימות בלבד
         existing_cols = [c for c in column_mapping.keys() if c in df.columns]
         export_df = df[existing_cols].copy()
-        
-        # שינוי שמות לעברית
         export_df.rename(columns=column_mapping, inplace=True)
         
-        # יצירת הקובץ בזיכרון
         buffer = io.BytesIO()
-        # שימוש ב-engine ברירת המחדל של pandas כדי למנוע בעיות התקנה
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            export_df.to_excel(writer, index=False, sheet_name='תוצאות מבדק')
-            
-            # עיצוב בסיסי (אופציונלי)
-            workbook = writer.book
-            worksheet = writer.sheets['תוצאות מבדק']
-            header_format = workbook.add_format({'bold': True, 'bg_color': '#D7E4BC', 'border': 1})
-            for col_num, value in enumerate(export_df.columns.values):
-                worksheet.write(0, col_num, value, header_format)
-                worksheet.set_column(col_num, col_num, 25) # הרחבת עמודות
-                
+            export_df.to_excel(writer, index=False, sheet_name='נתוני מבדק')
         return buffer.getvalue()
     except Exception as e:
-        print(f"Excel Error: {e}")
+        st.error(f"שגיאה פנימית באקסל: {str(e)}")
         return None
