@@ -234,13 +234,11 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-    # --- השינוי כאן ---
-    # אם התנאי מתקיים, המערכת תפעיל את האפקט ותחכה 5 שניות לפני שהיא ממשיכה
+    # זה הבלוק שצריך להחליף/להוסיף:
+    is_meta = str(q_data.get('is_stress_meta')) == "1"
     if is_meta:
-        # הפונקציה הזו כבר עושה המתנה ו-rerun בסופה
         trigger_stress_effect()
     else:
-        # פקודה שמרעננת את המסך לשאלה הבאה רק אם זו לא שאלת לחץ
         st.rerun()
         
 # --- 5. ממשק ניהול (Admin) ---
