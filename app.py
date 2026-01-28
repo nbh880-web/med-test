@@ -163,36 +163,41 @@ init_session()
 
 # --- 3. פונקציית הלחץ החדשה (Stress Effect) ---
 def trigger_stress_effect():
-    """מציג הודעת אזהרה למשך 5 שניות"""
+    """מציג הודעת אזהרה למשך 15 שניות וחוסם את רענון הדף"""
     messages = [
         "מזהה סתירה פוטנציאלית בתשובותיך...",
         "מחשב מדד אמינות רגעית... נא להמתין",
-        "מערכת הבקרה זיהתה חוסר עקביות בנתונים"
+        "מערכת הבקרה זיהתה חוסר עקביות בנתונים",
+        "⚠️ בקרת איכות: נדרש ריכוז מקסימלי, המערכת מזהה ניסיון הטיה."
     ]
     msg = random.choice(messages)
     
-    # יצירת מקום להודעה
+    # יצירת מיכל שמשתלט על התצוגה
     placeholder = st.empty()
     
-    # ספירה לאחור של 5 שניות
-    for i in range(15, 0, -1):
+    total_seconds = 15  # הזמן שביקשת
+    
+    for i in range(total_seconds, -1, -1):
         with placeholder.container():
             st.markdown(f"""
                 <div class="stress-overlay">
-                    <h1 style="color: #ff3b3b; font-size: 40px;">⚠️ לבדיקת המערכת</h1>
-                    <h2 style="text-align: center; padding: 0 20px;">{msg}</h2>
+                    <h1 style="color: #ff3b3b; font-size: 40px; margin-bottom: 10px; text-align: center;">⚠️ לבדיקת המערכת</h1>
+                    <h2 style="text-align: center; padding: 0 20px; color: white;">{msg}</h2>
                     <div class="progress-container" style="width: 300px; height: 15px; background: #333; margin: 20px auto; border-radius: 10px; overflow: hidden;">
-                        <div style="height: 100%; background: #ff3b3b; width: {(i / 15) * 100}%; transition: width 1s linear;"></div>
+                        <div style="height: 100%; background: #ff3b3b; width: {(i / total_seconds) * 100}%; transition: width 1s linear;"></div>
                     </div>
-                    <p style="font-size: 20px;">המבדק ימשך בעוד {i} שניות...</p>
-                    <div style="margin-top: 50px; color: #555;">© זכויות יוצרים לניתאי מלכה</div>
+                    <p style="font-size: 22px; color: #ff3b3b; font-weight: bold; text-align: center;">המבדק ימשך בעוד {i} שניות...</p>
+                    <div style="margin-top: 50px; color: #666; text-align: center;">© זכויות יוצרים לניתאי מלכה</div>
                 </div>
             """, unsafe_allow_html=True)
-        time.sleep(1) # מחכה שנייה אחת
+        time.sleep(1)  # מחכה שנייה אחת בכל פעם
     
-    # מוחק את ההודעה כדי להמשיך בשאלות
+    # מוחק את ההודעה
     placeholder.empty()
-
+    
+    # כופה רענון כדי לוודא שהשאלה הבאה עולה מיד בלי עיכוב מה-autorefresh
+    st.rerun()
+    
 # --- 4. פונקציות עזר לממשק ---
 @st.cache_data
 def load_questions_data():
