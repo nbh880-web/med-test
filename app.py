@@ -627,7 +627,7 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
- # בדיקה האם צריך להפיק דוח AI
+    # בדיקה האם צריך להפיק דוח AI
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
@@ -635,19 +635,13 @@ elif st.session_state.step == 'RESULTS':
                 
                 if st.session_state.test_type == 'COMBINED' and INTEGRITY_AVAILABLE and not int_data.empty:
                     gem_rep, cld_rep = get_combined_ai_analysis(
-                        st.session_state.user_name,
-                        trait_scores,
-                        st.session_state.reliability_score,
-                        st.session_state.contradictions,
-                        hist
+                        st.session_state.user_name, trait_scores,
+                        st.session_state.reliability_score, st.session_state.contradictions, hist
                     )
                 elif st.session_state.test_type == 'INTEGRITY' and INTEGRITY_AVAILABLE:
                     gem_rep, cld_rep = get_integrity_ai_analysis(
-                        st.session_state.user_name,
-                        st.session_state.reliability_score,
-                        st.session_state.contradictions,
-                        int_scores,
-                        hist
+                        st.session_state.user_name, st.session_state.reliability_score,
+                        st.session_state.contradictions, int_scores, hist
                     )
                 else:
                     gem_rep, cld_rep = get_multi_ai_analysis(st.session_state.user_name, trait_scores, hist)
@@ -655,19 +649,18 @@ elif st.session_state.step == 'RESULTS':
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
 
-                # עדכון אוטומטי של הרשומה בארכיון
-                final_reps = [gem_rep, cld_rep]
+                # שמירה סופית לארכיון כולל דוחות ה-AI ומדד ההיסוס
                 if st.session_state.test_type == 'COMBINED':
-                    save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, st.session_state.reliability_score, final_reps, st.session_state.hesitation_count)
+                    save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, st.session_state.reliability_score, [gem_rep, cld_rep], st.session_state.hesitation_count)
                 else:
-                    save_to_db(st.session_state.user_name, trait_scores, final_reps, st.session_state.hesitation_count)
+                    save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep], st.session_state.hesitation_count)
                 
                 st.rerun() 
                     
             except Exception as e:
                 st.error(f"שגיאה בהפקת דוח: {e}")
 
-    # הצגת הדוחות (מחוץ לבלוק ה-if כדי שיופיעו תמיד)
+    # תצוגת דוחות ה-AI על המסך
     st.subheader("💡 ניתוח מומחי AI משולב")
     rep_tab1, rep_tab2 = st.tabs(["📝 חוות דעת Gemini", "🩺 חוות דעת Claude"])
     with rep_tab1: 
@@ -677,6 +670,8 @@ elif st.session_state.step == 'RESULTS':
 
     show_copyright()
 
-# סגירת ה-elif של ה-RESULTS (שים לב ליישור - השורה הבאה צריכה לחזור לקיר הימני)
+# --- סגירת המערכת וחזרה לבית אם אין שלב מוגדר ---
 else:
-    st.session_state.step = 'HOME'
+    if st.session_state.step not in ['HOME', 'ADMIN_VIEW', 'QUIZ', 'RESULTS']:
+        st.session_state.step = 'HOME'
+        st.rerun()
