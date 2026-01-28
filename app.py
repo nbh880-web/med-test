@@ -175,14 +175,14 @@ def trigger_stress_effect():
     placeholder = st.empty()
     
     # ספירה לאחור של 5 שניות
-    for i in range(5, 0, -1):
+    for i in range(15, 0, -1):
         with placeholder.container():
             st.markdown(f"""
                 <div class="stress-overlay">
                     <h1 style="color: #ff3b3b; font-size: 40px;">⚠️ לבדיקת המערכת</h1>
                     <h2 style="text-align: center; padding: 0 20px;">{msg}</h2>
                     <div class="progress-container" style="width: 300px; height: 15px; background: #333; margin: 20px auto; border-radius: 10px; overflow: hidden;">
-                        <div style="height: 100%; background: #ff3b3b; width: {(i / 5) * 100}%; transition: width 1s linear;"></div>
+                        <div style="height: 100%; background: #ff3b3b; width: {(i / 15) * 100}%; transition: width 1s linear;"></div>
                     </div>
                     <p style="font-size: 20px;">המבדק ימשך בעוד {i} שניות...</p>
                     <div style="margin-top: 50px; color: #555;">© זכויות יוצרים לניתאי מלכה</div>
@@ -399,8 +399,8 @@ elif st.session_state.step == 'HOME':
                             
                             if not meta_qs_df.empty:
                                 meta_list = meta_qs_df.to_dict('records')
-                                # בוחר 6 שאלות מטא להזרקה
-                                num_to_inject = min(6, len(meta_list))
+                                # בוחר 10 שאלות מטא להזרקה
+                                num_to_inject = min(10, len(meta_list))
                                 meta_to_inject = random.sample(meta_list, num_to_inject)
                                 
                                 for mq in meta_to_inject:
