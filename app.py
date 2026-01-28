@@ -416,25 +416,40 @@ elif st.session_state.step == 'HOME':
                         st.session_state.start_time = time.time()
                         st.rerun()
                
-        with tab_archive:
+       with tab_archive:
             history = get_db_history(name_input)
             if history:
                 for i, entry in enumerate(history):
-                    with st.expander(f"📅 מבדק מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
-                        st.plotly_chart(get_radar_chart(entry['results']), key=f"hist_chart_{i}_{st.session_state.run_id}", width="stretch")
+                    # --- תיקון 1: בחירת הנתונים הנכונים לגרף (HEXACO או אמינות) ---
+                    display_scores = entry.get('results') or entry.get('int_scores')
+                    
+                    # --- תיקון 2: הוספת סוג המבחן לכותרת ---
+                    test_label = entry.get('test_type', 'מבדק').upper()
+                    with st.expander(f"📅 {test_label} | מיום {entry.get('test_date')} בשעה {entry.get('test_time')}"):
+                        
+                        if display_scores:
+                            st.plotly_chart(get_radar_chart(display_scores), key=f"hist_chart_{i}_{st.session_state.run_id}", use_container_width=True)
+                        else:
+                            st.warning("לא נמצאו נתוני ניקוד למבדק זה.")
+
                         if st.button(f"🔍 הצג ניתוח AI מלא", key=f"view_rep_btn_{i}"):
-                            @st.dialog(f"דוח מפורט - מבדק מיום {entry.get('test_date')}", width="large")
+                            @st.dialog(f"דוח מפורט - {test_label} ({entry.get('test_date')})", width="large")
                             def show_modal(data):
                                 st.write(f"### חוות דעת מומחי AI עבור {name_input}")
-                                reps = data.get("ai_report", ["אין נתונים", "אין נתונים"])
-                                t_gem, t_cld = st.tabs(["Gemini Analysis", "Claude Expert"])
-                                with t_gem: st.markdown(f'<div class="ai-report-box">{reps[0]}</div>', unsafe_allow_html=True)
-                                with t_cld: st.markdown(f'<div class="claude-report-box">{reps[1]}</div>', unsafe_allow_html=True)
+                                # וידוא שהדוח קיים ושהוא בפורמט הנכון
+                                reps = data.get("ai_report")
+                                if isinstance(reps, list) and len(reps) >= 2:
+                                    t_gem, t_cld = st.tabs(["Gemini Analysis", "Claude Expert"])
+                                    with t_gem: st.markdown(f'<div class="ai-report-box">{reps[0]}</div>', unsafe_allow_html=True)
+                                    with t_cld: st.markdown(f'<div class="claude-report-box">{reps[1]}</div>', unsafe_allow_html=True)
+                                elif reps:
+                                    st.markdown(f'<div class="ai-report-box">{reps}</div>', unsafe_allow_html=True)
+                                else:
+                                    st.info("לא נמצא דוח AI עבור מבדק זה.")
+                            
                             show_modal(entry)
             else: 
                 st.info("לא נמצאו מבדקים קודמים עבורך.")
-    
-    show_copyright()
 
 elif st.session_state.step == 'QUIZ':
     st_autorefresh(interval=1000, key="quiz_refresh")
