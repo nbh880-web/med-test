@@ -25,17 +25,17 @@ create_excel_download
 
 # --- ייבוא לוגיקת אמינות (integrity_logic.py) ---
 try:
-from integrity_logic import (
-get_integrity_questions,
-calculate_integrity_score,
-process_integrity_results,
-calculate_reliability_score,
-get_integrity_interpretation,
-detect_contradictions,
-get_category_risk_level,
-INTEGRITY_CATEGORIES
-)
-INTEGRITY_AVAILABLE = True
+   from integrity_logic import (
+   get_integrity_questions,
+   calculate_integrity_score,
+   process_integrity_results,
+   calculate_reliability_score,
+   get_integrity_interpretation,
+   detect_contradictions,
+   get_category_risk_level,
+   INTEGRITY_CATEGORIES
+   )
+   INTEGRITY_AVAILABLE = True
 except ImportError:
 INTEGRITY_AVAILABLE = False
 
