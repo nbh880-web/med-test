@@ -192,11 +192,9 @@ def trigger_stress_effect():
             """, unsafe_allow_html=True)
         time.sleep(1)  # מחכה שנייה אחת בכל פעם
     
-    # מוחק את ההודעה
-    placeholder.empty()
-    
-    # כופה רענון כדי לוודא שהשאלה הבאה עולה מיד בלי עיכוב מה-autorefresh
-    st.rerun()
+    # --- השורות שחייבות להופיע כאן: ---
+    placeholder.empty() # מנקה את המסך השחור
+    st.rerun()          # מכריח את הדף להתרענן ולהציג את השאלה הבאה
     
 # --- 4. פונקציות עזר לממשק ---
 @st.cache_data
