@@ -627,6 +627,7 @@ elif st.session_state.step == 'RESULTS':
 
     st.divider()
     
+ # בדיקה האם צריך להפיק דוח AI
     if st.session_state.gemini_report is None:
         with st.spinner("🤖 מנתח את הפרופיל מול שני מומחי AI..."):
             try:
@@ -654,20 +655,28 @@ elif st.session_state.step == 'RESULTS':
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
 
-                # עדכון אוטומטי של הרשומה הקיימת בארכיון עם דוחות ה-AI
+                # עדכון אוטומטי של הרשומה בארכיון
                 final_reps = [gem_rep, cld_rep]
                 if st.session_state.test_type == 'COMBINED':
                     save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, st.session_state.reliability_score, final_reps, st.session_state.hesitation_count)
                 else:
                     save_to_db(st.session_state.user_name, trait_scores, final_reps, st.session_state.hesitation_count)
-                st.rerun() # רענון להצגת הדוחות על המסך
+                
+                st.rerun() 
                     
             except Exception as e:
                 st.error(f"שגיאה בהפקת דוח: {e}")
 
+    # הצגת הדוחות (מחוץ לבלוק ה-if כדי שיופיעו תמיד)
     st.subheader("💡 ניתוח מומחי AI משולב")
     rep_tab1, rep_tab2 = st.tabs(["📝 חוות דעת Gemini", "🩺 חוות דעת Claude"])
-    with rep_tab1: st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
-    with rep_tab2: st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
+    with rep_tab1: 
+        st.markdown(f'<div class="ai-report-box">{st.session_state.gemini_report}</div>', unsafe_allow_html=True)
+    with rep_tab2: 
+        st.markdown(f'<div class="claude-report-box">{st.session_state.claude_report}</div>', unsafe_allow_html=True)
 
     show_copyright()
+
+# סגירת ה-elif של ה-RESULTS (שים לב ליישור - השורה הבאה צריכה לחזור לקיר הימני)
+else:
+    st.session_state.step = 'HOME'
