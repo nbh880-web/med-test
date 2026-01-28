@@ -211,9 +211,14 @@ def calculate_reliability_score(responses_df):
     # 2. ניתוח זמני תגובה
     if 'time_taken' in responses_df.columns:
         # זיהוי תשובות מהירות מדי (חשד למענה לא מחושב)
-        very_fast = len(responses_df[responses_df['time_taken'] < 1.2])
-        if very_fast > 0:
-            penalty += (very_fast / len(responses_df)) * 50
+        very_fast = len(responses_df[responses_df['time_taken'] < 5.0])
+        num_fast = len(fast_answers)
+    
+    # הגנה: קנס רק אם יותר מ-20% מהשאלות נענו "במהירות שיא"
+    # זה מונע קנס על שאלות קצרות באמת
+        if num_fast > (len(responses_df) * 0.20):
+            # הקנס יהיה יחסי לחריגה
+            penalty += (num_fast / len(responses_df)) * 50
             
     # 3. ניתוח סטיית תקן כללית (זיהוי מענה מונוטוני - הכל 3 או הכל 5)
     all_scores = responses_df['final_score'].values
