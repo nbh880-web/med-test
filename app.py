@@ -241,53 +241,78 @@ def record_answer(ans_value, q_data):
     
 # --- 5. ממשק ניהול (Admin) ---
 def show_admin_dashboard():
+    # 1. כפתור יציאה
     if st.button("🚪 התנתק וחזור לבית", key="admin_logout"):
         st.session_state.step = 'HOME'; st.rerun()
 
-    st.title("📊 מערכת ניהול ובקרת מבדקים")
-    all_data = get_all_tests()
+    st.title("📊 מערכת ניהול: תיקי מועמדים")
+
+    # 2. שליפת כל הנתונים המאוחדים מכל ה-Collections
+    all_data = get_all_tests() # מוודא שזה מושך מכל ה-DB
     if not all_data:
         st.info("טרם בוצעו מבדקים במערכת."); return
 
     df = pd.DataFrame(all_data)
     
-    # --- NEW ADDITION: הוספת מדד היסוס למטריקות ---
+    # 3. מטריקות בראש העמוד
     m1, m2, m3 = st.columns(3)
     m1.metric("סה\"כ מבדקים", len(df))
-    m2.metric("משתמשים ייחודיים", df['user_name'].nunique())
+    m2.metric("מועמדים ייחודיים", df['user_name'].nunique())
+    # חישוב ממוצע היסוס כללי (אם השדה קיים)
+    avg_hesitation = df['hesitation_count'].mean() if 'hesitation_count' in df.columns else 0
+    m3.metric("ממוצע היסוס מערכתי", f"{avg_hesitation:.1f}")
     
     st.divider()
-    search = st.text_input("🔍 חיפוש מועמד לפי שם:")
-    if search:
-        df = df[df['user_name'].str.contains(search, case=False)]
 
-    st.dataframe(df[['user_name', 'test_date', 'test_time']], width="stretch")
+    # 4. מנגנון חיפוש ובחירת מועמד (הופך את הרשימה לנקייה)
+    unique_users = sorted(df['user_name'].unique())
+    selected_user = st.selectbox("🔍 חפש ובחר מועמד לצפייה בהיסטוריה המלאה:", [""] + list(unique_users))
 
-    if not df.empty:
-        selected_idx = st.selectbox("בחר מועמד לתצוגה מלאה:", df.index, 
-                                    format_func=lambda x: f"{df.loc[x, 'user_name']} ({df.loc[x, 'test_date']})")
+    if selected_user:
+        st.markdown(f"## 📂 תיק מועמד: **{selected_user}**")
         
-        row = df.loc[selected_idx]
-        col_rep, col_viz = st.columns([2, 1])
-        with col_rep:
-            st.subheader(f"ניתוח עבור: {row['user_name']}")
+        # סינון המבחנים של המשתמש בלבד, מהחדש לישן
+        user_df = df[df['user_name'] == selected_user].sort_values('timestamp', ascending=False)
+        
+        # 5. הצגת כל מבחן בתוך Expander נפרד
+        for idx, row in user_df.iterrows():
+            test_type = row.get('test_type', 'HEXACO')
+            test_date = row.get('test_date', 'N/A')
+            test_time = row.get('test_time', '')
             
-            # --- NEW ADDITION: תצוגת מדד היסוס ב-Admin ---
-            if 'hesitation_count' in row:
-                st.warning(f"⚠️ **מדד היסוס:** המועמד חרג מהזמן המומלץ ב-{row['hesitation_count']} שאלות.")
+            # כותרת Expander דינמית
+            with st.expander(f"📄 מבדק {test_type} | תאריך: {test_date} | שעה: {test_time}"):
+                col_rep, col_viz = st.columns([2, 1])
+                
+                with col_rep:
+                    st.subheader("📋 ניתוח המבדק")
+                    # תצוגת מדד היסוס
+                    if 'hesitation_count' in row and row['hesitation_count'] > 0:
+                        st.warning(f"⚠️ **מדד היסוס:** המועמד חרג מהזמן ב-{row['hesitation_count']} שאלות.")
+                    
+                    # הצגת דוחות AI לפי המבנה ששמרת (רשימה של Gemini ו-Claude)
+                    if isinstance(row["ai_report"], (list, tuple)):
+                        t1, t2 = st.tabs(["🤖 Gemini Analysis", "🩺 Claude Expert"])
+                        t1.markdown(f'<div class="ai-report-box">{row["ai_report"][0]}</div>', unsafe_allow_html=True)
+                        t2.markdown(f'<div class="claude-report-box">{row["ai_report"][1]}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="ai-report-box">{row["ai_report"]}</div>', unsafe_allow_html=True)
+                
+                with col_viz:
+                    st.subheader("📊 גרף תוצאות")
+                    # בחירת נתוני הניקוד (תומך ב-HEXACO ובאמינות)
+                    scores = row.get('results') or row.get('int_scores')
+                    if scores:
+                        # שימוש ב-Radar Chart הקיים שלך
+                        fig = get_radar_chart(scores)
+                        st.plotly_chart(fig, use_container_width=True, key=f"admin_chart_{idx}")
+                    else:
+                        st.info("לא נמצאו נתוני גרף זמינים.")
+    else:
+        st.info("אנא בחר שם מועמד מהרשימה למעלה כדי לצפות בפרטים.")
 
-            if isinstance(row["ai_report"], (list, tuple)):
-                gem_text, cld_text = row["ai_report"][0], row["ai_report"][1]
-                t1, t2 = st.tabs(["חוות דעת Gemini", "חוות דעת Claude"])
-                t1.markdown(f'<div class="ai-report-box">{gem_text}</div>', unsafe_allow_html=True)
-                t2.markdown(f'<div class="claude-report-box">{cld_text}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="ai-report-box">{row["ai_report"]}</div>', unsafe_allow_html=True)
-        
-        with col_viz:
-            if "results" in row:
-                st.plotly_chart(get_radar_chart(row["results"]), width="stretch", key=f"admin_radar_{selected_idx}_{st.session_state.run_id}")
-
+    show_copyright()
+    
 # --- 6. ניווט ראשי ---
 if st.session_state.user_name == "adminMednitai" and st.session_state.step == 'ADMIN_VIEW':
     show_admin_dashboard()
