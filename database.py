@@ -25,52 +25,60 @@ class DB_Manager:
             print(f"❌ חיבור ל-Firebase נכשל: {e}")
             return None
 
-    def save_test(self, user_name, results, report, collection="hexaco_results"):
-        """שמירת תוצאות מבדק חדש (תומך בכל סוגי המבדקים)"""
+    def save_test(self, user_name, results, report, collection="hexaco_results", hesitation_count=0):
+        """שמירת תוצאות מבדק חדש עם תווית סוג מבדק ומדד היסוס"""
         if not self.db or not user_name: 
             return
         try:
             now = datetime.now()
             user_id = user_name.strip().lower()
             
+            # זיהוי סוג המבחן לפי שם ה-Collection
+            test_type_map = {
+                "hexaco_results": "hexaco",
+                "integrity_results": "integrity",
+                "combined_results": "combined"
+            }
+            test_type = test_type_map.get(collection, "unknown")
+
             self.db.collection(collection).add({
                 "user_name": user_name,
                 "user_id": user_id,
+                "test_type": test_type,
                 "results": results,
                 "ai_report": report,
+                "hesitation_count": hesitation_count,
                 "test_date": now.strftime("%d/%m/%Y"),
                 "test_time": now.strftime("%H:%M"),
-                "timestamp": firestore.SERVER_TIMESTAMP
+                "timestamp": firestore.SERVER_TIMESTAMP,
+                "copyright": "© זכויות יוצרים לניתאי מלכה"
             })
         except Exception as e:
             st.error(f"⚠️ שגיאה בשמירת נתונים: {e}")
 
-    def fetch_history(self, user_name, collection="hexaco_results"):
-        """שליפת היסטוריה עבור משתמש ספציפי עם מנגנון Fallback לשגיאות אינדקס"""
+    def fetch_history(self, user_name, collection):
+        """שליפת היסטוריה עבור משתמש ספציפי מ-Collection מסוים"""
         if not self.db or not user_name: 
             return []
         
         user_id = user_name.strip().lower()
         try:
-            # ניסיון שליפה עם מיון (דורש Index ב-Firestore)
             docs = self.db.collection(collection)\
                           .where("user_id", "==", user_id)\
                           .order_by("timestamp", direction=firestore.Query.DESCENDING)\
-                          .limit(10).stream()
+                          .limit(20).stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            # Fallback: שליפה ללא מיון בשרת ומיון מקומי ב-Python
+            # Fallback למקרה שאין אינדקס ב-Firestore
             try:
-                docs = self.db.collection(collection)\
-                              .where("user_id", "==", user_id)\
-                              .limit(20).stream()
+                docs = self.db.collection(collection).where("user_id", "==", user_id).limit(30).stream()
                 raw = [doc.to_dict() for doc in docs]
                 return sorted(raw, key=lambda x: str(x.get('timestamp', '')), reverse=True)
             except:
                 return []
 
-    def fetch_all_tests_admin(self, collection="hexaco_results"):
-        """שליפת כל המבדקים עבור ממשק הניהול"""
+    def fetch_all_tests_admin(self, collection):
+        """שליפת כל המבדקים מ-Collection מסוים עבור האדמין"""
         if not self.db: 
             return []
         try:
@@ -86,36 +94,52 @@ class DB_Manager:
             except:
                 return []
 
-# --- פונקציות גשר (Interface) עבור app.py ---
+# --- פונקציות גשר (Interface) המאוחדות ---
 
-def save_to_db(name, res, rep):
+def save_to_db(name, res, rep, hesitation=0):
     """שמירת מבדק HEXACO"""
-    DB_Manager().save_test(name, res, rep, "hexaco_results")
+    DB_Manager().save_test(name, res, rep, "hexaco_results", hesitation)
 
-def save_integrity_test_to_db(name, res, rep):
+def save_integrity_test_to_db(name, res, rep, hesitation=0):
     """שמירת מבדק אמינות"""
-    DB_Manager().save_test(name, res, rep, "integrity_results")
+    DB_Manager().save_test(name, res, rep, "integrity_results", hesitation)
 
-def save_combined_test_to_db(name, res, rep):
+def save_combined_test_to_db(name, res, rep, hesitation=0):
     """שמירת מבדק משולב"""
-    DB_Manager().save_test(name, res, rep, "combined_results")
+    DB_Manager().save_test(name, res, rep, "combined_results", hesitation)
 
-def get_db_history(name, test_type="hexaco"):
-    """קבלת היסטוריה לפי סוג מבחן"""
-    collections = {
-        "hexaco": "hexaco_results",
-        "integrity": "integrity_results",
-        "combined": "combined_results"
-    }
-    col = collections.get(test_type, "hexaco_results")
-    return DB_Manager().fetch_history(name, col)
+def get_db_history(name):
+    """
+    פונקציה מאוחדת: מושכת את כל ההיסטוריה של המשתמש מכל הטבלאות.
+    כך המשתמש רואה את כל המבחנים שלו במקום אחד.
+    """
+    manager = DB_Manager()
+    collections = ["hexaco_results", "integrity_results", "combined_results"]
+    full_history = []
+    
+    for col in collections:
+        res = manager.fetch_history(name, col)
+        for doc in res:
+            if 'test_type' not in doc:
+                doc['test_type'] = col.replace("_results", "")
+        full_history.extend(res)
+        
+    return sorted(full_history, key=lambda x: str(x.get('timestamp', '')), reverse=True)
 
-def get_all_tests(test_type="hexaco"):
-    """קריאה עבור דף ה-Admin לפי סוג מבחן"""
-    collections = {
-        "hexaco": "hexaco_results",
-        "integrity": "integrity_results",
-        "combined": "combined_results"
-    }
-    col = collections.get(test_type, "hexaco_results")
-    return DB_Manager().fetch_all_tests_admin(col)
+def get_all_tests():
+    """
+    פונקציה מאוחדת לאדמין: מושכת את כל המבדקים מכל הטבלאות.
+    מאפשרת לממשק האדמין להציג 'תיק מועמד' עם כל המבחנים שלו.
+    """
+    manager = DB_Manager()
+    collections = ["hexaco_results", "integrity_results", "combined_results"]
+    all_data = []
+    
+    for col in collections:
+        res = manager.fetch_all_tests_admin(col)
+        for doc in res:
+            if 'test_type' not in doc:
+                doc['test_type'] = col.replace("_results", "")
+        all_data.extend(res)
+        
+    return sorted(all_data, key=lambda x: str(x.get('timestamp', '')), reverse=True)
