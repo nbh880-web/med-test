@@ -301,7 +301,7 @@ def show_admin_dashboard():
                 with col_viz:
                     st.subheader("📊 גרף תוצאות")
                     # בחירת נתוני הניקוד (תומך ב-HEXACO ובאמינות)
-                    scores = row.get('results') or row.get('int_scores')
+                    scores = row.get('s') or row.get('int_scores')
                     if scores:
                         # שימוש ב-Radar Chart הקיים שלך
                         fig = get_radar_chart(scores)
@@ -421,7 +421,7 @@ elif st.session_state.step == 'HOME':
             if history:
                 for i, entry in enumerate(history):
                     # --- תיקון 1: בחירת הנתונים הנכונים לגרף (HEXACO או אמינות) ---
-                    display_scores = entry.get('results') or entry.get('int_scores')
+                    display_scores = entry.get('s') or entry.get('int_scores')
                     
                     # --- תיקון 2: הוספת סוג המבחן לכותרת ---
                     test_label = entry.get('test_type', 'מבדק').upper()
@@ -482,7 +482,7 @@ elif st.session_state.step == 'QUIZ':
                 if st.session_state.responses: st.session_state.responses.pop()
                 st.rerun()
     else:
-        st.session_state.step = 'RESULTS'; st.rerun()
+        st.session_state.step = 'S'; st.rerun()
     show_copyright()
 
 elif st.session_state.step == 'RESULTS':
@@ -494,7 +494,18 @@ elif st.session_state.step == 'RESULTS':
     
     df_raw, summary_df = process_results(hex_data.to_dict('records') if not hex_data.empty else st.session_state.responses)
     trait_scores = summary_df.set_index('trait')['final_score'].to_dict()
-
+# שמירה מיידית לארכיון (נתונים יבשים) כדי שיופיעו באקסל ובארכיון מיד
+    if 'dry_save_done' not in st.session_state:
+        try:
+            initial_reps = ["ממתין לניתוח AI...", "ממתין לניתוח AI..."]
+            if st.session_state.test_type == 'COMBINED':
+                save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores if 'int_scores' in locals() else {}, st.session_state.get('reliability_score', 0), initial_reps, st.session_state.hesitation_count)
+            else:
+                save_to_db(st.session_state.user_name, trait_scores, initial_reps, st.session_state.hesitation_count)
+            st.session_state.dry_save_done = True
+        except:
+            pass
+            
     m1, m2, m3, m4 = st.columns(4) # --- NEW ADDITION: m4 ---
     fit_score = calculate_medical_fit(summary_df)
     m1.metric("🎯 התאמה לרפואה", f"{fit_score}%")
@@ -642,22 +653,14 @@ elif st.session_state.step == 'RESULTS':
                 
                 st.session_state.gemini_report = gem_rep
                 st.session_state.claude_report = cld_rep
-                
-                # --- NEW ADDITION: שמירת מדד ההיסוס ב-DB ---
-                if st.session_state.test_type == 'COMBINED' and not int_data.empty:
-                    try:
-                        save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, 
-                                                st.session_state.reliability_score, [gem_rep, cld_rep])
-                    except:
-                        save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
-                elif st.session_state.test_type == 'INTEGRITY' and not int_data.empty:
-                    try:
-                        save_integrity_test_to_db(st.session_state.user_name, int_scores, 
-                                                 st.session_state.reliability_score, [gem_rep, cld_rep])
-                    except:
-                        save_to_db(st.session_state.user_name, int_scores, [gem_rep, cld_rep])
+
+                # עדכון אוטומטי של הרשומה הקיימת בארכיון עם דוחות ה-AI
+                final_reps = [gem_rep, cld_rep]
+                if st.session_state.test_type == 'COMBINED':
+                    save_combined_test_to_db(st.session_state.user_name, trait_scores, int_scores, st.session_state.reliability_score, final_reps, st.session_state.hesitation_count)
                 else:
-                    save_to_db(st.session_state.user_name, trait_scores, [gem_rep, cld_rep])
+                    save_to_db(st.session_state.user_name, trait_scores, final_reps, st.session_state.hesitation_count)
+                st.rerun() # רענון להצגת הדוחות על המסך
                     
             except Exception as e:
                 st.error(f"שגיאה בהפקת דוח: {e}")
