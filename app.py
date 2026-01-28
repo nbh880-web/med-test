@@ -416,7 +416,7 @@ elif st.session_state.step == 'HOME':
                         st.session_state.start_time = time.time()
                         st.rerun()
                
-       with tab_archive:
+    with tab_archive:
             history = get_db_history(name_input)
             if history:
                 for i, entry in enumerate(history):
