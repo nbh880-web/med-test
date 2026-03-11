@@ -79,7 +79,7 @@ def get_integrity_questions(count=140):
             bank = meta_banks.get(current_type, [])
             if bank:
                 meta_q = random.choice(bank).copy()
-                meta_q['is_stress_meta'] = True
+                meta_q['is_stress_meta'] = 1  # עקבי עם בדיקת ה-CSV ב-app.py
                 final_test.append(meta_q)
                 meta_idx += 1
 
