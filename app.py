@@ -81,43 +81,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.markdown("""
-    <style>
-    [data-testid="stSidebar"], [data-testid="stSidebarNav"], [data-testid="stSidebarCollapsedControl"] {
-        display: none !important;
-    }
-    .stApp { direction: rtl; text-align: right; }
+def load_css(path: str = "styles.css"):
+    """טוען קובץ CSS חיצוני לתוך הדף"""
+    try:
+        with open(path, encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning(f"⚠️ קובץ עיצוב לא נמצא: {path}")
 
-    div.stButton > button {
-        width: 100%; border-radius: 8px; height: 60px !important;
-        font-size: 18px !important; background-color: white; color: #212529;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.3s;
-    }
-    div.stButton > button:hover { border-color: #1e3a8a; color: #1e3a8a; }
-
-    .question-text {
-        font-size: 32px; font-weight: 800; text-align: center;
-        padding: 40px 20px; color: #1a2a6c; background-color: #f8f9fa;
-        border-radius: 15px; margin-bottom: 25px; border: 1px solid #e9ecef;
-    }
-    .stress-overlay {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.9); z-index: 9999;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        color: white; font-family: sans-serif;
-    }
-    .copyright-footer {
-        text-align: center; padding: 20px; color: #666; font-size: 14px;
-    }
-    .time-warning {
-        background-color: #fff3cd; color: #856404;
-        padding: 15px; border-radius: 10px; border-right: 5px solid #ffc107;
-        text-align: center; font-weight: bold; margin-bottom: 20px;
-        animation: flash 1s infinite alternate;
-    }
-    @keyframes flash { from { opacity: 1; } to { opacity: 0.7; } }
-    </style>
-    """, unsafe_allow_html=True)
+load_css()
 
 
 def show_copyright():
@@ -203,8 +175,8 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-    # הגדרה אחת בלבד — ברורה ונקייה
-    is_stress_trigger = str(q_data.get('is_stress_meta')) == "1"
+    # תומך בערכים מהקוד (True) ומה-CSV (1, "1")
+    is_stress_trigger = q_data.get('is_stress_meta') in [1, "1", True, "True"]
     if is_stress_trigger:
         trigger_stress_effect()
     st.rerun()
