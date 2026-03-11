@@ -175,8 +175,9 @@ def record_answer(ans_value, q_data):
     st.session_state.current_q += 1
     st.session_state.start_time = time.time()
 
-    # תומך בערכים מהקוד (True) ומה-CSV (1, "1")
-    is_stress_trigger = q_data.get('is_stress_meta') in [1, "1", True, "True"]
+    # המרה לstring קודם — עובד עם 1, 1.0, "1", True, "True" מכל מקור
+    raw_meta = str(q_data.get('is_stress_meta', '')).strip().lower()
+    is_stress_trigger = raw_meta in ["1", "1.0", "true"]
     if is_stress_trigger:
         trigger_stress_effect()
     st.rerun()
