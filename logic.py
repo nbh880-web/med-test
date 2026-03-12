@@ -1,287 +1,347 @@
+"""
+Mednitai — HEXACO Logic
+=======================
+"""
+
 import pandas as pd
-from fpdf import FPDF
-import re
-from datetime import datetime
 import numpy as np
-import random
 import io
+import os
 
-# © זכויות יוצרים לניתאי מלכה
-
-# --- 1. הגדרת הפרופיל האידיאלי ---
 IDEAL_RANGES = {
-    'Conscientiousness': (4.3, 4.8),
-    'Honesty-Humility': (4.2, 4.9),
-    'Agreeableness': (4.0, 4.6),
-    'Emotionality': (3.6, 4.1),
-    'Extraversion': (3.6, 4.2),
-    'Openness to Experience': (3.5, 4.1)
+    'Conscientiousness':       (4.3, 4.8),
+    'Honesty-Humility':        (4.2, 4.9),
+    'Agreeableness':           (4.0, 4.6),
+    'Emotionality':            (3.6, 4.1),
+    'Extraversion':            (3.6, 4.2),
+    'Openness to Experience':  (3.5, 4.1)
 }
 
 
 def calculate_score(answer, reverse_value):
-    """מחשב ציון סופי לפי עמודת ה-reverse מהאקסל"""
     try:
-        rev_str = str(reverse_value).strip().upper()
-        is_reverse = rev_str in ["TRUE", "1", "YES", "T", "ת", "אמת"]
-        val = int(answer)
-        return (6 - val) if is_reverse else val
+        score = int(answer)
+        rev = str(reverse_value).strip().lower()
+        if rev in ['true', '1', '1.0', 'yes', 't', 'ת', 'אמת']:
+            score = 6 - score
+        return max(1, min(5, score))
     except (ValueError, TypeError):
-        return 3  # ערך ניטרלי במקרה של תקלה
-
-
-def get_static_interpretation(trait, score):
-    """מחזיר פרשנות מובנית מבוססת טווחים"""
-    trait_map = {
-        'H': 'Honesty-Humility', 'E': 'Emotionality', 'X': 'Extraversion',
-        'A': 'Agreeableness', 'C': 'Conscientiousness', 'O': 'Openness to Experience'
-    }
-    full_trait = trait_map.get(trait, trait)
-    if full_trait not in IDEAL_RANGES:
-        return "ניתוח כללי של התכונה."
-
-    low_limit, high_limit = IDEAL_RANGES[full_trait]
-    if score < 3.0:
-        return "⚠️ ציון נמוך משמעותית מהמצופה מרופא. מומלץ לבחון האם התשובות שיקפו את המציאות."
-    elif score < low_limit:
-        return f"הציון מעט נמוך מהטווח האידיאלי ({low_limit}-{high_limit}). כדאי להדגיש חוזקות אחרות בראיון."
-    elif score <= high_limit:
-        return "✅ ציון מצוין! נמצא בטווח האידיאלי עבור מועמדים לרפואה."
-    else:
-        if score >= 4.9:
-            return "❗ ציון גבוה מאוד. בוחנים עלולים לחשוד בניסיון 'לייפות' את המציאות (Social Desirability)."
-        return "הציון מעט גבוה מהטווח המומלץ, אך עדיין משקף יכולות טובות."
-
-
-def calculate_medical_fit(summary_df):
-    """חישוב מדד התאמה משופר — Gap Analysis"""
-    if summary_df is None or summary_df.empty:
-        return 0
-    total_penalty = 0
-    traits_found = 0
-    for _, row in summary_df.iterrows():
-        trait = row['trait']
-        score = row['final_score']
-        if trait in IDEAL_RANGES:
-            traits_found += 1
-            low, high = IDEAL_RANGES[trait]
-            if score < low:
-                total_penalty += (low - score) * 1.2
-            elif score > high:
-                total_penalty += (score - high) * 0.5
-    if traits_found == 0:
-        return 0
-    fit_score = 100 - (total_penalty * 15)
-    return int(max(0, min(100, fit_score)))
-
-
-def check_response_time(duration):
-    """בדיקת תקינות זמן תגובה לשאלה בודדת"""
-    if duration < 1.8:
-        return "מהיר מדי"
-    if duration > 25:
-        return "איטי מדי"
-    return "תקין"
-
-
-def get_inconsistent_questions(df_raw):
-    """זיהוי שאלות סותרות עם לוגיקת סף דינמית"""
-    inconsistencies = []
-    if df_raw is None or df_raw.empty:
-        return []
-    for trait in df_raw['trait'].unique():
-        trait_qs = df_raw[df_raw['trait'] == trait]
-        scores = trait_qs['final_score'].values
-        questions = trait_qs.get('question', trait_qs.get('q', pd.Series(['שאלה'] * len(trait_qs)))).values
-        answers = trait_qs['original_answer'].values if 'original_answer' in trait_qs.columns else scores
-
-        for i in range(len(scores)):
-            for j in range(i + 1, len(scores)):
-                diff = abs(scores[i] - scores[j])
-                if diff >= 2.5:
-                    inconsistencies.append({
-                        'trait': trait,
-                        'q1_text': questions[i],
-                        'q1_ans': answers[i],
-                        'q2_text': questions[j],
-                        'q2_ans': answers[j],
-                        'diff': round(diff, 2)
-                    })
-    return inconsistencies
-
-
-def calculate_reliability_index(df_raw):
-    """ציון אמינות (0-100) עם משקולות סטטיסטיות"""
-    if df_raw is None or df_raw.empty:
-        return 100
-    penalty = 0
-
-    fast_count = len(df_raw[df_raw['time_taken'] < 1.4])
-    penalty += (fast_count / len(df_raw)) * 70
-
-    inconsistencies = get_inconsistent_questions(df_raw)
-    penalty += len(inconsistencies) * 15
-
-    if len(df_raw) > 15:
-        std_dev = df_raw['final_score'].std()
-        if std_dev < 0.35:
-            penalty += 45
-        elif std_dev < 0.5:
-            penalty += 20
-
-    return int(max(0, min(100, 100 - penalty)))
-
-
-def analyze_consistency(df):
-    """ניתוח עקביות ומגמות זמן"""
-    inconsistency_alerts = []
-    if df is None or df.empty or 'trait' not in df.columns:
-        return inconsistency_alerts
-
-    avg_time = df['time_taken'].mean()
-    if avg_time < 2.2:
-        inconsistency_alerts.append({"text": "קצב מענה מהיר מהממוצע - דורש בדיקת אמינות", "level": "orange"})
-    elif avg_time > 15:
-        inconsistency_alerts.append({"text": "מענה איטי במיוחד - ייתכן ניסיון לניתוח יתר", "level": "blue"})
-
-    for trait in df['trait'].unique():
-        trait_data = df[df['trait'] == trait]
-        if len(trait_data) >= 2:
-            score_range = trait_data['final_score'].max() - trait_data['final_score'].min()
-            if score_range >= 3:
-                inconsistency_alerts.append({"text": f"סתירה חמורה בתכונת {trait}", "level": "red"})
-            elif score_range >= 2.1:
-                inconsistency_alerts.append({"text": f"חוסר עקביות ב-{trait}", "level": "orange"})
-    return inconsistency_alerts
+        return 3
 
 
 def process_results(user_responses):
-    """מעבד את התשובות ומוסיף נתוני זמן ואמינות"""
-    df = pd.DataFrame(user_responses)
-    if df.empty:
-        return df, pd.DataFrame()
+    if not user_responses:
+        return pd.DataFrame(), pd.DataFrame()
 
-    df['time_status'] = df['time_taken'].apply(check_response_time)
+    records = []
+    for r in user_responses:
+        score = calculate_score(r.get('answer', 3), r.get('reverse', False))
+        records.append({
+            'question': r.get('question', ''),
+            'answer': r.get('answer', 3),
+            'score': score,
+            'response_time': r.get('response_time', 0),
+            'trait': r.get('trait', ''),
+            'reverse': r.get('reverse', False),
+        })
 
-    summary = df.groupby('trait').agg({
-        'final_score': 'mean',
-        'time_taken': 'mean'
-    }).reset_index()
+    df_raw = pd.DataFrame(records)
+    if df_raw.empty or 'trait' not in df_raw.columns:
+        return df_raw, pd.DataFrame()
 
-    std_by_trait = df.groupby('trait')['final_score'].std().fillna(0)
-    summary['consistency_score'] = summary['trait'].map(
-        lambda x: round((1 - (std_by_trait.get(x, 0) / 4)), 2)
-    ).clip(0, 1)
-
-    summary['final_score'] = summary['final_score'].round(2)
-    summary['avg_time'] = summary['time_taken'].round(1)
-
-    return df, summary
+    summary = df_raw.groupby('trait').agg(
+        avg_score=('score', 'mean'),
+        avg_time=('response_time', 'mean'),
+        std_score=('score', 'std'),
+        q_count=('score', 'count')
+    ).reset_index()
+    summary.rename(columns={'trait': 'Trait', 'avg_score': 'Mean'}, inplace=True)
+    return df_raw, summary
 
 
-def fix_heb(text):
-    """תיקון ויזואלי לעברית ב-PDF"""
-    if not text:
-        return " "
-    text = str(text)
-    clean_text = re.sub(r'[^\u0590-\u05FF0-9\s.,?!:()\-]', '', text)
-    return clean_text[::-1]
+def calculate_medical_fit(summary_df):
+    if summary_df is None or summary_df.empty:
+        return 0
+    try:
+        total, count = 0, 0
+        t_col = 'Trait' if 'Trait' in summary_df.columns else 'trait'
+        s_col = 'Mean' if 'Mean' in summary_df.columns else 'avg_score'
+
+        for _, row in summary_df.iterrows():
+            trait = row.get(t_col, '')
+            score = float(row.get(s_col, 0))
+            if trait in IDEAL_RANGES:
+                low, high = IDEAL_RANGES[trait]
+                if low <= score <= high:
+                    fit = 100
+                else:
+                    gap = min(abs(score - low), abs(score - high))
+                    fit = max(0, 100 - gap * 40)
+                total += fit
+                count += 1
+        return round(total / count) if count else 0
+    except Exception:
+        return 0
+
+
+def calculate_reliability_index(df_raw):
+    if df_raw is None or df_raw.empty:
+        return 100
+    try:
+        score = 100.0
+        if 'response_time' in df_raw.columns:
+            score -= (df_raw['response_time'] < 1.4).sum() * 2
+        score -= len(get_inconsistent_questions(df_raw)) * 5
+        if 'trait' in df_raw.columns and 'score' in df_raw.columns:
+            for trait in df_raw['trait'].unique():
+                ts = df_raw[df_raw['trait'] == trait]['score']
+                if len(ts) > 2 and ts.std() < 0.35:
+                    score -= 8
+        return max(0, min(100, round(score)))
+    except Exception:
+        return 50
+
+
+def get_inconsistent_questions(df_raw):
+    result = []
+    if df_raw is None or df_raw.empty:
+        return result
+    try:
+        if 'trait' not in df_raw.columns or 'score' not in df_raw.columns:
+            return result
+        for trait in df_raw['trait'].unique():
+            tdf = df_raw[df_raw['trait'] == trait]
+            scores = tdf['score'].values
+            questions = tdf['question'].values
+            for i in range(len(scores)):
+                for j in range(i + 1, len(scores)):
+                    if abs(scores[i] - scores[j]) >= 2.5:
+                        result.append({
+                            'trait': trait, 'gap': abs(scores[i] - scores[j]),
+                            'severity': 'high',
+                            'message': f"סתירה ב-{trait}: פער {abs(scores[i] - scores[j]):.1f}"
+                        })
+    except Exception:
+        pass
+    return result
+
+
+def analyze_consistency(df):
+    alerts = []
+    if df is None or df.empty:
+        return alerts
+    try:
+        if 'response_time' in df.columns:
+            fast = (df['response_time'] < 1.4).sum()
+            if fast > 5:
+                alerts.append({'level': 'red', 'message': f'{fast} תשובות מהירות מדי'})
+            elif fast > 2:
+                alerts.append({'level': 'orange', 'message': f'{fast} תשובות מהירות'})
+        if 'trait' in df.columns and 'score' in df.columns:
+            for trait in df['trait'].unique():
+                ts = df[df['trait'] == trait]['score']
+                if len(ts) > 3 and ts.std() < 0.35:
+                    alerts.append({'level': 'orange', 'message': f'תשובות מונוטוניות ב-{trait}'})
+        incons = get_inconsistent_questions(df)
+        if len(incons) > 3:
+            alerts.append({'level': 'red', 'message': f'{len(incons)} סתירות'})
+        elif incons:
+            alerts.append({'level': 'blue', 'message': f'{len(incons)} סתירות קלות'})
+    except Exception:
+        pass
+    return alerts
 
 
 def create_pdf_report(summary_df, raw_responses):
-    """יצירת דוח PDF עם עיצוב מלא"""
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
     try:
-        pdf.add_font('Assistant', '', 'Assistant.ttf', uni=True)
-        font_main = 'Assistant'
-    except Exception:
-        font_main = 'Arial'
+        from fpdf import FPDF
+        pdf = FPDF()
+        pdf.add_page()
 
-    pdf.set_margins(15, 15, 15)
-    pdf.add_page()
+        font_path = "Assistant.ttf"
+        if os.path.exists(font_path):
+            pdf.add_font("Assistant", "", font_path, uni=True)
+            pdf.set_font("Assistant", size=14)
+        else:
+            pdf.set_font("Helvetica", size=14)
 
-    pdf.set_fill_color(240, 242, 246)
-    pdf.rect(0, 0, 210, 40, 'F')
-
-    pdf.set_font(font_main, size=22)
-    pdf.set_text_color(30, 58, 138)
-    pdf.cell(180, 20, txt=fix_heb("דוח מבדק אישיות HEXACO - הכנה לרפואה"), ln=True, align='C')
-
-    fit_score = calculate_medical_fit(summary_df)
-    rel_score = calculate_reliability_index(raw_responses)
-
-    pdf.set_font(font_main, size=16)
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(10)
-    pdf.cell(90, 10, fix_heb(f"אמינות מבדק: {rel_score}%"), 0, 0, 'C')
-    pdf.cell(90, 10, fix_heb(f"התאמה לרפואה: {fit_score}%"), 0, 1, 'C')
-    pdf.ln(10)
-
-    pdf.set_fill_color(30, 58, 138)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font(font_main, size=12)
-    cols = [("זמן ממוצע", 40), ("סטטוס", 40), ("ציון", 30), ("תכונה", 70)]
-    for txt, width in cols:
-        pdf.cell(width, 10, fix_heb(txt), 1, 0, 'C', True)
-    pdf.ln()
-
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_font(font_main, size=11)
-    for _, row in summary_df.iterrows():
-        status = "תקין" if 2 < row['avg_time'] < 10 else "חריג"
-        pdf.cell(40, 10, str(row['avg_time']), 1, 0, 'C')
-        pdf.cell(40, 10, fix_heb(status), 1, 0, 'C')
-        pdf.cell(30, 10, str(row['final_score']), 1, 0, 'C')
-        pdf.cell(70, 10, fix_heb(row['trait']), 1, 1, 'R')
-
-    alerts = analyze_consistency(raw_responses)
-    if alerts:
+        pdf.cell(0, 10, "Mednitai HEXACO Report", ln=True, align='C')
         pdf.ln(10)
-        pdf.set_font(font_main, size=14)
-        pdf.cell(180, 10, txt=fix_heb("ממצאים בולטים באמינות המענה:"), ln=True, align='R')
-        pdf.set_font(font_main, size=11)
-        for alert in alerts:
-            color = (200, 0, 0) if alert['level'] == 'red' else (255, 140, 0)
-            pdf.set_text_color(*color)
-            pdf.cell(180, 7, txt=fix_heb(f"• {alert['text']}"), ln=True, align='R')
 
-    return bytes(pdf.output())
+        if summary_df is not None and hasattr(summary_df, 'iterrows'):
+            t_col = 'Trait' if 'Trait' in summary_df.columns else 'trait'
+            s_col = 'Mean' if 'Mean' in summary_df.columns else 'avg_score'
+            pdf.set_font_size(11)
+            for _, row in summary_df.iterrows():
+                pdf.cell(0, 8, f"{row.get(t_col, '')}: {row.get(s_col, 0):.2f}", ln=True)
 
+        pdf.ln(5)
+        if raw_responses:
+            df = pd.DataFrame(raw_responses) if isinstance(raw_responses, list) else raw_responses
+            if not df.empty:
+                rel = calculate_reliability_index(df)
+                pdf.cell(0, 8, f"Reliability Score: {rel}", ln=True)
 
-def get_balanced_questions(df, total_limit):
-    """בחירת שאלות מאוזנת עם הגנה ממחסור במאגר"""
-    if df.empty:
-        return []
-    traits = df['trait'].unique()
-    qs_per_trait = total_limit // len(traits)
-    selected_qs = []
-    for trait in traits:
-        trait_qs = df[df['trait'] == trait].to_dict('records')
-        count = min(len(trait_qs), qs_per_trait)
-        if count > 0:
-            selected_qs.extend(random.sample(trait_qs, count))
-
-    if len(selected_qs) < total_limit:
-        remaining_count = total_limit - len(selected_qs)
-        selected_ids = {id(q) for q in selected_qs}
-        all_unused = [q for q in df.to_dict('records') if id(q) not in selected_ids]
-        if all_unused:
-            selected_qs.extend(random.sample(all_unused, min(len(all_unused), remaining_count)))
-
-    random.shuffle(selected_qs)
-    return selected_qs
+        return pdf.output()
+    except Exception:
+        return None
 
 
 def create_excel_download(responses):
-    """יצירת קובץ Excel להורדה — מחזיר bytes או הודעת שגיאה"""
     try:
         if not responses:
-            return "Error: No data in responses"
+            return "אין נתונים"
         df = pd.DataFrame(responses)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False)
-        output.seek(0)
+            df.to_excel(writer, sheet_name='Responses', index=False)
+            ws = writer.sheets['Responses']
+            for i, col in enumerate(df.columns):
+                width = max(df[col].astype(str).apply(len).max(), len(col)) + 2
+                ws.set_column(i, i, min(width, 40))
         return output.getvalue()
     except Exception as e:
-        return f"System Error: {str(e)}"
+        return f"שגיאה: {e}"
+
+
+def get_balanced_questions(df, total_limit=60):
+    if df is None or df.empty:
+        return []
+    try:
+        trait_col = None
+        for col in ['trait', 'Trait', 'category']:
+            if col in df.columns:
+                trait_col = col
+                break
+        if not trait_col:
+            return df.head(total_limit).to_dict('records')
+
+        traits = df[trait_col].unique()
+        per_trait = max(1, total_limit // len(traits))
+        parts = []
+        for trait in traits:
+            tdf = df[df[trait_col] == trait]
+            parts.append(tdf.sample(n=min(per_trait, len(tdf))))
+
+        result = pd.concat(parts)
+        remaining = total_limit - len(result)
+        if remaining > 0:
+            leftover = df[~df.index.isin(result.index)]
+            if not leftover.empty:
+                result = pd.concat([result, leftover.sample(n=min(remaining, len(leftover)))])
+
+        return result.sample(frac=1).reset_index(drop=True).to_dict('records')
+    except Exception:
+        return df.head(total_limit).to_dict('records')
+
+
+# ============================================================
+# Dynamic WPM Threshold
+# ============================================================
+def calculate_dynamic_wpm_threshold(question_text):
+    """
+    Calculate minimum reasonable reading time for a question.
+    Based on average reading speed of ~200 WPM (Hebrew is slightly slower).
+    Hebrew WPM ~150. Adding 1 second for decision-making.
+
+    Returns: minimum seconds to read + decide.
+    Too fast = below this threshold = suspicious.
+    """
+    try:
+        words = len(str(question_text).split())
+        # Hebrew reading: ~150 words per minute = 2.5 words per second
+        reading_time = words / 2.5
+        # Minimum 1.2 seconds even for very short questions
+        # Add 0.8 seconds for cognitive processing (choosing answer)
+        threshold = max(1.2, reading_time + 0.8)
+        return round(threshold, 2)
+    except Exception:
+        return 1.4  # Fallback
+
+
+# ============================================================
+# Fatigue Index
+# ============================================================
+def calculate_fatigue_index(responses):
+    """
+    Compare first third vs last third of test.
+    Measures:
+    - Response time increase (slowing down)
+    - Score variance increase (less consistent)
+    - Speed of last 10% vs first 10%
+
+    Returns 0-100 (0=no fatigue, 100=severe fatigue).
+    """
+    if not responses or len(responses) < 9:
+        return 0
+
+    try:
+        n = len(responses)
+        third = n // 3
+
+        first_third = responses[:third]
+        last_third = responses[-third:]
+
+        fatigue_score = 0
+
+        # ---- 1. Response time comparison ----
+        first_times = [r.get('response_time', 0) for r in first_third if r.get('response_time', 0) > 0]
+        last_times = [r.get('response_time', 0) for r in last_third if r.get('response_time', 0) > 0]
+
+        if first_times and last_times:
+            avg_first = sum(first_times) / len(first_times)
+            avg_last = sum(last_times) / len(last_times)
+
+            if avg_first > 0:
+                # Significant slowdown = fatigue
+                time_ratio = avg_last / avg_first
+                if time_ratio > 1.5:
+                    fatigue_score += 30  # Major slowdown
+                elif time_ratio > 1.2:
+                    fatigue_score += 15  # Moderate slowdown
+                # Or significant speedup (rushing to finish)
+                elif time_ratio < 0.6:
+                    fatigue_score += 25  # Rushing at end
+                elif time_ratio < 0.8:
+                    fatigue_score += 10
+
+        # ---- 2. Score variance comparison ----
+        first_scores = [r.get('answer', 3) for r in first_third]
+        last_scores = [r.get('answer', 3) for r in last_third]
+
+        if len(first_scores) > 2 and len(last_scores) > 2:
+            first_std = np.std(first_scores)
+            last_std = np.std(last_scores)
+
+            # Less variance at end = fatigue (defaulting to middle)
+            if last_std < first_std * 0.5 and first_std > 0.5:
+                fatigue_score += 20  # Much less variance
+            elif last_std < first_std * 0.7 and first_std > 0.5:
+                fatigue_score += 10
+
+            # Or much more variance (careless)
+            if last_std > first_std * 1.8 and last_std > 1.0:
+                fatigue_score += 15
+
+        # ---- 3. Last 10% speed check ----
+        last_10pct = responses[-max(1, n // 10):]
+        last_10_times = [r.get('response_time', 0) for r in last_10pct if r.get('response_time', 0) > 0]
+
+        if last_10_times and first_times:
+            avg_last_10 = sum(last_10_times) / len(last_10_times)
+            avg_first_time = sum(first_times) / len(first_times)
+
+            if avg_first_time > 0 and avg_last_10 < avg_first_time * 0.4:
+                fatigue_score += 20  # Extremely rushed at end
+
+        # ---- 4. Monotone answers at end ----
+        if len(last_scores) > 5:
+            # Check if last answers are all the same
+            unique_last = len(set(last_scores[-min(10, len(last_scores)):]))
+            if unique_last <= 2:
+                fatigue_score += 15  # Almost no variation
+
+        return min(100, max(0, fatigue_score))
+
+    except Exception:
+        return 0
