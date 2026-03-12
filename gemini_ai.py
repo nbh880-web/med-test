@@ -2,11 +2,12 @@ import streamlit as st
 import requests
 import json
 import plotly.graph_objects as go
+import time
 from datetime import datetime
 
-# © זכויות יוצרים לניתאי מלכה
+# זכויות יוצרים לניתאי מלכה
 
-# --- 1. הגדרות ליבה ---
+# --- 1. הגדרות ליבה וטווחים פסיכומטריים (ניתוח פערים) ---
 TRAIT_DICT = {
     "Honesty-Humility": "כנות וענווה (H)",
     "Emotionality": "רגשיות (E)",
@@ -35,35 +36,40 @@ TRAIT_RANGES = {
 }
 
 
+# --- Cache: Model Discovery רץ פעם אחת בלבד ---
+@st.cache_resource
+def _cached_model_discovery(api_key):
+    """Gemini Model Discovery — cached כדי לא לרוץ בכל קריאה."""
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200:
+            models = [m['name'] for m in res.json().get('models', [])
+                      if 'generateContent' in m.get('supportedGenerationMethods', [])]
+            for m in models:
+                if "1.5-flash" in m:
+                    return m
+            return models[0] if models else "models/gemini-1.5-flash"
+    except Exception:
+        pass
+    return "models/gemini-1.5-flash"
+
+
 class HEXACO_Expert_System:
     def __init__(self):
+        # Failover ל-3 מפתחות Gemini
         self.gemini_keys = [
             st.secrets.get("GEMINI_KEY_1", "").strip(),
             st.secrets.get("GEMINI_KEY_2", "").strip(),
             st.secrets.get("GEMINI_KEY_3", "").strip()
         ]
         self.gemini_keys = [k for k in self.gemini_keys if k]
-        self.claude_key = (
-            st.secrets.get("CLAUDE_KEY") or
-            st.secrets.get("ANTHROPIC_API_KEY", "")
-        ).strip()
+        # משיכת מפתח Claude
+        self.claude_key = st.secrets.get("CLAUDE_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "").strip()
 
     def _get_model_discovery(self, api_key):
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
-            res = requests.get(url, timeout=10)
-            if res.status_code == 200:
-                models = [
-                    m['name'] for m in res.json().get('models', [])
-                    if 'generateContent' in m.get('supportedGenerationMethods', [])
-                ]
-                for m in models:
-                    if "1.5-flash" in m:
-                        return m
-                return models[0] if models else "models/gemini-1.5-flash"
-        except Exception:
-            pass
-        return "models/gemini-1.5-flash"
+        """משתמש ב-cache — לא רץ מחדש בכל קריאה."""
+        return _cached_model_discovery(api_key)
 
     def _call_gemini_safe(self, prompt):
         if not self.gemini_keys:
@@ -72,13 +78,10 @@ class HEXACO_Expert_System:
             model = self._get_model_discovery(key)
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
-                res = requests.post(
-                    url,
-                    json={"contents": [{"parts": [{"text": prompt}]}]},
-                    timeout=90
-                )
+                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=90)
                 if res.status_code == 200:
-                    return res.json()['candidates'][0]['content']['parts'][0]['text']
+                    data = res.json()
+                    return data['candidates'][0]['content']['parts'][0]['text']
                 elif res.status_code == 429:
                     st.warning(f"מפתח #{i} חרג מהמכסה, עובר למפתח הבא...")
                     continue
@@ -90,16 +93,20 @@ class HEXACO_Expert_System:
         if not self.claude_key:
             return "⚠️ מפתח Claude חסר."
 
+        # ===== Claude Opus 4.6 בראש הרשימה =====
         models_to_try = [
-            "claude-opus-4-6",               # Opus 4.6 — מודל ראשי
-            "claude-sonnet-4-20250514",       # fallback
-            "claude-3-5-sonnet-20241022",     # fallback ישן
+            "claude-opus-4-6",               # 🔥 Opus 4.6 — המודל החזק ביותר
+            "claude-sonnet-4-20250514",      # Sonnet 4 כ-fallback
+            "claude-3-5-sonnet-20241022",    # גרסה יציבה ישנה
+            "claude-3-5-sonnet-latest"       # תמיד מעודכן
         ]
+
         headers = {
             "x-api-key": self.claude_key,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json"
         }
+
         for model_name in models_to_try:
             try:
                 payload = {
@@ -113,14 +120,17 @@ class HEXACO_Expert_System:
                     json=payload,
                     timeout=120
                 )
+
                 if res.status_code == 200:
                     return res.json()['content'][0]['text']
                 elif res.status_code == 404:
+                    # מודל לא זמין ב-Tier, נדלג לבא ברשימה
                     continue
                 else:
-                    return f"❌ שגיאת Claude ({model_name}): {res.status_code}"
+                    return f"❌ שגיאת Claude ({model_name}): {res.status_code} - {res.text}"
             except Exception as e:
                 return f"❌ שגיאה טכנית בחיבור ל-Claude: {str(e)}"
+
         return "❌ שגיאת 404: אף אחד מהמודלים לא זמין בחשבון ה-API שלך."
 
     def calculate_compatibility_score(self, results):
@@ -135,10 +145,9 @@ class HEXACO_Expert_System:
                 total += 30
             else:
                 total += 70
-        return int(total / max(len(results), 1))
+        return int(total / 6)
 
-    def generate_expert_reports(self, name, results, history=None):
-        history = history or []
+    def generate_expert_reports(self, name, results, history=[]):
         gaps = "\n".join([
             f"{TRAIT_DICT.get(t, t)}: {s:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})"
             for t, s in results.items()
@@ -174,10 +183,10 @@ class HEXACO_Expert_System:
     def create_radar_chart(self, results):
         if not results:
             return go.Figure()
+        fig = go.Figure()
         cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
         val = list(results.values())
         ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
-        fig = go.Figure()
         fig.add_trace(go.Scatterpolar(
             r=ideal + [ideal[0]], theta=cat + [cat[0]],
             fill='toself', name='🎯 יעד',
@@ -223,9 +232,8 @@ class HEXACO_Expert_System:
 
 
 # --- פונקציות גלובליות ---
-
-def get_multi_ai_analysis(name, results, history=None):
-    return HEXACO_Expert_System().generate_expert_reports(name, results, history or [])
+def get_multi_ai_analysis(name, results, history=[]):
+    return HEXACO_Expert_System().generate_expert_reports(name, results, history)
 
 
 def get_radar_chart(results):
@@ -240,42 +248,62 @@ def create_token_gauge(text):
     return HEXACO_Expert_System().create_token_gauge(text)
 
 
+# --- פונקציות ניתוח אמינות ומשולב ---
 def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_scores, history):
-    """ניתוח AI עבור מבדק אמינות ויושרה"""
+    """
+    מפיק ניתוח AI עבור מבדק אמינות ויושרה.
+    משתמש במערכת המומחה הקיימת.
+    """
     expert = HEXACO_Expert_System()
+
+    # בניית הקשר אמינות לפרומפט
     rel_info = f"מדד אמינות: {reliability_score}%\n"
     if contradictions:
-        rel_info += "סתירות שזוהו:\n" + "\n".join([
-            f"- {c.get('message', '')}" for c in contradictions
+        rel_info += "סתירות שזוהו בתשובות המועמד:\n" + "\n".join([
+            f"- {c.get('message', str(c))}" for c in contradictions
         ])
+
+    # יצירת פרומפט מותאם לאמינות
     prompt = f"""
     אתה פסיכולוג תעסוקתי המנתח מבדק אמינות (Integrity Test).
     מועמד: {user_name}
-    תוצאות מדדים: {json.dumps(int_scores)}
+    תוצאות מדדים: {json.dumps(int_scores) if not hasattr(int_scores, 'to_dict') else json.dumps(int_scores.to_dict())}
     {rel_info}
     היסטוריה: {history}
-    נתח את רמת היושרה והסיכון התעסוקתי. כתוב דוח מפורט בעברית.
+
+    נתח את רמת היושרה והסיכון התעסוקתי של המועמד.
+    כתוב דוח מפורט בעברית.
     © זכויות יוצרים לניתאי מלכה.
     """
+
+    # שימוש במנגנוני ה-Failover הקיימים של HEXACO_Expert_System
     return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
 
 
 def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contradictions, history):
-    """ניתוח AI משולב (HEXACO + אמינות)"""
+    """
+    מפיק ניתוח AI משולב (HEXACO + אמינות).
+    משתמש במערכת המומחה הקיימת.
+    """
     expert = HEXACO_Expert_System()
+
+    # בניית הקשר משולב לפרומפט
     rel_info = f"מדד אמינות שאלון: {reliability_score}%\n"
     if contradictions:
-        rel_info += "אזהרת עקביות:\n" + "\n".join([
-            f"- {c.get('message', '')}" for c in contradictions
+        rel_info += "אזהרת עקביות - נמצאו סתירות:\n" + "\n".join([
+            f"- {c.get('message', str(c))}" for c in contradictions
         ])
+
     prompt = f"""
     אתה פסיכולוג בכיר המנתח מבדק משולב: אישיות (HEXACO) ואמינות.
     מועמד: {user_name}
-    ציוני אישיות: {json.dumps(trait_scores)}
+    ציוני אישיות: {json.dumps(trait_scores) if not hasattr(trait_scores, 'to_dict') else json.dumps(trait_scores.to_dict())}
     {rel_info}
-    נתח את הקשר בין תכונות האישיות לבין רמת האמינות.
+
+    נתח את הקשר בין תכונות האישיות לבין רמת האמינות שהופגנה.
     התייחס להתאמה הכוללת לתפקידי רפואה/ניהול.
     כתוב דוח מעמיק בעברית.
     © זכויות יוצרים לניתאי מלכה.
     """
+
     return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
