@@ -370,6 +370,7 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = val
 
+
 # ============================================================
 # HOME Screen
 # ============================================================
@@ -381,27 +382,23 @@ def render_home():
     </div>
     """, unsafe_allow_html=True)
 
-    # תיבת הטקסט
     name = st.text_input("✍️ מה השם שלך?", value=st.session_state.get('user_name', ''),
                           placeholder="הכנס את שמך המלא (ולחץ Enter במקלדת)")
     st.session_state.user_name = name
 
-    # בדיקה האם הוזן שם 
+    # בדיקה האם הוזן שם (כדי לפתוח את התפריט)
     is_name_valid = bool(name.strip())
 
     st.write("")
 
-    # אם לא הוזן שם - מציגים רק הודעה
     if not is_name_valid:
         st.warning("⚠️ התפריט נעול: אנא הקלד את שמך בתיבה למעלה **ולחץ על מקש האנטר (Enter)** כדי לפתוח את אפשרויות המבדק וההיסטוריה.")
-    
-    # אם הוזן שם - חושפים את התפריט עם הלשוניות (Tabs)
     else:
         st.success(f"✅ שלום {name}! בחר פעולה:")
         
         tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריית מבדקים"])
         
-        # --- לשונית 1: מבחן חדש ---
+        # --- לשונית מבחן חדש ---
         with tab_new:
             st.markdown("### ⚙️ הגדרות המבדק")
             test_length = st.radio("⏱️ בחר את אורך המבדק:",
@@ -446,12 +443,11 @@ def render_home():
             if practice:
                 st.info("במצב תרגול: ללא מסכי לחץ, ללא מדידת זמן, עם הסברים אחרי כל שאלה.")
 
-        # --- לשונית 2: היסטוריית מבדקים ---
+        # --- לשונית היסטוריה ---
         with tab_archive:
             history = get_db_history(name)
             if history:
                 st.markdown(f"### 📂 ההיסטוריה של {name}")
-                # הפיכת הרשימה כדי להציג את המבדק החדש ביותר למעלה
                 for i, entry in enumerate(reversed(history)):
                     test_date = entry.get('test_date', 'N/A')
                     test_time = entry.get('test_time', '')
@@ -491,7 +487,53 @@ def render_home():
                     st.error("סיסמה שגויה")
             except Exception:
                 st.error("שגיאה בגישה למערכת")
-                
+
+
+def start_test(test_type, test_length):
+    st.session_state.test_type = test_type
+    st.session_state.current_q = 0
+    st.session_state.responses = []
+    st.session_state.hesitation_count = 0
+    st.session_state.speed_flag_count = 0
+    st.session_state.stress_active = False
+    st.session_state.stress_msg_index = random.randint(0, len(STRESS_MESSAGES) - 1)
+    st.session_state.q_start_time = time.time()
+    st.session_state.user_id = str(uuid.uuid4())
+    st.session_state.fatigue_index = None
+
+    try:
+        # חלוקת מספר השאלות לפי בחירת המשתמש
+        if test_type == 'hexaco':
+            df = load_hexaco_questions()
+            if "קצר" in test_length: count = 36
+            elif "רגיל" in test_length: count = 60
+            else: count = 120
+            st.session_state.questions = get_balanced_questions(df, total_limit=count)
+
+        elif test_type == 'integrity':
+            if "קצר" in test_length: count = 60
+            elif "רגיל" in test_length: count = 100
+            else: count = 140
+            st.session_state.questions = get_integrity_questions(count=count)
+
+        elif test_type == 'combined':
+            df = load_hexaco_questions()
+            if "קצר" in test_length: hex_c, int_c = 36, 40
+            elif "רגיל" in test_length: hex_c, int_c = 60, 80
+            else: hex_c, int_c = 120, 140
+
+            hexaco_q = get_balanced_questions(df, total_limit=hex_c)
+            integrity_q = get_integrity_questions(count=int_c)
+            combined = hexaco_q + integrity_q
+            random.shuffle(combined)
+            st.session_state.questions = combined
+
+        st.session_state.step = 'QUIZ'
+        st.rerun()
+    except Exception as e:
+        st.error(f"שגיאה בטעינת שאלות: {e}")
+
+
 # ============================================================
 # QUIZ Screen
 # ============================================================
