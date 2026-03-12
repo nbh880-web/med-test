@@ -399,22 +399,28 @@ def render_home():
     st.write("")
     st.markdown("### בחר סוג מבדק")
 
+    # בדיקה האם הוזן שם
+    is_name_valid = bool(name.strip())
+    
+    if not is_name_valid:
+        st.info("👈 אנא הזן את שמך בתיבה למעלה כדי לפתוח את אפשרויות המבדק.")
+
     col1, col2, col3 = st.columns(3, gap="medium")
     with col1:
         st.markdown("#### 🎯 HEXACO")
         st.caption("6 תכונות אישיות מרכזיות")
-        if st.button("התחל HEXACO", key="btn_hexaco"):
-            _start_if_named(name, 'hexaco')
+        if st.button("התחל HEXACO", key="btn_hexaco", disabled=not is_name_valid):
+            start_test('hexaco')
     with col2:
         st.markdown("#### 🔍 אמינות")
         st.caption("בדיקת עקביות ויושרה")
-        if st.button("התחל אמינות", key="btn_integrity"):
-            _start_if_named(name, 'integrity')
+        if st.button("התחל אמינות", key="btn_integrity", disabled=not is_name_valid):
+            start_test('integrity')
     with col3:
         st.markdown("#### 🏥 משולב")
         st.caption("HEXACO + אמינות — סימולציה מלאה")
-        if st.button("התחל משולב", key="btn_combined"):
-            _start_if_named(name, 'combined')
+        if st.button("התחל משולב", key="btn_combined", disabled=not is_name_valid):
+            start_test('combined')
 
     st.markdown("---")
     practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
@@ -435,13 +441,6 @@ def render_home():
                     st.error("סיסמה שגויה")
             except Exception:
                 st.error("שגיאה בגישה למערכת")
-
-
-def _start_if_named(name, test_type):
-    if not name.strip():
-        st.warning("נא להכניס שם לפני תחילת המבדק")
-    else:
-        start_test(test_type)
 
 
 def start_test(test_type):
