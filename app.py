@@ -13,7 +13,6 @@ import uuid
 import time
 import random
 import math
-from enum import Enum
 
 from logic import (
     process_results, calculate_medical_fit, calculate_reliability_index,
@@ -237,16 +236,6 @@ h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
 </style>
 """, unsafe_allow_html=True)
 
-
-# ============================================================
-# Enums & Constants
-# ============================================================
-class Step(Enum):
-    HOME = "home"
-    QUIZ = "quiz"
-    RESULTS = "results"
-    ADMIN_VIEW = "admin"
-
 # ---------- Stress Messages (the real ones from the spec) ----------
 STRESS_MESSAGES = [
     {
@@ -353,7 +342,7 @@ def load_hexaco_questions():
 # ============================================================
 def init_session_state():
     defaults = {
-        'step': Step.HOME,
+        'step': 'HOME',
         'test_type': None,
         'user_name': '',
         'questions': [],
@@ -404,26 +393,17 @@ def render_home():
         st.markdown("#### 🎯 HEXACO")
         st.caption("6 תכונות אישיות מרכזיות")
         if st.button("התחל HEXACO", key="btn_hexaco"):
-            if not name.strip():
-                st.warning("נא להכניס שם לפני תחילת המבדק")
-            else:
-                start_test('hexaco')
+            _start_if_named(name, 'hexaco')
     with col2:
         st.markdown("#### 🔍 אמינות")
         st.caption("בדיקת עקביות ויושרה")
         if st.button("התחל אמינות", key="btn_integrity"):
-            if not name.strip():
-                st.warning("נא להכניס שם לפני תחילת המבדק")
-            else:
-                start_test('integrity')
+            _start_if_named(name, 'integrity')
     with col3:
         st.markdown("#### 🏥 משולב")
         st.caption("HEXACO + אמינות — סימולציה מלאה")
         if st.button("התחל משולב", key="btn_combined"):
-            if not name.strip():
-                st.warning("נא להכניס שם לפני תחילת המבדק")
-            else:
-                start_test('combined')
+            _start_if_named(name, 'combined')
 
     st.markdown("---")
     practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
@@ -438,13 +418,21 @@ def render_home():
         if st.button("כניסת מנהל", key="btn_admin"):
             try:
                 if admin_pass == st.secrets.get("ADMIN_USER", ""):
-                    st.session_state.step = Step.ADMIN_VIEW
+                    st.session_state.step = 'ADMIN_VIEW'
                     st.rerun()
                 else:
                     st.error("סיסמה שגויה")
             except Exception:
                 st.error("שגיאה בגישה למערכת")
-                
+
+
+def _start_if_named(name, test_type):
+    if not name.strip():
+        st.warning("נא להכניס שם לפני תחילת המבדק")
+    else:
+        start_test(test_type)
+
+
 def start_test(test_type):
     st.session_state.test_type = test_type
     st.session_state.current_q = 0
@@ -471,7 +459,7 @@ def start_test(test_type):
             random.shuffle(combined)
             st.session_state.questions = combined
 
-        st.session_state.step = Step.QUIZ
+        st.session_state.step = 'QUIZ'
         st.rerun()
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות: {e}")
@@ -628,7 +616,7 @@ def finish_test():
         elif test_type == 'combined':
             _process_combined(responses)
 
-        st.session_state.step = Step.RESULTS
+        st.session_state.step = 'RESULTS'
         st.rerun()
     except Exception as e:
         st.error(f"שגיאה בעיבוד תוצאות: {e}")
@@ -759,7 +747,7 @@ def render_results():
     if st.button("🏠 חזרה לדף הבית", use_container_width=True):
         for key in ['responses', 'results_data', 'summary_data', 'gemini_report', 'claude_report']:
             st.session_state[key] = None if 'data' in key or 'report' in key else []
-        st.session_state.step = Step.HOME
+        st.session_state.step = 'HOME'
         st.rerun()
 
 
@@ -917,7 +905,7 @@ def _render_downloads_tab():
 def render_admin():
     st.markdown("# 🔐 ממשק ניהול — Dashboard")
     if st.button("🏠 חזרה לדף הבית"):
-        st.session_state.step = Step.HOME
+        st.session_state.step = 'HOME'
         st.rerun()
 
     st.markdown("---")
@@ -1076,16 +1064,16 @@ def render_admin():
 def main():
     init_session_state()
     step = st.session_state.step
-    if step == Step.HOME:
+    if step == 'HOME':
         render_home()
-    elif step == Step.QUIZ:
+    elif step == 'QUIZ':
         render_quiz()
-    elif step == Step.RESULTS:
+    elif step == 'RESULTS':
         render_results()
-    elif step == Step.ADMIN_VIEW:
+    elif step == 'ADMIN_VIEW':
         render_admin()
     else:
-        st.session_state.step = Step.HOME
+        st.session_state.step = 'HOME'
         st.rerun()
 
 if __name__ == "__main__":
