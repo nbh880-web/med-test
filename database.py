@@ -1,145 +1,189 @@
+"""
+Mednitai — Database Layer
+=========================
+Firebase Firestore: save, fetch, admin.
+"""
+
 import streamlit as st
-from google.cloud import firestore
-from google.oauth2 import service_account
 from datetime import datetime
+import json
 
+
+# ============================================================
+# Firebase Init — Cached
+# ============================================================
+@st.cache_resource
+def _init_firebase():
+    """Initialize Firebase — cached so it runs once."""
+    try:
+        from google.cloud import firestore
+        from google.oauth2 import service_account
+
+        firebase_config = dict(st.secrets["firebase"])
+
+        # Fix private key newlines
+        if 'private_key' in firebase_config:
+            firebase_config['private_key'] = firebase_config['private_key'].replace('\\n', '\n')
+
+        credentials = service_account.Credentials.from_service_account_info(firebase_config)
+        db = firestore.Client(credentials=credentials, project=firebase_config.get('project_id'))
+        return db
+    except Exception as e:
+        st.warning(f"Firebase לא זמין: {e}")
+        return None
+
+
+# ============================================================
+# DB Manager
+# ============================================================
 class DB_Manager:
-    def __init__(self):
-        # אתחול ה-Client
-        self.db = self._init_firebase()
 
-    def _init_firebase(self):
-        try:
-            if "firebase" not in st.secrets: 
-                return None
-            
-            fb_info = dict(st.secrets["firebase"])
-            
-            # תיקון תווים מיוחדים במפתח הפרטי
-            if "private_key" in fb_info and "\\n" in fb_info["private_key"]:
-                fb_info["private_key"] = fb_info["private_key"].replace("\\n", "\n")
-            
-            creds = service_account.Credentials.from_service_account_info(fb_info)
-            return firestore.Client(credentials=creds, project=fb_info["project_id"])
-        except Exception as e:
-            print(f"❌ חיבור ל-Firebase נכשל: {e}")
-            return None
+    def _get_db(self):
+        return _init_firebase()
 
-    def save_test(self, user_name, results, report, collection="hexaco_results", hesitation_count=0):
-        """שמירת תוצאות מבדק חדש עם תווית סוג מבדק ומדד היסוס"""
-        if not self.db or not user_name: 
-            return
+    def save_test(self, user_name, results, report, collection,
+                  hesitation_count=0, extra_data=None):
+        """Save test results to Firestore."""
+        db = self._get_db()
+        if not db:
+            return False
+
         try:
             now = datetime.now()
-            user_id = user_name.strip().lower()
-            
-            # זיהוי סוג המבחן לפי שם ה-Collection
-            test_type_map = {
-                "hexaco_results": "hexaco",
-                "integrity_results": "integrity",
-                "combined_results": "combined"
+            doc = {
+                'user_name': str(user_name),
+                'user_id': str(user_name).lower().replace(' ', '_'),
+                'test_type': collection.replace('_results', ''),
+                'results': self._safe_serialize(results),
+                'ai_report': self._safe_serialize(report),
+                'hesitation_count': int(hesitation_count),
+                'test_date': now.strftime('%Y-%m-%d'),
+                'test_time': now.strftime('%H:%M:%S'),
+                'timestamp': now,
             }
-            test_type = test_type_map.get(collection, "unknown")
 
-            self.db.collection(collection).add({
-                "user_name": user_name,
-                "user_id": user_id,
-                "test_type": test_type,
-                "results": results,
-                "ai_report": report,
-                "hesitation_count": hesitation_count,
-                "test_date": now.strftime("%d/%m/%Y"),
-                "test_time": now.strftime("%H:%M"),
-                "timestamp": firestore.SERVER_TIMESTAMP,
-                "copyright": "© זכויות יוצרים לניתאי מלכה"
-            })
+            if extra_data and isinstance(extra_data, dict):
+                for k, v in extra_data.items():
+                    doc[k] = self._safe_serialize(v)
+
+            db.collection(collection).add(doc)
+            return True
         except Exception as e:
-            st.error(f"⚠️ שגיאה בשמירת נתונים: {e}")
+            st.warning(f"שגיאה בשמירה: {e}")
+            return False
 
     def fetch_history(self, user_name, collection):
-        """שליפת היסטוריה עבור משתמש ספציפי מ-Collection מסוים"""
-        if not self.db or not user_name: 
+        """Fetch up to 20 records, sorted by timestamp. Fallback without order_by."""
+        db = self._get_db()
+        if not db:
             return []
-        
-        user_id = user_name.strip().lower()
+
+        user_id = str(user_name).lower().replace(' ', '_')
+
         try:
-            docs = self.db.collection(collection)\
-                          .where("user_id", "==", user_id)\
-                          .order_by("timestamp", direction=firestore.Query.DESCENDING)\
-                          .limit(20).stream()
+            # Try with order_by (requires Firestore index)
+            query = (db.collection(collection)
+                     .where('user_id', '==', user_id)
+                     .order_by('timestamp')
+                     .limit(20))
+            docs = query.stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            # Fallback למקרה שאין אינדקס ב-Firestore
             try:
-                docs = self.db.collection(collection).where("user_id", "==", user_id).limit(30).stream()
-                raw = [doc.to_dict() for doc in docs]
-                return sorted(raw, key=lambda x: str(x.get('timestamp', '')), reverse=True)
-            except:
+                # Fallback without order_by
+                query = (db.collection(collection)
+                         .where('user_id', '==', user_id)
+                         .limit(20))
+                docs = query.stream()
+                return [doc.to_dict() for doc in docs]
+            except Exception:
                 return []
 
     def fetch_all_tests_admin(self, collection):
-        """שליפת כל המבדקים מ-Collection מסוים עבור האדמין"""
-        if not self.db: 
+        """Fetch all records for admin view."""
+        db = self._get_db()
+        if not db:
             return []
+
         try:
-            docs = self.db.collection(collection)\
-                          .order_by("timestamp", direction=firestore.Query.DESCENDING)\
-                          .stream()
+            docs = db.collection(collection).stream()
             return [doc.to_dict() for doc in docs]
         except Exception:
-            try:
-                docs = self.db.collection(collection).stream()
-                raw = [doc.to_dict() for doc in docs]
-                return sorted(raw, key=lambda x: str(x.get('timestamp', '')), reverse=True)
-            except:
-                return []
+            return []
 
-# --- פונקציות גשר (Interface) המאוחדות ---
+    def _safe_serialize(self, data):
+        """Make data JSON-safe for Firestore."""
+        if data is None:
+            return None
+        if isinstance(data, (str, int, float, bool)):
+            return data
+        if hasattr(data, 'to_dict'):
+            return data.to_dict()
+        if isinstance(data, dict):
+            return {k: self._safe_serialize(v) for k, v in data.items()}
+        if isinstance(data, list):
+            return [self._safe_serialize(item) for item in data]
+        try:
+            return json.loads(json.dumps(data, default=str))
+        except Exception:
+            return str(data)
+
+
+# ============================================================
+# Public Interface Functions
+# ============================================================
+_db = DB_Manager()
+
 
 def save_to_db(name, res, rep, hesitation=0):
-    """שמירת מבדק HEXACO"""
-    DB_Manager().save_test(name, res, rep, "hexaco_results", hesitation)
+    return _db.save_test(name, res, rep, 'hexaco_results', hesitation)
 
-def save_integrity_test_to_db(name, res, rep, hesitation=0):
-    """שמירת מבדק אמינות"""
-    DB_Manager().save_test(name, res, rep, "integrity_results", hesitation)
 
-def save_combined_test_to_db(name, res, rep, hesitation=0):
-    """שמירת מבדק משולב"""
-    DB_Manager().save_test(name, res, rep, "combined_results", hesitation)
+def save_integrity_test_to_db(name, int_scores, reliability_score, rep, hesitation=0):
+    return _db.save_test(name, int_scores, rep, 'integrity_results', hesitation,
+                         extra_data={'reliability_score': reliability_score})
+
+
+def save_combined_test_to_db(name, trait_scores, int_scores, reliability_score, rep, hesitation=0):
+    return _db.save_test(name, trait_scores, rep, 'combined_results', hesitation,
+                         extra_data={
+                             'int_scores': int_scores,
+                             'reliability_score': reliability_score
+                         })
+
 
 def get_db_history(name):
-    """
-    פונקציה מאוחדת: מושכת את כל ההיסטוריה של המשתמש מכל הטבלאות.
-    כך המשתמש רואה את כל המבחנים שלו במקום אחד.
-    """
-    manager = DB_Manager()
-    collections = ["hexaco_results", "integrity_results", "combined_results"]
-    full_history = []
-    
-    for col in collections:
-        res = manager.fetch_history(name, col)
-        for doc in res:
-            if 'test_type' not in doc:
-                doc['test_type'] = col.replace("_results", "")
-        full_history.extend(res)
-        
-    return sorted(full_history, key=lambda x: str(x.get('timestamp', '')), reverse=True)
+    """Merge history from all 3 collections."""
+    all_history = []
+    for collection in ['hexaco_results', 'integrity_results', 'combined_results']:
+        try:
+            history = _db.fetch_history(name, collection)
+            all_history.extend(history)
+        except Exception:
+            continue
+    # Sort by timestamp if available
+    try:
+        all_history.sort(key=lambda x: x.get('timestamp', ''), reverse=False)
+    except Exception:
+        pass
+    return all_history
+
+
+def get_integrity_history(name):
+    return _db.fetch_history(name, 'integrity_results')
+
+
+def get_combined_history(name):
+    return _db.fetch_history(name, 'combined_results')
+
 
 def get_all_tests():
-    """
-    פונקציה מאוחדת לאדמין: מושכת את כל המבדקים מכל הטבלאות.
-    מאפשרת לממשק האדמין להציג 'תיק מועמד' עם כל המבחנים שלו.
-    """
-    manager = DB_Manager()
-    collections = ["hexaco_results", "integrity_results", "combined_results"]
-    all_data = []
-    
-    for col in collections:
-        res = manager.fetch_all_tests_admin(col)
-        for doc in res:
-            if 'test_type' not in doc:
-                doc['test_type'] = col.replace("_results", "")
-        all_data.extend(res)
-        
-    return sorted(all_data, key=lambda x: str(x.get('timestamp', '')), reverse=True)
+    """Admin: fetch all tests from all collections."""
+    all_tests = []
+    for collection in ['hexaco_results', 'integrity_results', 'combined_results']:
+        try:
+            tests = _db.fetch_all_tests_admin(collection)
+            all_tests.extend(tests)
+        except Exception:
+            continue
+    return all_tests
