@@ -854,7 +854,35 @@ def _render_results_tab():
         except Exception:
             pass
         st.markdown("### 📋 טבלת סיכום")
-        st.dataframe(summary, use_container_width=True)
+        
+        # --- כאן התיקון: הסרגל גלילה לרוחב ולגובה ---
+        st.dataframe(summary, use_container_width=False, height=250)
+        
+    # Fatigue breakdown
+    fatigue = st.session_state.get('fatigue_index')
+    if fatigue is not None and fatigue > 15:
+        st.warning(f"😴 **מדד עייפות: {fatigue}%** — זוהה ירידה בעקביות לקראת סוף המבדק. "
+                   f"ייתכן שזה משפיע על הציונים האחרונים.")
+
+    # Speed flags
+    speed = st.session_state.get('speed_flag_count', 0)
+    if speed > 3:
+        st.warning(f"🏎️ **{speed} תשובות מהירות מדי** — תשובות שניתנו מתחת לסף הקריאה הדינמי (WPM).")
+
+    contradictions = st.session_state.get('contradictions', [])
+    if contradictions:
+        st.markdown("### ⚠️ סתירות שזוהו")
+        for c in contradictions:
+            if isinstance(c, dict):
+                sev = c.get('severity', '')
+                icon = "🔴" if sev == 'critical' else "🟠" if sev == 'high' else "🔵"
+                st.markdown(f"{icon} {html.escape(str(c.get('message', str(c))))}")
+            else:
+                st.markdown(f"⚠️ {html.escape(str(c))}")
+
+    rel = st.session_state.get('reliability_score')
+    if rel is not None:
+        st.info(f"🔒 פירוש ציון אמינות ({rel}): {get_integrity_interpretation(rel)}")
 
     # Fatigue breakdown
     fatigue = st.session_state.get('fatigue_index')
