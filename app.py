@@ -464,7 +464,6 @@ def start_test(test_type):
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות: {e}")
 
-
 # ============================================================
 # QUIZ Screen
 # ============================================================
@@ -522,7 +521,8 @@ def render_quiz():
             st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירות")
 
     # ==================== Question ====================
-    q_text = q_data.get('question', q_data.get('text', 'שאלה חסרה'))
+    # התיקון שלנו: עכשיו המערכת יודעת לחפש גם את העמודה שנקראת 'q'
+    q_text = q_data.get('q', q_data.get('question', q_data.get('text', 'שאלה חסרה')))
     q_category = q_data.get('trait', q_data.get('category', ''))
 
     st.markdown(f"""
@@ -580,7 +580,6 @@ def render_quiz():
         st.session_state.q_start_time = time.time()
         st.session_state.stress_active = False
         st.rerun()
-
 
 # ============================================================
 # Finish Test
