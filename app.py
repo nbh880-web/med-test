@@ -236,6 +236,7 @@ h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
 </style>
 """, unsafe_allow_html=True)
 
+
 # ---------- Stress Messages (the real ones from the spec) ----------
 STRESS_MESSAGES = [
     {
@@ -386,24 +387,31 @@ def render_home():
     st.session_state.user_name = name
 
     st.write("")
-    st.markdown("### בחר סוג מבדק")
+    st.markdown("### הגדרות המבדק")
+
+    # בחירת אורך המבחן חזרה למסך
+    test_length = st.radio("⏱️ בחר את אורך המבדק:",
+                           ["קצר (תרגול מהיר)", "רגיל (מומלץ)", "מלא (סימולציה)"],
+                           horizontal=True)
+
+    st.write("")
 
     col1, col2, col3 = st.columns(3, gap="medium")
     with col1:
         st.markdown("#### 🎯 HEXACO")
         st.caption("6 תכונות אישיות מרכזיות")
         if st.button("התחל HEXACO", key="btn_hexaco"):
-            _start_if_named(name, 'hexaco')
+            _start_if_named(name, 'hexaco', test_length)
     with col2:
         st.markdown("#### 🔍 אמינות")
         st.caption("בדיקת עקביות ויושרה")
         if st.button("התחל אמינות", key="btn_integrity"):
-            _start_if_named(name, 'integrity')
+            _start_if_named(name, 'integrity', test_length)
     with col3:
         st.markdown("#### 🏥 משולב")
         st.caption("HEXACO + אמינות — סימולציה מלאה")
         if st.button("התחל משולב", key="btn_combined"):
-            _start_if_named(name, 'combined')
+            _start_if_named(name, 'combined', test_length)
 
     st.markdown("---")
     practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
@@ -426,14 +434,14 @@ def render_home():
                 st.error("שגיאה בגישה למערכת")
 
 
-def _start_if_named(name, test_type):
+def _start_if_named(name, test_type, test_length):
     if not name.strip():
         st.warning("נא להכניס שם לפני תחילת המבדק")
     else:
-        start_test(test_type)
+        start_test(test_type, test_length)
 
 
-def start_test(test_type):
+def start_test(test_type, test_length):
     st.session_state.test_type = test_type
     st.session_state.current_q = 0
     st.session_state.responses = []
@@ -446,15 +454,28 @@ def start_test(test_type):
     st.session_state.fatigue_index = None
 
     try:
+        # חלוקת מספר השאלות לפי בחירת המשתמש
         if test_type == 'hexaco':
             df = load_hexaco_questions()
-            st.session_state.questions = get_balanced_questions(df, total_limit=60)
+            if "קצר" in test_length: count = 36
+            elif "רגיל" in test_length: count = 60
+            else: count = 120
+            st.session_state.questions = get_balanced_questions(df, total_limit=count)
+
         elif test_type == 'integrity':
-            st.session_state.questions = get_integrity_questions(count=140)
+            if "קצר" in test_length: count = 60
+            elif "רגיל" in test_length: count = 100
+            else: count = 140
+            st.session_state.questions = get_integrity_questions(count=count)
+
         elif test_type == 'combined':
             df = load_hexaco_questions()
-            hexaco_q = get_balanced_questions(df, total_limit=40)
-            integrity_q = get_integrity_questions(count=80)
+            if "קצר" in test_length: hex_c, int_c = 36, 40
+            elif "רגיל" in test_length: hex_c, int_c = 60, 80
+            else: hex_c, int_c = 120, 140
+
+            hexaco_q = get_balanced_questions(df, total_limit=hex_c)
+            integrity_q = get_integrity_questions(count=int_c)
             combined = hexaco_q + integrity_q
             random.shuffle(combined)
             st.session_state.questions = combined
@@ -463,6 +484,7 @@ def start_test(test_type):
         st.rerun()
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות: {e}")
+
 
 # ============================================================
 # QUIZ Screen
@@ -521,7 +543,6 @@ def render_quiz():
             st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירות")
 
     # ==================== Question ====================
-    # התיקון שלנו: עכשיו המערכת יודעת לחפש גם את העמודה שנקראת 'q'
     q_text = q_data.get('q', q_data.get('question', q_data.get('text', 'שאלה חסרה')))
     q_category = q_data.get('trait', q_data.get('category', ''))
 
@@ -580,6 +601,7 @@ def render_quiz():
         st.session_state.q_start_time = time.time()
         st.session_state.stress_active = False
         st.rerun()
+
 
 # ============================================================
 # Finish Test
