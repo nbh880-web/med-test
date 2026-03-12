@@ -533,7 +533,6 @@ def start_test(test_type, test_length):
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות: {e}")
 
-
 # ============================================================
 # QUIZ Screen
 # ============================================================
@@ -546,46 +545,60 @@ def render_quiz():
         finish_test()
         return
 
+    # רענון אוטומטי של המסך כל שנייה (עבור הטיימר)
+    st_autorefresh(interval=1000, key="quiz_timer")
+
     q_data = questions[current]
     is_stress = str(q_data.get('is_stress_meta', '')).strip().lower() in ["1", "1.0", "true"]
 
     # ==================== STRESS SCREEN (Real intimidating) ====================
     if is_stress and not st.session_state.practice_mode:
-        if not st.session_state.stress_active:
-            st.session_state.stress_active = True
-            st.session_state.stress_start = time.time()
-            # Pick a random stress message for this occurrence
-            st.session_state.stress_msg_index = random.randint(0, len(STRESS_MESSAGES) - 1)
+        # בדיקה האם כבר עברנו את מסך הלחץ לשאלה הנוכחית
+        if st.session_state.get('stress_completed_q') != current:
+            if not st.session_state.stress_active:
+                st.session_state.stress_active = True
+                st.session_state.stress_start = time.time()
+                st.session_state.stress_msg_index = random.randint(0, len(STRESS_MESSAGES) - 1)
 
-        elapsed = time.time() - st.session_state.stress_start
-        remaining = max(0, 15 - int(elapsed))
+            stress_elapsed = time.time() - st.session_state.stress_start
+            remaining = max(0, 15 - int(stress_elapsed))
 
-        if remaining > 0:
-            st_autorefresh(interval=1000, limit=20, key=f"stress_{current}")
+            if remaining > 0:
+                msg = STRESS_MESSAGES[st.session_state.stress_msg_index]
 
-            msg = STRESS_MESSAGES[st.session_state.stress_msg_index]
+                st.markdown(f"""
+                <div class="stress-screen">
+                    <div class="stress-icon">{msg['icon']}</div>
+                    <div class="stress-title">{msg['title']}</div>
+                    <div class="stress-detail">{msg['detail']}</div>
+                    <div class="stress-timer">{remaining}</div>
+                    <div class="stress-warning-bar">🔒 {msg['bar']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                return
+            else:
+                st.session_state.stress_active = False
+                st.session_state.stress_completed_q = current
+                st.session_state.q_start_time = time.time() # איפוס הטיימר שלא תענש על זמן ההמתנה
 
-            st.markdown(f"""
-            <div class="stress-screen">
-                <div class="stress-icon">{msg['icon']}</div>
-                <div class="stress-title">{msg['title']}</div>
-                <div class="stress-detail">{msg['detail']}</div>
-                <div class="stress-timer">{remaining}</div>
-                <div class="stress-warning-bar">🔒 {msg['bar']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            return
-        else:
-            st.session_state.stress_active = False
+    # ==================== Progress & Timers ====================
+    elapsed = time.time() - st.session_state.q_start_time
 
-    # ==================== Progress ====================
+    # התראת זמן ארוך (מעל 8 שניות) - מהבהבת
+    if elapsed > 8 and not st.session_state.practice_mode:
+        st.markdown("""
+        <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 10px; border-right: 5px solid #ffc107; text-align: center; font-weight: bold; margin-bottom: 20px; animation: flash 1s infinite alternate;">
+            ⚠️ שים לב: עליך לענות במהירות! היסוס יתר נרשם במערכת.
+        </div>
+        <style>@keyframes flash { from { opacity: 1; } to { opacity: 0.7; } }</style>
+        """, unsafe_allow_html=True)
+
     st.progress(current / total)
-    col1, col2, col3 = st.columns([2, 1, 2])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
-        st.caption(f"שאלה {current + 1} מתוך {total}")
+        st.write(f"שאלה **{current + 1}** מתוך {total}")
     with col2:
-        type_labels = {'hexaco': '🎯 HEXACO', 'integrity': '🔍 אמינות', 'combined': '🏥 משולב'}
-        st.caption(type_labels.get(st.session_state.test_type, ''))
+        st.write(f"⏱️ זמן לשאלה: **{int(elapsed)}** שניות")
     with col3:
         if not st.session_state.practice_mode:
             st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירות")
@@ -601,55 +614,60 @@ def render_quiz():
     </div>
     """, unsafe_allow_html=True)
 
-    # ==================== Answer ====================
-    ans_labels = {1: "לא מסכים בכלל", 2: "לא מסכים", 3: "ניטרלי", 4: "מסכים", 5: "מסכים מאוד"}
-    answer = st.radio("בחר תשובה:", options=[1, 2, 3, 4, 5],
-                       format_func=lambda x: f"{x} — {ans_labels[x]}",
-                       horizontal=True, key=f"a_{current}", index=None)
+    # ==================== Answer Buttons ====================
+    # החזרנו את הכפתורים הישירים במקום ה-Radio לבחירה מהירה
+    options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
+    cols = st.columns(5)
+    
+    for i, (label, val) in enumerate(options):
+        # לחיצה על אחד הכפתורים מפעילה מיד את המעבר לשאלה הבאה
+        if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}_{st.session_state.user_id}", use_container_width=True):
+            
+            response_time = time.time() - st.session_state.q_start_time
+            wpm_threshold = calculate_dynamic_wpm_threshold(str(q_text))
+            is_too_fast = response_time < wpm_threshold
+            is_hesitation = response_time > (wpm_threshold * 4)
 
-    if st.button("➡️ שאלה הבאה", key=f"next_{current}", use_container_width=True):
-        if answer is None:
-            st.warning("נא לבחור תשובה")
-            return
+            if not st.session_state.practice_mode:
+                if is_too_fast:
+                    st.session_state.speed_flag_count += 1
+                if is_hesitation:
+                    st.session_state.hesitation_count += 1
 
-        response_time = time.time() - st.session_state.q_start_time
+            st.session_state.responses.append({
+                'question_index': current,
+                'question': str(q_text),
+                'answer': int(val),
+                'response_time': round(response_time, 2),
+                'wpm_threshold': round(wpm_threshold, 2),
+                'is_too_fast': is_too_fast,
+                'is_hesitation': is_hesitation,
+                'trait': q_data.get('trait', q_data.get('category', '')),
+                'reverse': q_data.get('reverse', False),
+                'is_stress_meta': is_stress,
+                'category': q_data.get('category', q_data.get('trait', '')),
+            })
 
-        # ===== Dynamic WPM Threshold =====
-        wpm_threshold = calculate_dynamic_wpm_threshold(str(q_text))
-        is_too_fast = response_time < wpm_threshold
-        is_hesitation = response_time > (wpm_threshold * 4)  # 4x the minimum = hesitation
+            st.session_state.current_q += 1
+            st.session_state.q_start_time = time.time()
+            st.session_state.stress_active = False
+            st.rerun()
 
-        if not st.session_state.practice_mode:
-            if is_too_fast:
-                st.session_state.speed_flag_count += 1
-            if is_hesitation:
-                st.session_state.hesitation_count += 1
+    # Practice mode explanation
+    if st.session_state.practice_mode and q_category in TRAIT_EXPLANATIONS:
+        info = TRAIT_EXPLANATIONS[q_category]
+        st.info(f"ℹ️ **{info['name']}**: {info['desc']}")
+        st.caption(f"🏥 {info['medical']}")
 
-        st.session_state.responses.append({
-            'question_index': current,
-            'question': str(q_text),
-            'answer': int(answer),
-            'response_time': round(response_time, 2),
-            'wpm_threshold': round(wpm_threshold, 2),
-            'is_too_fast': is_too_fast,
-            'is_hesitation': is_hesitation,
-            'trait': q_data.get('trait', q_data.get('category', '')),
-            'reverse': q_data.get('reverse', False),
-            'is_stress_meta': is_stress,
-            'category': q_data.get('category', q_data.get('trait', '')),
-        })
-
-        # Practice mode explanation
-        if st.session_state.practice_mode and q_category in TRAIT_EXPLANATIONS:
-            info = TRAIT_EXPLANATIONS[q_category]
-            st.info(f"ℹ️ **{info['name']}**: {info['desc']}")
-            st.caption(f"🏥 {info['medical']}")
-
-        st.session_state.current_q += 1
-        st.session_state.q_start_time = time.time()
-        st.session_state.stress_active = False
-        st.rerun()
-
+    # ==================== Back Button ====================
+    if current > 0:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("⬅️ חזור לשאלה הקודמת (לתיקון)", key=f"back_btn_{current}"):
+            st.session_state.current_q -= 1
+            if st.session_state.responses:
+                st.session_state.responses.pop() # מסירים את התשובה האחרונה
+            st.session_state.q_start_time = time.time() # איפוס הטיימר
+            st.rerun()
 
 # ============================================================
 # Finish Test
