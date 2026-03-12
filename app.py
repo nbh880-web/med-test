@@ -370,7 +370,6 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = val
 
-
 # ============================================================
 # HOME Screen
 # ============================================================
@@ -382,43 +381,103 @@ def render_home():
     </div>
     """, unsafe_allow_html=True)
 
+    # תיבת הטקסט
     name = st.text_input("✍️ מה השם שלך?", value=st.session_state.get('user_name', ''),
-                          placeholder="הכנס את שמך המלא")
+                          placeholder="הכנס את שמך המלא (ולחץ Enter במקלדת)")
     st.session_state.user_name = name
 
-    st.write("")
-    st.markdown("### הגדרות המבדק")
-
-    # בחירת אורך המבחן חזרה למסך
-    test_length = st.radio("⏱️ בחר את אורך המבדק:",
-                           ["קצר (תרגול מהיר)", "רגיל (מומלץ)", "מלא (סימולציה)"],
-                           horizontal=True)
+    # בדיקה האם הוזן שם 
+    is_name_valid = bool(name.strip())
 
     st.write("")
 
-    col1, col2, col3 = st.columns(3, gap="medium")
-    with col1:
-        st.markdown("#### 🎯 HEXACO")
-        st.caption("6 תכונות אישיות מרכזיות")
-        if st.button("התחל HEXACO", key="btn_hexaco"):
-            _start_if_named(name, 'hexaco', test_length)
-    with col2:
-        st.markdown("#### 🔍 אמינות")
-        st.caption("בדיקת עקביות ויושרה")
-        if st.button("התחל אמינות", key="btn_integrity"):
-            _start_if_named(name, 'integrity', test_length)
-    with col3:
-        st.markdown("#### 🏥 משולב")
-        st.caption("HEXACO + אמינות — סימולציה מלאה")
-        if st.button("התחל משולב", key="btn_combined"):
-            _start_if_named(name, 'combined', test_length)
+    # אם לא הוזן שם - מציגים רק הודעה
+    if not is_name_valid:
+        st.warning("⚠️ התפריט נעול: אנא הקלד את שמך בתיבה למעלה **ולחץ על מקש האנטר (Enter)** כדי לפתוח את אפשרויות המבדק וההיסטוריה.")
+    
+    # אם הוזן שם - חושפים את התפריט עם הלשוניות (Tabs)
+    else:
+        st.success(f"✅ שלום {name}! בחר פעולה:")
+        
+        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריית מבדקים"])
+        
+        # --- לשונית 1: מבחן חדש ---
+        with tab_new:
+            st.markdown("### ⚙️ הגדרות המבדק")
+            test_length = st.radio("⏱️ בחר את אורך המבדק:",
+                                   [
+                                       "קצר (תרגול מהיר: 36-76 שאלות)", 
+                                       "רגיל (מומלץ: 60-140 שאלות)", 
+                                       "מלא (סימולציה: 120-260 שאלות)"
+                                   ],
+                                   horizontal=True)
 
-    st.markdown("---")
-    practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
-                           value=st.session_state.get('practice_mode', False))
-    st.session_state.practice_mode = practice
-    if practice:
-        st.info("במצב תרגול: ללא מסכי לחץ, ללא מדידת זמן, עם הסברים אחרי כל שאלה.")
+            st.write("")
+            col1, col2, col3 = st.columns(3, gap="large")
+            
+            with col1:
+                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                st.markdown("#### 🎯 HEXACO")
+                st.caption("6 תכונות אישיות מרכזיות")
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("התחל HEXACO", key="btn_hexaco", use_container_width=True):
+                    start_test('hexaco', test_length)
+                    
+            with col2:
+                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                st.markdown("#### 🔍 אמינות")
+                st.caption("בדיקת עקביות ויושרה")
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("התחל אמינות", key="btn_integrity", use_container_width=True):
+                    start_test('integrity', test_length)
+                    
+            with col3:
+                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+                st.markdown("#### 🏥 משולב")
+                st.caption("HEXACO + אמינות — סימולציה מלאה")
+                st.markdown("</div>", unsafe_allow_html=True)
+                if st.button("התחל משולב", key="btn_combined", use_container_width=True):
+                    start_test('combined', test_length)
+
+            st.markdown("---")
+            practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
+                                   value=st.session_state.get('practice_mode', False))
+            st.session_state.practice_mode = practice
+            if practice:
+                st.info("במצב תרגול: ללא מסכי לחץ, ללא מדידת זמן, עם הסברים אחרי כל שאלה.")
+
+        # --- לשונית 2: היסטוריית מבדקים ---
+        with tab_archive:
+            history = get_db_history(name)
+            if history:
+                st.markdown(f"### 📂 ההיסטוריה של {name}")
+                # הפיכת הרשימה כדי להציג את המבדק החדש ביותר למעלה
+                for i, entry in enumerate(reversed(history)):
+                    test_date = entry.get('test_date', 'N/A')
+                    test_time = entry.get('test_time', '')
+                    test_type_lbl = entry.get('test_type', 'HEXACO')
+                    
+                    with st.expander(f"📅 מבדק {test_type_lbl} מיום {test_date} בשעה {test_time}"):
+                        results = entry.get('results', {})
+                        if results:
+                            try:
+                                fig = get_radar_chart(results)
+                                if fig:
+                                    st.plotly_chart(fig, use_container_width=True, key=f"hist_chart_{i}_{uuid.uuid4().hex[:8]}")
+                            except Exception:
+                                pass
+                                
+                        report = entry.get('ai_report', '')
+                        if isinstance(report, list):
+                            t_gem, t_cld = st.tabs(["🤖 Gemini", "🩺 Claude"])
+                            with t_gem: 
+                                st.markdown(html.escape(str(report[0])) if len(report)>0 else "אין נתונים")
+                            with t_cld: 
+                                st.markdown(html.escape(str(report[1])) if len(report)>1 else "אין נתונים")
+                        elif report:
+                            st.markdown(html.escape(str(report)))
+            else:
+                st.info("לא נמצאו מבדקים קודמים עבורך במערכת.")
 
     st.markdown("---")
     with st.expander("🔐 גישת מנהל"):
@@ -432,60 +491,7 @@ def render_home():
                     st.error("סיסמה שגויה")
             except Exception:
                 st.error("שגיאה בגישה למערכת")
-
-
-def _start_if_named(name, test_type, test_length):
-    if not name.strip():
-        st.warning("נא להכניס שם לפני תחילת המבדק")
-    else:
-        start_test(test_type, test_length)
-
-
-def start_test(test_type, test_length):
-    st.session_state.test_type = test_type
-    st.session_state.current_q = 0
-    st.session_state.responses = []
-    st.session_state.hesitation_count = 0
-    st.session_state.speed_flag_count = 0
-    st.session_state.stress_active = False
-    st.session_state.stress_msg_index = random.randint(0, len(STRESS_MESSAGES) - 1)
-    st.session_state.q_start_time = time.time()
-    st.session_state.user_id = str(uuid.uuid4())
-    st.session_state.fatigue_index = None
-
-    try:
-        # חלוקת מספר השאלות לפי בחירת המשתמש
-        if test_type == 'hexaco':
-            df = load_hexaco_questions()
-            if "קצר" in test_length: count = 36
-            elif "רגיל" in test_length: count = 60
-            else: count = 120
-            st.session_state.questions = get_balanced_questions(df, total_limit=count)
-
-        elif test_type == 'integrity':
-            if "קצר" in test_length: count = 60
-            elif "רגיל" in test_length: count = 100
-            else: count = 140
-            st.session_state.questions = get_integrity_questions(count=count)
-
-        elif test_type == 'combined':
-            df = load_hexaco_questions()
-            if "קצר" in test_length: hex_c, int_c = 36, 40
-            elif "רגיל" in test_length: hex_c, int_c = 60, 80
-            else: hex_c, int_c = 120, 140
-
-            hexaco_q = get_balanced_questions(df, total_limit=hex_c)
-            integrity_q = get_integrity_questions(count=int_c)
-            combined = hexaco_q + integrity_q
-            random.shuffle(combined)
-            st.session_state.questions = combined
-
-        st.session_state.step = 'QUIZ'
-        st.rerun()
-    except Exception as e:
-        st.error(f"שגיאה בטעינת שאלות: {e}")
-
-
+                
 # ============================================================
 # QUIZ Screen
 # ============================================================
