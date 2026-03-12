@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import pandas as pd
 import plotly.graph_objects as go
 import time
 from datetime import datetime
@@ -35,34 +36,54 @@ TRAIT_RANGES = {
     "Openness to Experience": {"critical_low": 2.8, "optimal_low": 3.5, "optimal_high": 4.1, "critical_high": 4.7}
 }
 
-# --- פונקציית עזר חדשה: חילוץ נתונים בטוח מטבלת Pandas ---
+# --- פונקציות עזר חדשות: חילוץ נתונים בטוח ומוגן מקריסות ---
+def _extract_float(val):
+    """חילוץ כפוי של מספר מתוך אובייקטים מורכבים של Pandas"""
+    try:
+        if hasattr(val, 'iloc'):
+            return float(val.iloc[0])
+        if hasattr(val, 'item'):
+            return float(val.item())
+        if isinstance(val, (list, tuple)):
+            return float(val[0])
+        return float(val)
+    except Exception:
+        return 0.0
+
 def _parse_to_simple_dict(data):
-    """ממיר DataFrame או מילון מורכב למילון פשוט של {תכונה: ציון} כדי למנוע שגיאות Pandas"""
+    """ממיר DataFrame או מילון מורכב למילון פשוט כדי למנוע שגיאות Pandas"""
     res = {}
     try:
         # אם זה DataFrame של Pandas
-        if hasattr(data, 'iterrows'):
-            for _, row in data.iterrows():
-                t = row.get('trait', row.get('Trait', row.get('category', '')))
-                s = row.get('avg_score', row.get('Mean', row.get('score', 0)))
-                if t: res[str(t)] = float(s)
+        if isinstance(data, pd.DataFrame):
+            t_col = next((c for c in data.columns if str(c).lower() in ['trait', 'category']), None)
+            s_col = next((c for c in data.columns if str(c).lower() in ['avg_score', 'mean', 'score']), None)
+            
+            if t_col and s_col:
+                for _, row in data.iterrows():
+                    res[str(row[t_col])] = _extract_float(row[s_col])
+            else:
+                for idx, row in data.iterrows():
+                    res[str(idx)] = _extract_float(row.iloc[0])
             return res
-        # אם זה מילון (אולי הגיע מ- df.to_dict() ולכן הוא מקונן)
-        elif isinstance(data, dict):
+
+        # אם זה מילון 
+        if isinstance(data, dict):
             t_col = data.get('trait', data.get('Trait', data.get('category')))
             s_col = data.get('avg_score', data.get('Mean', data.get('score')))
+            
             if isinstance(t_col, dict) and isinstance(s_col, dict):
-                for k in t_col:
-                    res[str(t_col[k])] = float(s_col.get(k, 0))
+                for k, v in t_col.items():
+                    res[str(v)] = _extract_float(s_col.get(k, 0))
                 return res
-            # אם זה מילון רגיל
+            
+            # מילון רגיל
             for k, v in data.items():
-                if isinstance(v, (int, float)):
-                    res[str(k)] = float(v)
+                res[str(k)] = _extract_float(v)
             return res
     except Exception:
         pass
-    return data if isinstance(data, dict) else {}
+    return {}
 
 
 # --- Cache: Model Discovery רץ פעם אחת בלבד ---
@@ -97,7 +118,6 @@ class HEXACO_Expert_System:
         self.claude_key = st.secrets.get("CLAUDE_KEY") or st.secrets.get("ANTHROPIC_API_KEY", "").strip()
 
     def _get_model_discovery(self, api_key):
-        """משתמש ב-cache — לא רץ מחדש בכל קריאה."""
         return _cached_model_discovery(api_key)
 
     def _call_gemini_safe(self, prompt):
@@ -122,12 +142,11 @@ class HEXACO_Expert_System:
         if not self.claude_key:
             return "⚠️ מפתח Claude חסר."
 
-        # ===== Claude Opus 4.6 בראש הרשימה =====
         models_to_try = [
-            "claude-opus-4-6",               # 🔥 Opus 4.6 — המודל החזק ביותר
-            "claude-sonnet-4-20250514",      # Sonnet 4 כ-fallback
-            "claude-3-5-sonnet-20241022",    # גרסה יציבה ישנה
-            "claude-3-5-sonnet-latest"       # תמיד מעודכן
+            "claude-opus-4-6",               
+            "claude-sonnet-4-20250514",      
+            "claude-3-5-sonnet-20241022",    
+            "claude-3-5-sonnet-latest"       
         ]
 
         headers = {
@@ -153,7 +172,6 @@ class HEXACO_Expert_System:
                 if res.status_code == 200:
                     return res.json()['content'][0]['text']
                 elif res.status_code == 404:
-                    # מודל לא זמין ב-Tier, נדלג לבא ברשימה
                     continue
                 else:
                     return f"❌ שגיאת Claude ({model_name}): {res.status_code} - {res.text}"
@@ -180,10 +198,11 @@ class HEXACO_Expert_System:
     def generate_expert_reports(self, name, results, history=[]):
         clean_results = _parse_to_simple_dict(results)
         
-        gaps = "\n".join([
-            f"{TRAIT_DICT.get(t, t)}: {s:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})"
-            for t, s in clean_results.items()
-        ])
+        gaps = []
+        for t, s in clean_results.items():
+            s_float = _extract_float(s)
+            gaps.append(f"{TRAIT_DICT.get(t, t)}: {s_float:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})")
+        gaps_str = "\n".join(gaps)
         
         trend_text = "אין היסטוריה קודמת"
         if history:
@@ -197,7 +216,7 @@ class HEXACO_Expert_System:
         אתה פסיכולוג ארגוני בכיר במיוני רפואה (מס"ר).
         מועמד: {name}
         תוצאות נוכחיות: {json.dumps(clean_results)}
-        ניתוח פערים: {gaps}
+        ניתוח פערים: {gaps_str}
         היסטוריית מגמות: {trend_text}
         כתוב דוח מפורט (לפחות 1200 מילים) בעברית.
         """
@@ -270,18 +289,14 @@ class HEXACO_Expert_System:
 def get_multi_ai_analysis(name, results, history=[]):
     return HEXACO_Expert_System().generate_expert_reports(name, results, history)
 
-
 def get_radar_chart(results):
     return HEXACO_Expert_System().create_radar_chart(results)
-
 
 def get_comparison_chart(results):
     return HEXACO_Expert_System().create_comparison_bar_chart(results)
 
-
 def create_token_gauge(text):
     return HEXACO_Expert_System().create_token_gauge(text)
-
 
 # --- פונקציות ניתוח אמינות ומשולב ---
 def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_scores, history):
