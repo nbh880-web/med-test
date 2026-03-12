@@ -35,6 +35,35 @@ TRAIT_RANGES = {
     "Openness to Experience": {"critical_low": 2.8, "optimal_low": 3.5, "optimal_high": 4.1, "critical_high": 4.7}
 }
 
+# --- פונקציית עזר חדשה: חילוץ נתונים בטוח מטבלת Pandas ---
+def _parse_to_simple_dict(data):
+    """ממיר DataFrame או מילון מורכב למילון פשוט של {תכונה: ציון} כדי למנוע שגיאות Pandas"""
+    res = {}
+    try:
+        # אם זה DataFrame של Pandas
+        if hasattr(data, 'iterrows'):
+            for _, row in data.iterrows():
+                t = row.get('trait', row.get('Trait', row.get('category', '')))
+                s = row.get('avg_score', row.get('Mean', row.get('score', 0)))
+                if t: res[str(t)] = float(s)
+            return res
+        # אם זה מילון (אולי הגיע מ- df.to_dict() ולכן הוא מקונן)
+        elif isinstance(data, dict):
+            t_col = data.get('trait', data.get('Trait', data.get('category')))
+            s_col = data.get('avg_score', data.get('Mean', data.get('score')))
+            if isinstance(t_col, dict) and isinstance(s_col, dict):
+                for k in t_col:
+                    res[str(t_col[k])] = float(s_col.get(k, 0))
+                return res
+            # אם זה מילון רגיל
+            for k, v in data.items():
+                if isinstance(v, (int, float)):
+                    res[str(k)] = float(v)
+            return res
+    except Exception:
+        pass
+    return data if isinstance(data, dict) else {}
+
 
 # --- Cache: Model Discovery רץ פעם אחת בלבד ---
 @st.cache_resource
@@ -134,10 +163,11 @@ class HEXACO_Expert_System:
         return "❌ שגיאת 404: אף אחד מהמודלים לא זמין בחשבון ה-API שלך."
 
     def calculate_compatibility_score(self, results):
-        if not results:
+        clean_results = _parse_to_simple_dict(results)
+        if not clean_results:
             return 0
         total = 0
-        for trait, score in results.items():
+        for trait, score in clean_results.items():
             r = TRAIT_RANGES.get(trait, {})
             if r.get("optimal_low", 0) <= score <= r.get("optimal_high", 5):
                 total += 100
@@ -145,13 +175,16 @@ class HEXACO_Expert_System:
                 total += 30
             else:
                 total += 70
-        return int(total / 6)
+        return int(total / max(1, len(clean_results)))
 
     def generate_expert_reports(self, name, results, history=[]):
+        clean_results = _parse_to_simple_dict(results)
+        
         gaps = "\n".join([
             f"{TRAIT_DICT.get(t, t)}: {s:.2f} (יעד: {IDEAL_DOCTOR.get(t, 'N/A')})"
-            for t, s in results.items()
+            for t, s in clean_results.items()
         ])
+        
         trend_text = "אין היסטוריה קודמת"
         if history:
             last_3 = history[-3:]
@@ -163,7 +196,7 @@ class HEXACO_Expert_System:
         gemini_prompt = f"""
         אתה פסיכולוג ארגוני בכיר במיוני רפואה (מס"ר).
         מועמד: {name}
-        תוצאות נוכחיות: {json.dumps(results)}
+        תוצאות נוכחיות: {json.dumps(clean_results)}
         ניתוח פערים: {gaps}
         היסטוריית מגמות: {trend_text}
         כתוב דוח מפורט (לפחות 1200 מילים) בעברית.
@@ -172,7 +205,7 @@ class HEXACO_Expert_System:
         claude_prompt = f"""
         אתה ד"ר רחל גולדשטיין, פסיכולוגית קלינית בכירה המומחית למיון מועמדים לרפואה.
         מועמד: {name}
-        תוצאות: {json.dumps(results)}
+        תוצאות: {json.dumps(clean_results)}
         נתח את הסיכונים הקליניים והתאמת המועמד למצבי לחץ.
         כתוב דוח מעמיק של 1500 מילים בעברית.
         © זכויות יוצרים לניתאי מלכה.
@@ -181,19 +214,20 @@ class HEXACO_Expert_System:
         return self._call_gemini_safe(gemini_prompt), self._call_claude(claude_prompt)
 
     def create_radar_chart(self, results):
-        if not results:
+        clean_results = _parse_to_simple_dict(results)
+        if not clean_results:
             return go.Figure()
         fig = go.Figure()
-        cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
-        val = list(results.values())
-        ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
+        cat = [TRAIT_DICT.get(k, k) for k in clean_results.keys()]
+        val = list(clean_results.values())
+        ideal = [IDEAL_DOCTOR.get(k, 3) for k in clean_results.keys()]
         fig.add_trace(go.Scatterpolar(
-            r=ideal + [ideal[0]], theta=cat + [cat[0]],
+            r=ideal + [ideal[0]] if ideal else [], theta=cat + [cat[0]] if cat else [],
             fill='toself', name='🎯 יעד',
             line=dict(color='rgba(46,204,113,0.5)')
         ))
         fig.add_trace(go.Scatterpolar(
-            r=val + [val[0]], theta=cat + [cat[0]],
+            r=val + [val[0]] if val else [], theta=cat + [cat[0]] if cat else [],
             fill='toself', name='📊 אתה',
             line=dict(color='#1e3a8a', width=4)
         ))
@@ -204,11 +238,12 @@ class HEXACO_Expert_System:
         return fig
 
     def create_comparison_bar_chart(self, results):
-        if not results:
+        clean_results = _parse_to_simple_dict(results)
+        if not clean_results:
             return go.Figure()
-        cat = [TRAIT_DICT.get(k, k) for k in results.keys()]
-        val = list(results.values())
-        ideal = [IDEAL_DOCTOR.get(k, 3) for k in results.keys()]
+        cat = [TRAIT_DICT.get(k, k) for k in clean_results.keys()]
+        val = list(clean_results.values())
+        ideal = [IDEAL_DOCTOR.get(k, 3) for k in clean_results.keys()]
         fig = go.Figure(data=[
             go.Bar(name='אתה', x=cat, y=val, marker_color='#1e3a8a'),
             go.Bar(name='יעד רפואי', x=cat, y=ideal, marker_color='rgba(46,204,113,0.5)')
@@ -250,24 +285,19 @@ def create_token_gauge(text):
 
 # --- פונקציות ניתוח אמינות ומשולב ---
 def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_scores, history):
-    """
-    מפיק ניתוח AI עבור מבדק אמינות ויושרה.
-    משתמש במערכת המומחה הקיימת.
-    """
     expert = HEXACO_Expert_System()
+    clean_scores = _parse_to_simple_dict(int_scores)
 
-    # בניית הקשר אמינות לפרומפט
     rel_info = f"מדד אמינות: {reliability_score}%\n"
     if contradictions:
         rel_info += "סתירות שזוהו בתשובות המועמד:\n" + "\n".join([
             f"- {c.get('message', str(c))}" for c in contradictions
         ])
 
-    # יצירת פרומפט מותאם לאמינות
     prompt = f"""
     אתה פסיכולוג תעסוקתי המנתח מבדק אמינות (Integrity Test).
     מועמד: {user_name}
-    תוצאות מדדים: {json.dumps(int_scores) if not hasattr(int_scores, 'to_dict') else json.dumps(int_scores.to_dict())}
+    תוצאות מדדים: {json.dumps(clean_scores)}
     {rel_info}
     היסטוריה: {history}
 
@@ -275,19 +305,13 @@ def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_
     כתוב דוח מפורט בעברית.
     © זכויות יוצרים לניתאי מלכה.
     """
-
-    # שימוש במנגנוני ה-Failover הקיימים של HEXACO_Expert_System
     return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
 
 
 def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contradictions, history):
-    """
-    מפיק ניתוח AI משולב (HEXACO + אמינות).
-    משתמש במערכת המומחה הקיימת.
-    """
     expert = HEXACO_Expert_System()
+    clean_scores = _parse_to_simple_dict(trait_scores)
 
-    # בניית הקשר משולב לפרומפט
     rel_info = f"מדד אמינות שאלון: {reliability_score}%\n"
     if contradictions:
         rel_info += "אזהרת עקביות - נמצאו סתירות:\n" + "\n".join([
@@ -297,7 +321,7 @@ def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contrad
     prompt = f"""
     אתה פסיכולוג בכיר המנתח מבדק משולב: אישיות (HEXACO) ואמינות.
     מועמד: {user_name}
-    ציוני אישיות: {json.dumps(trait_scores) if not hasattr(trait_scores, 'to_dict') else json.dumps(trait_scores.to_dict())}
+    ציוני אישיות: {json.dumps(clean_scores)}
     {rel_info}
 
     נתח את הקשר בין תכונות האישיות לבין רמת האמינות שהופגנה.
@@ -305,5 +329,4 @@ def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contrad
     כתוב דוח מעמיק בעברית.
     © זכויות יוצרים לניתאי מלכה.
     """
-
     return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
