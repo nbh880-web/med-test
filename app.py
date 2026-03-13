@@ -1,7 +1,7 @@
 """
 Mednitai HEXACO System — Main Application
 ==========================================
-With: Dynamic WPM, Fatigue Index, Real Stress Effect, Enhanced Admin
+With: Dynamic WPM, Fatigue Index, Real Stress Effect, Enhanced Admin, Hollow Buttons, Live Loading
 """
 
 import streamlit as st
@@ -47,7 +47,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# Professional CSS Theme
+# Professional CSS Theme (Updated for Hollow Buttons)
 # ============================================================
 st.markdown("""
 <style>
@@ -76,7 +76,8 @@ h1 {
 }
 h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
 
-.stButton > button {
+/* === Primary Buttons (Solid Gradient) === */
+button[kind="primary"] {
     background: linear-gradient(135deg, #0f3460 0%, #533483 50%, #e94560 100%);
     color: white !important;
     border: none;
@@ -87,12 +88,32 @@ h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
     font-family: 'Assistant', sans-serif;
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(15, 52, 96, 0.25);
-    width: 100%;
 }
-.stButton > button:hover {
+button[kind="primary"]:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 25px rgba(15, 52, 96, 0.4);
 }
+
+/* === Secondary Buttons (Hollow / Outline) === */
+button[kind="secondary"] {
+    background: transparent !important;
+    color: #1a1a2e !important;
+    border: 2px solid #533483 !important;
+    border-radius: 14px;
+    padding: 0.7rem 1rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: 'Assistant', sans-serif;
+    transition: all 0.2s ease;
+}
+button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="secondary"]:focus {
+    background: linear-gradient(135deg, #0f3460 0%, #533483 50%, #e94560 100%) !important;
+    color: white !important;
+    border: 2px solid transparent !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(15, 52, 96, 0.25);
+}
+
 .stProgress > div > div > div > div {
     background: linear-gradient(90deg, #0f3460, #533483, #e94560);
     border-radius: 10px;
@@ -237,7 +258,7 @@ h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
 """, unsafe_allow_html=True)
 
 
-# ---------- Stress Messages (the real ones from the spec) ----------
+# ---------- Stress Messages ----------
 STRESS_MESSAGES = [
     {
         'icon': '⚠️',
@@ -361,9 +382,11 @@ def init_session_state():
         'claude_report': None,
         'results_data': None,
         'summary_data': None,
+        'int_summary_data': None,
         'medical_fit': None,
         'fatigue_index': None,
         'practice_mode': False,
+        'ai_ready': False,
         'user_id': str(uuid.uuid4()),
     }
     for key, val in defaults.items():
@@ -385,8 +408,6 @@ def render_home():
     name = st.text_input("✍️ מה השם שלך?", value=st.session_state.get('user_name', ''),
                           placeholder="הכנס את שמך המלא (ולחץ Enter במקלדת)")
     st.session_state.user_name = name
-
-    # בדיקה האם הוזן שם (כדי לפתוח את התפריט)
     is_name_valid = bool(name.strip())
 
     st.write("")
@@ -417,7 +438,7 @@ def render_home():
                 st.markdown("#### 🎯 HEXACO")
                 st.caption("6 תכונות אישיות מרכזיות")
                 st.markdown("</div>", unsafe_allow_html=True)
-                if st.button("התחל HEXACO", key="btn_hexaco", use_container_width=True):
+                if st.button("התחל HEXACO", key="btn_hexaco", type="primary", use_container_width=True):
                     start_test('hexaco', test_length)
                     
             with col2:
@@ -425,7 +446,7 @@ def render_home():
                 st.markdown("#### 🔍 אמינות")
                 st.caption("בדיקת עקביות ויושרה")
                 st.markdown("</div>", unsafe_allow_html=True)
-                if st.button("התחל אמינות", key="btn_integrity", use_container_width=True):
+                if st.button("התחל אמינות", key="btn_integrity", type="primary", use_container_width=True):
                     start_test('integrity', test_length)
                     
             with col3:
@@ -433,7 +454,7 @@ def render_home():
                 st.markdown("#### 🏥 משולב")
                 st.caption("HEXACO + אמינות — סימולציה מלאה")
                 st.markdown("</div>", unsafe_allow_html=True)
-                if st.button("התחל משולב", key="btn_combined", use_container_width=True):
+                if st.button("התחל משולב", key="btn_combined", type="primary", use_container_width=True):
                     start_test('combined', test_length)
 
             st.markdown("---")
@@ -478,7 +499,7 @@ def render_home():
     st.markdown("---")
     with st.expander("🔐 גישת מנהל"):
         admin_pass = st.text_input("סיסמה", type="password", key="admin_pw")
-        if st.button("כניסת מנהל", key="btn_admin"):
+        if st.button("כניסת מנהל", key="btn_admin", type="primary"):
             try:
                 if admin_pass == st.secrets.get("ADMIN_USER", ""):
                     st.session_state.step = 'ADMIN_VIEW'
@@ -500,9 +521,9 @@ def start_test(test_type, test_length):
     st.session_state.q_start_time = time.time()
     st.session_state.user_id = str(uuid.uuid4())
     st.session_state.fatigue_index = None
+    st.session_state.ai_ready = False
 
     try:
-        # חלוקת מספר השאלות לפי בחירת המשתמש
         if test_type == 'hexaco':
             df = load_hexaco_questions()
             if "קצר" in test_length: count = 36
@@ -533,6 +554,7 @@ def start_test(test_type, test_length):
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות: {e}")
 
+
 # ============================================================
 # QUIZ Screen
 # ============================================================
@@ -541,19 +563,18 @@ def render_quiz():
     current = st.session_state.current_q
     total = len(questions)
 
+    # --- מעבר מיידי למסך תוצאות עם חישוב מהיר ---
     if current >= total:
-        finish_test()
+        finish_test_fast()
         return
 
-    # רענון אוטומטי של המסך כל שנייה (עבור הטיימר)
     st_autorefresh(interval=1000, key="quiz_timer")
 
     q_data = questions[current]
     is_stress = str(q_data.get('is_stress_meta', '')).strip().lower() in ["1", "1.0", "true"]
 
-    # ==================== STRESS SCREEN (Real intimidating) ====================
+    # ==================== STRESS SCREEN ====================
     if is_stress and not st.session_state.practice_mode:
-        # בדיקה האם כבר עברנו את מסך הלחץ לשאלה הנוכחית
         if st.session_state.get('stress_completed_q') != current:
             if not st.session_state.stress_active:
                 st.session_state.stress_active = True
@@ -579,12 +600,11 @@ def render_quiz():
             else:
                 st.session_state.stress_active = False
                 st.session_state.stress_completed_q = current
-                st.session_state.q_start_time = time.time() # איפוס הטיימר שלא תענש על זמן ההמתנה
+                st.session_state.q_start_time = time.time() 
 
     # ==================== Progress & Timers ====================
     elapsed = time.time() - st.session_state.q_start_time
 
-    # התראת זמן ארוך (מעל 8 שניות) - מהבהבת
     if elapsed > 8 and not st.session_state.practice_mode:
         st.markdown("""
         <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 10px; border-right: 5px solid #ffc107; text-align: center; font-weight: bold; margin-bottom: 20px; animation: flash 1s infinite alternate;">
@@ -615,13 +635,12 @@ def render_quiz():
     """, unsafe_allow_html=True)
 
     # ==================== Answer Buttons ====================
-    # החזרנו את הכפתורים הישירים במקום ה-Radio לבחירה מהירה
     options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
     cols = st.columns(5)
     
     for i, (label, val) in enumerate(options):
-        # לחיצה על אחד הכפתורים מפעילה מיד את המעבר לשאלה הבאה
-        if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}_{st.session_state.user_id}", use_container_width=True):
+        # שימוש ב-type="secondary" כדי לקבל את העיצוב החלול
+        if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}_{st.session_state.user_id}", use_container_width=True, type="secondary"):
             
             response_time = time.time() - st.session_state.q_start_time
             wpm_threshold = calculate_dynamic_wpm_threshold(str(q_text))
@@ -662,53 +681,139 @@ def render_quiz():
     # ==================== Back Button ====================
     if current > 0:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⬅️ חזור לשאלה הקודמת (לתיקון)", key=f"back_btn_{current}"):
+        if st.button("⬅️ חזור לשאלה הקודמת (לתיקון)", key=f"back_btn_{current}", type="secondary"):
             st.session_state.current_q -= 1
             if st.session_state.responses:
-                st.session_state.responses.pop() # מסירים את התשובה האחרונה
-            st.session_state.q_start_time = time.time() # איפוס הטיימר
+                st.session_state.responses.pop() 
+            st.session_state.q_start_time = time.time() 
             st.rerun()
 
+
 # ============================================================
-# Finish Test
+# Quick Calculation before Loading Screen
 # ============================================================
-def finish_test():
-    try:
-        test_type = st.session_state.test_type
-        responses = st.session_state.responses
+def finish_test_fast():
+    test_type = st.session_state.test_type
+    responses = st.session_state.responses
+    st.session_state.fatigue_index = calculate_fatigue_index(responses)
 
-        # ===== Calculate Fatigue Index =====
-        fatigue = calculate_fatigue_index(responses)
-        st.session_state.fatigue_index = fatigue
+    if test_type == 'hexaco':
+        df_raw, summary_df = process_results(responses)
+        st.session_state.results_data = df_raw
+        st.session_state.summary_data = summary_df
+        st.session_state.medical_fit = calculate_medical_fit(summary_df)
+        st.session_state.reliability_score = calculate_reliability_index(df_raw)
+        st.session_state.contradictions = get_inconsistent_questions(df_raw)
 
-        if test_type == 'hexaco':
-            df_raw, summary_df = process_results(responses)
-            st.session_state.results_data = df_raw
-            st.session_state.summary_data = summary_df
-            st.session_state.medical_fit = calculate_medical_fit(summary_df)
-            st.session_state.reliability_score = calculate_reliability_index(df_raw)
-            st.session_state.contradictions = get_inconsistent_questions(df_raw)
-            _run_ai_and_save_hexaco(summary_df)
+    elif test_type == 'integrity':
+        df_raw, summary_df = process_integrity_results(responses)
+        st.session_state.results_data = df_raw
+        st.session_state.summary_data = summary_df
+        st.session_state.reliability_score = calculate_reliability_score(df_raw)
+        st.session_state.contradictions = detect_contradictions(df_raw)
 
-        elif test_type == 'integrity':
-            df_raw, summary_df = process_integrity_results(responses)
-            contradictions = detect_contradictions(df_raw)
-            reliability = calculate_reliability_score(df_raw)
-            st.session_state.results_data = df_raw
-            st.session_state.summary_data = summary_df
-            st.session_state.reliability_score = reliability
-            st.session_state.contradictions = contradictions
-            _run_ai_and_save_integrity(summary_df, reliability, contradictions)
+    elif test_type == 'combined':
+        hexaco_traits = {'Conscientiousness', 'Honesty-Humility', 'Agreeableness',
+                         'Emotionality', 'Extraversion', 'Openness to Experience'}
+        hexaco_resp = [r for r in responses if r.get('trait') in hexaco_traits]
+        integrity_resp = [r for r in responses if r not in hexaco_resp]
 
-        elif test_type == 'combined':
-            _process_combined(responses)
+        summary_hex = pd.DataFrame()
+        summary_int = pd.DataFrame()
+        reliability = 0
+        contradictions = []
 
-        st.session_state.step = 'RESULTS'
-        st.rerun()
-    except Exception as e:
-        st.error(f"שגיאה בעיבוד תוצאות: {e}")
+        if hexaco_resp:
+            _, summary_hex = process_results(hexaco_resp)
+            st.session_state.medical_fit = calculate_medical_fit(summary_hex)
+        if integrity_resp:
+            df_int, summary_int = process_integrity_results(integrity_resp)
+            contradictions = detect_contradictions(df_int)
+            reliability = calculate_reliability_score(df_int)
+
+        st.session_state.summary_data = summary_hex
+        st.session_state.int_summary_data = summary_int
+        st.session_state.reliability_score = reliability
+        st.session_state.contradictions = contradictions
+
+    st.session_state.step = 'RESULTS'
+    st.rerun()
 
 
+# ============================================================
+# RESULTS Screen (With Live Loading)
+# ============================================================
+def render_results():
+    name_safe = html.escape(st.session_state.user_name)
+    st.markdown(f"""
+    <div class="hero-section">
+        <h1>📊 תוצאות המבדק</h1>
+        <p class="hero-subtitle">שלום {name_safe} — הנה התוצאות שלך</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # הצגת המספרים מיד (הם חושבו בשנייה)
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("🏥 התאמה", f"{st.session_state.get('medical_fit', 0)}%")
+    c2.metric("🔒 אמינות", f"{st.session_state.get('reliability_score', 0)}")
+    c3.metric("⚡ היסוסים", f"{st.session_state.get('hesitation_count', 0)}")
+
+    fatigue = st.session_state.get('fatigue_index')
+    if fatigue is not None:
+        fatigue_label = "נמוכה" if fatigue < 20 else "בינונית" if fatigue < 40 else "גבוהה"
+        c4.metric("😴 עייפות", f"{fatigue}% ({fatigue_label})")
+    else:
+        c4.metric("🏎️ מהירות", f"{st.session_state.get('speed_flag_count', 0)}")
+
+    st.write("")
+
+    # === לוגיקת מסך הטעינה הדינמי ===
+    if not st.session_state.get('ai_ready', False):
+        with st.status("🤖 מנתח את הפרופיל שלך באמצעות AI...", expanded=True) as status:
+            st.write("⏳ מרכז נתונים ומחשב מדדים...")
+            time.sleep(1)
+            st.write("🧠 מפיק דוח פסיכולוגי עם Gemini (זה עשוי לקחת כדקה)...")
+            
+            test_type = st.session_state.test_type
+            if test_type == 'hexaco':
+                _run_ai_and_save_hexaco(st.session_state.summary_data)
+            elif test_type == 'integrity':
+                _run_ai_and_save_integrity(st.session_state.summary_data, st.session_state.reliability_score, st.session_state.contradictions)
+            elif test_type == 'combined':
+                _run_ai_and_save_combined(st.session_state.summary_data, st.session_state.int_summary_data, st.session_state.reliability_score, st.session_state.contradictions)
+            
+            st.write("💾 שומר נתונים לארכיון...")
+            status.update(label="✅ הניתוח הושלם והדוחות מוכנים!", state="complete", expanded=False)
+        
+        st.session_state.ai_ready = True
+        st.rerun() # מרענן כדי להעלים את הטעינה ולהציג את הלשוניות
+    
+    # === הלשוניות מוצגות רק אחרי שהטעינה הסתיימה ===
+    else:
+        st.balloons() # הבלונים יקפצו רק פעם אחת כשהכל מוכן
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה וטיפים", "📥 הורדות"])
+
+        with tab1:
+            _render_results_tab()
+        with tab2:
+            _render_ai_tab()
+        with tab3:
+            _render_learning_tab()
+        with tab4:
+            _render_downloads_tab()
+
+        st.markdown("---")
+        if st.button("🏠 חזרה לדף הבית", use_container_width=True, type="primary"):
+            for key in ['responses', 'results_data', 'summary_data', 'int_summary_data', 'gemini_report', 'claude_report']:
+                st.session_state[key] = None if 'data' in key or 'report' in key else []
+            st.session_state.ai_ready = False
+            st.session_state.step = 'HOME'
+            st.rerun()
+
+
+# ============================================================
+# Helper Functions for AI & Saving
+# ============================================================
 def _run_ai_and_save_hexaco(summary_df):
     try:
         history = get_db_history(st.session_state.user_name)
@@ -725,7 +830,6 @@ def _run_ai_and_save_hexaco(summary_df):
                    hesitation=st.session_state.hesitation_count)
     except Exception:
         pass
-
 
 def _run_ai_and_save_integrity(summary_df, reliability, contradictions):
     try:
@@ -746,30 +850,7 @@ def _run_ai_and_save_integrity(summary_df, reliability, contradictions):
     except Exception:
         pass
 
-
-def _process_combined(responses):
-    hexaco_traits = {'Conscientiousness', 'Honesty-Humility', 'Agreeableness',
-                     'Emotionality', 'Extraversion', 'Openness to Experience'}
-    hexaco_resp = [r for r in responses if r.get('trait') in hexaco_traits]
-    integrity_resp = [r for r in responses if r not in hexaco_resp]
-
-    summary_hex = pd.DataFrame()
-    summary_int = pd.DataFrame()
-    reliability = 0
-    contradictions = []
-
-    if hexaco_resp:
-        _, summary_hex = process_results(hexaco_resp)
-        st.session_state.medical_fit = calculate_medical_fit(summary_hex)
-    if integrity_resp:
-        df_int, summary_int = process_integrity_results(integrity_resp)
-        contradictions = detect_contradictions(df_int)
-        reliability = calculate_reliability_score(df_int)
-
-    st.session_state.summary_data = summary_hex
-    st.session_state.reliability_score = reliability
-    st.session_state.contradictions = contradictions
-
+def _run_ai_and_save_combined(summary_hex, summary_int, reliability, contradictions):
     try:
         history = get_combined_history(st.session_state.user_name)
         g, c = get_combined_ai_analysis(
@@ -789,55 +870,9 @@ def _process_combined(responses):
     except Exception:
         pass
 
-
 # ============================================================
-# RESULTS Screen
+# Tabs Content
 # ============================================================
-def render_results():
-    st.balloons()
-
-    name_safe = html.escape(st.session_state.user_name)
-    st.markdown(f"""
-    <div class="hero-section">
-        <h1>📊 תוצאות המבדק</h1>
-        <p class="hero-subtitle">שלום {name_safe} — הנה התוצאות שלך</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # --- Top Metrics (now with Fatigue) ---
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("🏥 התאמה", f"{st.session_state.get('medical_fit', 0)}%")
-    c2.metric("🔒 אמינות", f"{st.session_state.get('reliability_score', 0)}")
-    c3.metric("⚡ היסוסים", f"{st.session_state.get('hesitation_count', 0)}")
-
-    fatigue = st.session_state.get('fatigue_index')
-    if fatigue is not None:
-        fatigue_label = "נמוכה" if fatigue < 20 else "בינונית" if fatigue < 40 else "גבוהה"
-        c4.metric("😴 עייפות", f"{fatigue}% ({fatigue_label})")
-    else:
-        c4.metric("🏎️ מהירות", f"{st.session_state.get('speed_flag_count', 0)}")
-
-    st.write("")
-
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה וטיפים", "📥 הורדות"])
-
-    with tab1:
-        _render_results_tab()
-    with tab2:
-        _render_ai_tab()
-    with tab3:
-        _render_learning_tab()
-    with tab4:
-        _render_downloads_tab()
-
-    st.markdown("---")
-    if st.button("🏠 חזרה לדף הבית", use_container_width=True):
-        for key in ['responses', 'results_data', 'summary_data', 'gemini_report', 'claude_report']:
-            st.session_state[key] = None if 'data' in key or 'report' in key else []
-        st.session_state.step = 'HOME'
-        st.rerun()
-
-
 def _render_results_tab():
     summary = st.session_state.get('summary_data')
     if summary is not None and hasattr(summary, 'empty') and not summary.empty:
@@ -854,43 +889,13 @@ def _render_results_tab():
         except Exception:
             pass
         st.markdown("### 📋 טבלת סיכום")
-        
-        # --- כאן התיקון: הסרגל גלילה לרוחב ולגובה ---
         st.dataframe(summary, use_container_width=False, height=250)
-        
-    # Fatigue breakdown
+
     fatigue = st.session_state.get('fatigue_index')
     if fatigue is not None and fatigue > 15:
         st.warning(f"😴 **מדד עייפות: {fatigue}%** — זוהה ירידה בעקביות לקראת סוף המבדק. "
                    f"ייתכן שזה משפיע על הציונים האחרונים.")
 
-    # Speed flags
-    speed = st.session_state.get('speed_flag_count', 0)
-    if speed > 3:
-        st.warning(f"🏎️ **{speed} תשובות מהירות מדי** — תשובות שניתנו מתחת לסף הקריאה הדינמי (WPM).")
-
-    contradictions = st.session_state.get('contradictions', [])
-    if contradictions:
-        st.markdown("### ⚠️ סתירות שזוהו")
-        for c in contradictions:
-            if isinstance(c, dict):
-                sev = c.get('severity', '')
-                icon = "🔴" if sev == 'critical' else "🟠" if sev == 'high' else "🔵"
-                st.markdown(f"{icon} {html.escape(str(c.get('message', str(c))))}")
-            else:
-                st.markdown(f"⚠️ {html.escape(str(c))}")
-
-    rel = st.session_state.get('reliability_score')
-    if rel is not None:
-        st.info(f"🔒 פירוש ציון אמינות ({rel}): {get_integrity_interpretation(rel)}")
-
-    # Fatigue breakdown
-    fatigue = st.session_state.get('fatigue_index')
-    if fatigue is not None and fatigue > 15:
-        st.warning(f"😴 **מדד עייפות: {fatigue}%** — זוהה ירידה בעקביות לקראת סוף המבדק. "
-                   f"ייתכן שזה משפיע על הציונים האחרונים.")
-
-    # Speed flags
     speed = st.session_state.get('speed_flag_count', 0)
     if speed > 3:
         st.warning(f"🏎️ **{speed} תשובות מהירות מדי** — תשובות שניתנו מתחת לסף הקריאה הדינמי (WPM).")
@@ -997,7 +1002,7 @@ def _render_downloads_tab():
                 if isinstance(pdf, bytes):
                     st.download_button("📄 הורד PDF", pdf,
                                        f"mednitai_{st.session_state.user_name}.pdf",
-                                       "application/pdf", use_container_width=True)
+                                       "application/pdf", use_container_width=True, type="primary")
         except Exception as e:
             st.warning(f"שגיאה ב-PDF: {e}")
     with col2:
@@ -1009,7 +1014,7 @@ def _render_downloads_tab():
                     st.download_button("📊 הורד Excel", excel,
                                        f"mednitai_{st.session_state.user_name}.xlsx",
                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                       use_container_width=True)
+                                       use_container_width=True, type="primary")
         except Exception as e:
             st.warning(f"שגיאה ב-Excel: {e}")
 
@@ -1019,7 +1024,7 @@ def _render_downloads_tab():
 # ============================================================
 def render_admin():
     st.markdown("# 🔐 ממשק ניהול — Dashboard")
-    if st.button("🏠 חזרה לדף הבית"):
+    if st.button("🏠 חזרה לדף הבית", type="primary"):
         st.session_state.step = 'HOME'
         st.rerun()
 
