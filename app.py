@@ -13,6 +13,8 @@ import uuid
 import time
 import random
 import math
+import threading
+from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 from logic import (
     process_results, calculate_medical_fit, calculate_reliability_index,
@@ -388,6 +390,8 @@ def init_session_state():
         'practice_mode': False,
         'ai_ready': False,
         'user_id': str(uuid.uuid4()),
+        'ai_status': 'pending', 
+        'balloons_shown': False
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -522,6 +526,8 @@ def start_test(test_type, test_length):
     st.session_state.user_id = str(uuid.uuid4())
     st.session_state.fatigue_index = None
     st.session_state.ai_ready = False
+    st.session_state.ai_status = 'pending'
+    st.session_state.balloons_shown = False
 
     try:
         if test_type == 'hexaco':
@@ -563,7 +569,6 @@ def render_quiz():
     current = st.session_state.current_q
     total = len(questions)
 
-    # --- מעבר מיידי למסך תוצאות עם חישוב מהיר ---
     if current >= total:
         finish_test_fast()
         return
@@ -639,7 +644,6 @@ def render_quiz():
     cols = st.columns(5)
     
     for i, (label, val) in enumerate(options):
-        # שימוש ב-type="secondary" כדי לקבל את העיצוב החלול
         if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}_{st.session_state.user_id}", use_container_width=True, type="secondary"):
             
             response_time = time.time() - st.session_state.q_start_time
@@ -672,13 +676,11 @@ def render_quiz():
             st.session_state.stress_active = False
             st.rerun()
 
-    # Practice mode explanation
     if st.session_state.practice_mode and q_category in TRAIT_EXPLANATIONS:
         info = TRAIT_EXPLANATIONS[q_category]
         st.info(f"ℹ️ **{info['name']}**: {info['desc']}")
         st.caption(f"🏥 {info['medical']}")
 
-    # ==================== Back Button ====================
     if current > 0:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("⬅️ חזור לשאלה הקודמת (לתיקון)", key=f"back_btn_{current}", type="secondary"):
@@ -690,8 +692,28 @@ def render_quiz():
 
 
 # ============================================================
-# Quick Calculation before Loading Screen
+# Background AI & Fast Finish
 # ============================================================
+def _run_ai_background(username, test_type, s_data, i_data, rel, cont, hes, hist):
+    try:
+        g, c = None, None
+        if test_type == 'hexaco':
+            g, c = get_multi_ai_analysis(username, s_data, hist)
+            save_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, [g, c] if c else g, hesitation=hes)
+        elif test_type == 'integrity':
+            g, c = get_integrity_ai_analysis(username, rel, cont, s_data, hist)
+            save_integrity_test_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, rel, [g, c] if c else g, hesitation=hes)
+        elif test_type == 'combined':
+            g, c = get_combined_ai_analysis(username, s_data, rel, cont, hist)
+            save_combined_test_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, i_data.to_dict() if hasattr(i_data, 'to_dict') else i_data, rel, [g, c] if c else g, hesitation=hes)
+        
+        st.session_state.gemini_report = g
+        st.session_state.claude_report = c
+        st.session_state.ai_status = 'done'
+    except Exception as e:
+        st.session_state.gemini_report = f"שגיאה בהפקת ניתוח AI: {str(e)}"
+        st.session_state.ai_status = 'error'
+
 def finish_test_fast():
     test_type = st.session_state.test_type
     responses = st.session_state.responses
@@ -736,12 +758,29 @@ def finish_test_fast():
         st.session_state.reliability_score = reliability
         st.session_state.contradictions = contradictions
 
+    # Start Background Thread for AI
+    st.session_state.ai_status = 'processing'
+    hist = []
+    try:
+        if test_type == 'hexaco': hist = get_db_history(st.session_state.user_name)
+        elif test_type == 'integrity': hist = get_integrity_history(st.session_state.user_name)
+        else: hist = get_combined_history(st.session_state.user_name)
+    except: pass
+
+    t = threading.Thread(target=_run_ai_background, args=(
+        st.session_state.user_name, test_type, st.session_state.summary_data,
+        st.session_state.int_summary_data, st.session_state.reliability_score,
+        st.session_state.contradictions, st.session_state.hesitation_count, hist
+    ))
+    add_script_run_ctx(t)
+    t.start()
+
     st.session_state.step = 'RESULTS'
     st.rerun()
 
 
 # ============================================================
-# RESULTS Screen (With Live Loading)
+# RESULTS Screen (Progressive Rendering)
 # ============================================================
 def render_results():
     name_safe = html.escape(st.session_state.user_name)
@@ -752,7 +791,6 @@ def render_results():
     </div>
     """, unsafe_allow_html=True)
 
-    # הצגת המספרים מיד (הם חושבו בשנייה)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("🏥 התאמה", f"{st.session_state.get('medical_fit', 0)}%")
     c2.metric("🔒 אמינות", f"{st.session_state.get('reliability_score', 0)}")
@@ -767,112 +805,40 @@ def render_results():
 
     st.write("")
 
-    # === לוגיקת מסך הטעינה הדינמי ===
-    if not st.session_state.get('ai_ready', False):
-        with st.status("🤖 מנתח את הפרופיל שלך באמצעות AI...", expanded=True) as status:
-            st.write("⏳ מרכז נתונים ומחשב מדדים...")
-            time.sleep(1)
-            st.write("🧠 מפיק דוח פסיכולוגי עם Gemini (זה עשוי לקחת כדקה)...")
-            
-            test_type = st.session_state.test_type
-            if test_type == 'hexaco':
-                _run_ai_and_save_hexaco(st.session_state.summary_data)
-            elif test_type == 'integrity':
-                _run_ai_and_save_integrity(st.session_state.summary_data, st.session_state.reliability_score, st.session_state.contradictions)
-            elif test_type == 'combined':
-                _run_ai_and_save_combined(st.session_state.summary_data, st.session_state.int_summary_data, st.session_state.reliability_score, st.session_state.contradictions)
-            
-            st.write("💾 שומר נתונים לארכיון...")
-            status.update(label="✅ הניתוח הושלם והדוחות מוכנים!", state="complete", expanded=False)
-        
-        st.session_state.ai_ready = True
-        st.rerun() # מרענן כדי להעלים את הטעינה ולהציג את הלשוניות
-    
-    # === הלשוניות מוצגות רק אחרי שהטעינה הסתיימה ===
-    else:
-        st.balloons() # הבלונים יקפצו רק פעם אחת כשהכל מוכן
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה וטיפים", "📥 הורדות"])
+    if st.session_state.ai_status == 'done' and not st.session_state.balloons_shown:
+        st.balloons()
+        st.session_state.balloons_shown = True
 
-        with tab1:
-            _render_results_tab()
-        with tab2:
+    if st.session_state.ai_status == 'processing':
+        st_autorefresh(interval=3000, limit=100, key="ai_polling")
+
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה וטיפים", "📥 הורדות"])
+
+    with tab1:
+        _render_results_tab()
+    with tab3:
+        _render_learning_tab()
+    with tab4:
+        _render_downloads_tab()
+
+    with tab2:
+        if st.session_state.ai_status == 'processing':
+            st.info("🤖 **מנועי ה-AI שלנו מנתחים כעת את הנתונים שלך ברקע...**\n\nזה עשוי לקחת קצת זמן (כדי להפיק דוח מעמיק של 1500 מילים). אתה חופשי לטייל בשאר הלשוניות או לסגור את המבחן - התוצאות נשמרות בהיסטוריה שלך אוטומטית!")
+            with st.spinner("מייצר דוחות פסיכולוגיים..."): 
+                st.empty()
+        else:
             _render_ai_tab()
-        with tab3:
-            _render_learning_tab()
-        with tab4:
-            _render_downloads_tab()
 
-        st.markdown("---")
-        if st.button("🏠 חזרה לדף הבית", use_container_width=True, type="primary"):
-            for key in ['responses', 'results_data', 'summary_data', 'int_summary_data', 'gemini_report', 'claude_report']:
-                st.session_state[key] = None if 'data' in key or 'report' in key else []
-            st.session_state.ai_ready = False
-            st.session_state.step = 'HOME'
-            st.rerun()
+    st.markdown("---")
+    if st.button("🏠 חזרה לדף הבית", use_container_width=True, type="primary"):
+        for key in ['responses', 'results_data', 'summary_data', 'int_summary_data', 'gemini_report', 'claude_report']:
+            st.session_state[key] = None if 'data' in key or 'report' in key else []
+        st.session_state.ai_status = 'pending'
+        st.session_state.balloons_shown = False
+        st.session_state.step = 'HOME'
+        st.rerun()
 
 
-# ============================================================
-# Helper Functions for AI & Saving
-# ============================================================
-def _run_ai_and_save_hexaco(summary_df):
-    try:
-        history = get_db_history(st.session_state.user_name)
-        g, c = get_multi_ai_analysis(st.session_state.user_name, summary_df, history)
-        st.session_state.gemini_report = g
-        st.session_state.claude_report = c
-    except Exception as e:
-        st.session_state.gemini_report = f"ניתוח AI לא זמין: {e}"
-        st.session_state.claude_report = None
-    try:
-        save_to_db(st.session_state.user_name,
-                   summary_df.to_dict() if hasattr(summary_df, 'to_dict') else summary_df,
-                   st.session_state.gemini_report,
-                   hesitation=st.session_state.hesitation_count)
-    except Exception:
-        pass
-
-def _run_ai_and_save_integrity(summary_df, reliability, contradictions):
-    try:
-        history = get_integrity_history(st.session_state.user_name)
-        g, c = get_integrity_ai_analysis(
-            st.session_state.user_name, reliability, contradictions, summary_df, history)
-        st.session_state.gemini_report = g
-        st.session_state.claude_report = c
-    except Exception as e:
-        st.session_state.gemini_report = f"ניתוח AI לא זמין: {e}"
-        st.session_state.claude_report = None
-    try:
-        save_integrity_test_to_db(
-            st.session_state.user_name,
-            summary_df.to_dict() if hasattr(summary_df, 'to_dict') else summary_df,
-            reliability, st.session_state.gemini_report,
-            hesitation=st.session_state.hesitation_count)
-    except Exception:
-        pass
-
-def _run_ai_and_save_combined(summary_hex, summary_int, reliability, contradictions):
-    try:
-        history = get_combined_history(st.session_state.user_name)
-        g, c = get_combined_ai_analysis(
-            st.session_state.user_name, summary_hex, reliability, contradictions, history)
-        st.session_state.gemini_report = g
-        st.session_state.claude_report = c
-    except Exception as e:
-        st.session_state.gemini_report = f"ניתוח AI לא זמין: {e}"
-        st.session_state.claude_report = None
-    try:
-        save_combined_test_to_db(
-            st.session_state.user_name,
-            summary_hex.to_dict() if hasattr(summary_hex, 'to_dict') else summary_hex,
-            summary_int.to_dict() if hasattr(summary_int, 'to_dict') else summary_int,
-            reliability, st.session_state.gemini_report,
-            hesitation=st.session_state.hesitation_count)
-    except Exception:
-        pass
-
-# ============================================================
-# Tabs Content
-# ============================================================
 def _render_results_tab():
     summary = st.session_state.get('summary_data')
     if summary is not None and hasattr(summary, 'empty') and not summary.empty:
@@ -890,11 +856,6 @@ def _render_results_tab():
             pass
         st.markdown("### 📋 טבלת סיכום")
         st.dataframe(summary, use_container_width=False, height=250)
-
-    fatigue = st.session_state.get('fatigue_index')
-    if fatigue is not None and fatigue > 15:
-        st.warning(f"😴 **מדד עייפות: {fatigue}%** — זוהה ירידה בעקביות לקראת סוף המבדק. "
-                   f"ייתכן שזה משפיע על הציונים האחרונים.")
 
     speed = st.session_state.get('speed_flag_count', 0)
     if speed > 3:
@@ -935,9 +896,6 @@ def _render_ai_tab():
         st.markdown("### 🧠 ניתוח Claude")
         st.markdown(f'<div class="question-card">{html.escape(str(claude))}</div>',
                     unsafe_allow_html=True)
-
-    if not gemini and not claude:
-        st.info("ניתוח AI לא זמין כרגע. ניתן להוריד PDF עם התוצאות המספריות.")
 
 
 def _render_learning_tab():
@@ -1042,7 +1000,6 @@ def render_admin():
         total_tests = len(all_tests)
         unique_users = len(set(t.get('user_name', '') for t in all_tests))
 
-        # Calculate averages
         avg_hesitation = 0
         avg_reliability = 0
         hesitation_vals = [t.get('hesitation_count', 0) for t in all_tests if t.get('hesitation_count') is not None]
@@ -1053,13 +1010,11 @@ def render_admin():
         if reliability_vals:
             avg_reliability = sum(reliability_vals) / len(reliability_vals)
 
-        # Test type breakdown
         type_counts = {}
         for t in all_tests:
             tt = t.get('test_type', 'unknown')
             type_counts[tt] = type_counts.get(tt, 0) + 1
 
-        # Display stats
         sc1, sc2, sc3, sc4 = st.columns(4)
         sc1.markdown(f"""<div class="admin-stat-card">
             <div class="admin-stat-value">{total_tests}</div>
@@ -1080,7 +1035,6 @@ def render_admin():
 
         st.write("")
 
-        # Test type distribution
         if type_counts:
             st.markdown("### 📈 התפלגות סוגי מבדקים")
             fig = go.Figure(data=[go.Pie(
@@ -1107,7 +1061,6 @@ def render_admin():
 
             st.markdown(f"### 📋 {html.escape(selected_name)} — {len(candidate_tests)} מבדקים")
 
-            # Candidate metrics
             cc1, cc2, cc3 = st.columns(3)
             cc1.metric("מבדקים", len(candidate_tests))
 
@@ -1121,7 +1074,6 @@ def render_admin():
             if cand_hesitation:
                 cc3.metric("היסוס ממוצע", f"{sum(cand_hesitation)/len(cand_hesitation):.1f}")
 
-            # Progress over time (if multiple tests)
             if len(candidate_tests) > 1 and cand_reliability:
                 st.markdown("#### 📈 מגמת אמינות לאורך זמן")
                 dates = [t.get('test_date', f'מבדק {i+1}') for i, t in enumerate(candidate_tests)
@@ -1141,7 +1093,6 @@ def render_admin():
                 )
                 st.plotly_chart(fig_trend, use_container_width=True)
 
-            # Individual test details
             for i, test in enumerate(candidate_tests):
                 with st.expander(
                     f"📝 {test.get('test_type', 'N/A')} — {test.get('test_date', 'N/A')} "
