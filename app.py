@@ -201,11 +201,22 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     margin: 20px 0;
     box-shadow: 0 4px 20px rgba(0,0,0,0.06);
     animation: fadeIn 0.4s ease;
+    text-align: right;
+    direction: rtl;
 }
 .question-text {
-    font-size: 1.25rem; font-weight: 600; color: #1a1a2e; line-height: 1.8;
+    font-size: 1.25rem; 
+    font-weight: 600; 
+    color: #1a1a2e; 
+    line-height: 1.8; 
+    text-align: right;
 }
-.question-category { font-size: 0.85rem; color: #888; margin-bottom: 8px; }
+.question-category { 
+    font-size: 0.85rem; 
+    color: #888; 
+    margin-bottom: 8px; 
+    text-align: right; 
+}
 
 .hero-section {
     text-align: center;
@@ -348,6 +359,14 @@ IDEAL_RANGES = {
     'Openness to Experience': (3.5, 4.1)
 }
 
+TRAIT_DICT = {
+    "Honesty-Humility": "כנות וענווה (H)",
+    "Emotionality": "רגשיות (E)",
+    "Extraversion": "מוחצנות (X)",
+    "Agreeableness": "נעימות (A)",
+    "Conscientiousness": "מצפוניות (C)",
+    "Openness to Experience": "פתיחות (O)"
+}
 
 # ============================================================
 # Cached Data Loading
@@ -854,8 +873,16 @@ def _render_results_tab():
                 st.plotly_chart(bar, use_container_width=True)
         except Exception:
             pass
+            
         st.markdown("### 📋 טבלת סיכום")
-        st.dataframe(summary, use_container_width=False, height=250)
+        
+        # --- תיקון הטבלה: פריסה מלאה ותרגום לעברית ---
+        display_df = summary.copy()
+        trait_col = next((c for c in display_df.columns if str(c).lower() in ['trait', 'category']), None)
+        if trait_col:
+            display_df[trait_col] = display_df[trait_col].apply(lambda x: TRAIT_DICT.get(str(x), str(x)))
+            
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     speed = st.session_state.get('speed_flag_count', 0)
     if speed > 3:
@@ -863,12 +890,25 @@ def _render_results_tab():
 
     contradictions = st.session_state.get('contradictions', [])
     if contradictions:
-        st.markdown("### ⚠️ סתירות שזוהו")
+        st.markdown("### ⚠️ סתירות שזוהו בתשובות שלך")
         for c in contradictions:
             if isinstance(c, dict):
                 sev = c.get('severity', '')
                 icon = "🔴" if sev == 'critical' else "🟠" if sev == 'high' else "🔵"
-                st.markdown(f"{icon} {html.escape(str(c.get('message', str(c))))}")
+                msg = html.escape(str(c.get('message', 'סתירה בקריטריון')))
+                
+                # --- תיקון הסתירות: חילוץ המשפטים הספציפיים והצגתם בחלונית נפתחת ---
+                q1 = c.get('q1', c.get('question1', c.get('q1_text', '')))
+                a1 = c.get('ans1', c.get('answer1', ''))
+                q2 = c.get('q2', c.get('question2', c.get('q2_text', '')))
+                a2 = c.get('ans2', c.get('answer2', ''))
+                
+                with st.expander(f"{icon} {msg}"):
+                    if q1 and q2:
+                        st.markdown(f"**שאלה 1:** {html.escape(str(q1))} `(ענית: {a1})`")
+                        st.markdown(f"**שאלה 2:** {html.escape(str(q2))} `(ענית: {a2})`")
+                    else:
+                        st.json(c)
             else:
                 st.markdown(f"⚠️ {html.escape(str(c))}")
 
