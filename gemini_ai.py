@@ -108,8 +108,8 @@ class HEXACO_Expert_System:
             model = self._get_model_discovery(key)
             try:
                 url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={key}"
-                # קיצרנו ל-30 שניות כדי שלא ייתקע
-                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=30)
+                # מוגדר כאן ל-120 שניות
+                res = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=120)
                 
                 if res.status_code == 200:
                     data = res.json()
@@ -117,7 +117,6 @@ class HEXACO_Expert_System:
                 elif res.status_code == 429:
                     errors.append(f"🔑 מפתח #{i}: חריגת מכסה/עומס (429)")
                 else:
-                    # כאן הוא יחשוף לנו את השגיאה האמיתית!
                     errors.append(f"🔑 מפתח #{i} נדחה על ידי גוגל (קוד {res.status_code}): {res.text}")
             except Exception as e:
                 errors.append(f"🔑 מפתח #{i} כשל טכנית: {str(e)}")
@@ -148,8 +147,8 @@ class HEXACO_Expert_System:
                     "max_tokens": 4096,
                     "messages": [{"role": "user", "content": prompt}]
                 }
-                # קיצרנו גם כאן ל-30 שניות
-                res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=30)
+                # מוגדר כאן ל-120 שניות כדי שקלוד לא יקרוס ויחתוך את הפעולה באמצע!
+                res = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload, timeout=120)
 
                 if res.status_code == 200:
                     return res.json()['content'][0]['text']
@@ -253,8 +252,8 @@ def get_integrity_ai_analysis(user_name, reliability_score, contradictions, int_
 def get_combined_ai_analysis(user_name, trait_scores, reliability_score, contradictions, history):
     expert = HEXACO_Expert_System()
     clean_scores = _parse_to_simple_dict(trait_scores)
-    rel_info = f"מדד אמינות: {reliability_score}%\n"
+    rel_info = f"מדד אמינות שאלון: {reliability_score}%\n"
     if contradictions:
-        rel_info += "סתירות שזוהו:\n" + "\n".join([f"- {c.get('message', str(c))}" for c in contradictions])
-    prompt = f"אתה פסיכולוג מנתח מבדק משולב. מועמד: {user_name}\nציוני אישיות: {json.dumps(clean_scores)}\n{rel_info}\nכתוב דוח מעמיק בעברית."
+        rel_info += "אזהרת עקביות - נמצאו סתירות:\n" + "\n".join([f"- {c.get('message', str(c))}" for c in contradictions])
+    prompt = f"אתה פסיכולוג בכיר המנתח מבדק משולב: אישיות (HEXACO) ואמינות. מועמד: {user_name}\nציוני אישיות: {json.dumps(clean_scores)}\n{rel_info}\nכתוב דוח מעמיק בעברית."
     return expert._call_gemini_safe(prompt), expert._call_claude(prompt)
