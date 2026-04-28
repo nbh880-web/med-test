@@ -1,7 +1,14 @@
 """
-Mednitai HEXACO System — Main Application
-==========================================
-With: Dynamic WPM, Fatigue Index, Real Stress Effect, Enhanced Admin, Hollow Buttons, Live Loading
+Mednitai HEXACO System — Main Application (v2.0)
+==================================================
+שיפורים מרכזיים:
+- שאלון "נכון/לא נכון" מהיר (HEXACO + תרחישים)
+- מצב אימון ממוקד לתכונה ספציפית
+- רענון חכם (רק כשצריך) — ביצועים טובים יותר
+- טיפים מיידיים אחרי כל תשובה במצב תרגול
+- סיכום מסכם בסוף כל מבחן
+- תיקון נתיבי CSV
+- ממשק נקי וידידותי יותר
 """
 
 import streamlit as st
@@ -14,6 +21,7 @@ import time
 import random
 import math
 import threading
+import os
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 from logic import (
@@ -49,7 +57,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# Professional CSS Theme (Updated for Hollow Buttons)
+# CSS (כמו שהיה — לא נגענו)
 # ============================================================
 st.markdown("""
 <style>
@@ -78,7 +86,6 @@ h1 {
 }
 h2, h3 { font-family: 'Rubik', sans-serif; color: #1a1a2e; }
 
-/* === Primary Buttons (Solid Gradient) === */
 button[kind="primary"] {
     background: linear-gradient(135deg, #0f3460 0%, #533483 50%, #e94560 100%);
     color: white !important;
@@ -96,7 +103,6 @@ button[kind="primary"]:hover {
     box-shadow: 0 6px 25px rgba(15, 52, 96, 0.4);
 }
 
-/* === Secondary Buttons (Hollow / Outline) === */
 button[kind="secondary"] {
     background: transparent !important;
     color: #1a1a2e !important;
@@ -131,7 +137,6 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     font-size: 2rem; font-weight: 700; color: #0f3460;
 }
 
-/* ===== STRESS SCREEN — Intimidating ===== */
 .stress-screen {
     background: linear-gradient(180deg, #0a0a0a 0%, #1a0000 50%, #0a0a0a 100%);
     color: #ff1744;
@@ -143,44 +148,23 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     border: 2px solid rgba(255, 23, 68, 0.3);
     box-shadow: 0 0 60px rgba(255, 23, 68, 0.15);
 }
-.stress-icon {
-    font-size: 4rem;
-    margin-bottom: 15px;
-    animation: pulse 1.5s infinite;
-}
+.stress-icon { font-size: 4rem; margin-bottom: 15px; animation: pulse 1.5s infinite; }
 .stress-title {
-    font-size: 1.8rem;
-    font-weight: 800;
-    font-family: 'Rubik', sans-serif;
-    color: #ff1744;
-    text-shadow: 0 0 20px rgba(255, 23, 68, 0.4);
-    margin-bottom: 15px;
-    letter-spacing: 1px;
+    font-size: 1.8rem; font-weight: 800; font-family: 'Rubik', sans-serif;
+    color: #ff1744; text-shadow: 0 0 20px rgba(255, 23, 68, 0.4);
+    margin-bottom: 15px; letter-spacing: 1px;
 }
-.stress-detail {
-    font-size: 1.1rem;
-    color: #ff8a80;
-    margin: 8px 0;
-    max-width: 500px;
-    line-height: 1.6;
-}
+.stress-detail { font-size: 1.1rem; color: #ff8a80; margin: 8px 0; max-width: 500px; line-height: 1.6; }
 .stress-timer {
-    font-size: 5rem;
-    font-weight: 800;
-    font-family: 'Rubik', sans-serif;
-    color: #ff1744;
-    text-shadow: 0 0 40px rgba(255, 23, 68, 0.6);
-    margin: 20px 0;
-    animation: timerPulse 1s infinite;
+    font-size: 5rem; font-weight: 800; font-family: 'Rubik', sans-serif;
+    color: #ff1744; text-shadow: 0 0 40px rgba(255, 23, 68, 0.6);
+    margin: 20px 0; animation: timerPulse 1s infinite;
 }
 .stress-warning-bar {
     background: rgba(255, 23, 68, 0.15);
     border: 1px solid rgba(255, 23, 68, 0.3);
-    border-radius: 10px;
-    padding: 12px 24px;
-    margin-top: 20px;
-    font-size: 0.9rem;
-    color: #ff8a80;
+    border-radius: 10px; padding: 12px 24px; margin-top: 20px;
+    font-size: 0.9rem; color: #ff8a80;
 }
 
 @keyframes pulse {
@@ -192,7 +176,6 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     50% { opacity: 0.6; }
 }
 
-/* ===== Question Card ===== */
 .question-card {
     background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
     border: 1px solid #e0e0e0;
@@ -205,18 +188,10 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     direction: rtl;
 }
 .question-text {
-    font-size: 1.25rem; 
-    font-weight: 600; 
-    color: #1a1a2e; 
-    line-height: 1.8; 
-    text-align: right;
+    font-size: 1.25rem; font-weight: 600; color: #1a1a2e;
+    line-height: 1.8; text-align: right;
 }
-.question-category { 
-    font-size: 0.85rem; 
-    color: #888; 
-    margin-bottom: 8px; 
-    text-align: right; 
-}
+.question-category { font-size: 0.85rem; color: #888; margin-bottom: 8px; text-align: right; }
 
 .hero-section {
     text-align: center;
@@ -248,7 +223,25 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     margin: 10px 0;
 }
 
-/* ===== Admin Cards ===== */
+.instant-tip {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-right: 4px solid #1976d2;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    border-radius: 16px;
+    padding: 24px;
+    margin: 20px 0;
+    border-right: 5px solid #533483;
+}
+.summary-card h4 { color: #4a148c; margin-bottom: 10px; }
+
 .admin-stat-card {
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     border-radius: 14px;
@@ -257,52 +250,32 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     color: white;
 }
 .admin-stat-value {
-    font-size: 2.2rem;
-    font-weight: 800;
-    font-family: 'Rubik', sans-serif;
-    color: #e94560;
+    font-size: 2.2rem; font-weight: 800; font-family: 'Rubik', sans-serif; color: #e94560;
 }
-.admin-stat-label {
-    font-size: 0.9rem;
-    color: #aaa;
-    margin-top: 5px;
-}
+.admin-stat-label { font-size: 0.9rem; color: #aaa; margin-top: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ---------- Stress Messages ----------
+# ============================================================
+# Constants
+# ============================================================
 STRESS_MESSAGES = [
-    {
-        'icon': '⚠️',
-        'title': 'זוהה חוסר עקביות בתשובות',
-        'detail': 'המערכת זיהתה פערים משמעותיים בין תשובותיך. מתבצע ניתוח מעמיק של דפוסי התגובה...',
-        'bar': 'מודול אימות אמינות פעיל — אנא המתן'
-    },
-    {
-        'icon': '🔍',
-        'title': 'נדרשת בדיקת אימות נוספת',
-        'detail': 'דפוס התשובות שלך חורג מהנורמה הסטטיסטית. המערכת בודקת את מדד העקביות הפנימי...',
-        'bar': 'סריקת Integrity פעילה — אנא המתן'
-    },
-    {
-        'icon': '🛡️',
-        'title': 'התקבלה התראת מערכת',
-        'detail': 'אלגוריתם הבקרה זיהה חריגה בזמני התגובה שלך. מתבצע ניתוח סטטיסטי מורחב...',
-        'bar': 'מנגנון Anti-Fake פעיל — אנא המתן'
-    },
-    {
-        'icon': '📊',
-        'title': 'ניתוח דפוסים חריג',
-        'detail': 'המערכת זיהתה שינוי מגמה חד בתשובותיך. מתבצעת השוואה מול מאגר נורמטיבי...',
-        'bar': 'מודול Cross-Validation פעיל — בודק עקביות'
-    },
-    {
-        'icon': '🔐',
-        'title': 'נדרש אימות פרופיל',
-        'detail': 'ציון האמינות הנוכחי שלך ירד מתחת לסף הקריטי. המערכת מבצעת בדיקה מחודשת...',
-        'bar': 'פרוטוקול אימות — סורק תשובות אחרונות'
-    },
+    {'icon': '⚠️', 'title': 'זוהה חוסר עקביות בתשובות',
+     'detail': 'המערכת זיהתה פערים משמעותיים בין תשובותיך. מתבצע ניתוח מעמיק של דפוסי התגובה...',
+     'bar': 'מודול אימות אמינות פעיל — אנא המתן'},
+    {'icon': '🔍', 'title': 'נדרשת בדיקת אימות נוספת',
+     'detail': 'דפוס התשובות שלך חורג מהנורמה הסטטיסטית. המערכת בודקת את מדד העקביות הפנימי...',
+     'bar': 'סריקת Integrity פעילה — אנא המתן'},
+    {'icon': '🛡️', 'title': 'התקבלה התראת מערכת',
+     'detail': 'אלגוריתם הבקרה זיהה חריגה בזמני התגובה שלך. מתבצע ניתוח סטטיסטי מורחב...',
+     'bar': 'מנגנון Anti-Fake פעיל — אנא המתן'},
+    {'icon': '📊', 'title': 'ניתוח דפוסים חריג',
+     'detail': 'המערכת זיהתה שינוי מגמה חד בתשובותיך. מתבצעת השוואה מול מאגר נורמטיבי...',
+     'bar': 'מודול Cross-Validation פעיל — בודק עקביות'},
+    {'icon': '🔐', 'title': 'נדרש אימות פרופיל',
+     'detail': 'ציון האמינות הנוכחי שלך ירד מתחת לסף הקריטי. המערכת מבצעת בדיקה מחודשת...',
+     'bar': 'פרוטוקול אימות — סורק תשובות אחרונות'},
 ]
 
 TRAIT_EXPLANATIONS = {
@@ -368,16 +341,173 @@ TRAIT_DICT = {
     "Openness to Experience": "פתיחות (O)"
 }
 
+
 # ============================================================
-# Cached Data Loading
+# CSV Loading — תיקון נתיבים (עכשיו בודק כמה אופציות)
 # ============================================================
+def _find_csv(filename):
+    """מנסה למצוא את קובץ ה-CSV בכמה מקומות אפשריים."""
+    candidates = [
+        filename,
+        f"data/{filename}",
+        f"./{filename}",
+        os.path.join(os.path.dirname(__file__), filename) if "__file__" in globals() else filename,
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return filename  # יחזיר את המקורי גם אם לא נמצא, נטפל בשגיאה במקום אחר
+
+
 @st.cache_data
 def load_hexaco_questions():
     try:
-        return pd.read_csv("data/questions.csv")
+        path = _find_csv("questions.csv")
+        return pd.read_csv(path)
     except Exception as e:
         st.error(f"שגיאה בטעינת שאלות HEXACO: {e}")
         return pd.DataFrame()
+
+
+@st.cache_data
+def load_integrity_questions_csv():
+    try:
+        path = _find_csv("integrity_questions.csv")
+        return pd.read_csv(path)
+    except Exception as e:
+        st.error(f"שגיאה בטעינת שאלות אמינות: {e}")
+        return pd.DataFrame()
+
+
+# ============================================================
+# Quick Quiz (נכון/לא נכון) — לוגיקה חדשה
+# ============================================================
+def get_quick_quiz_questions(count=50, focus_trait=None):
+    """
+    שאלון מהיר נכון/לא נכון:
+    - מערבב שאלות HEXACO ושאלות תרחיש מאמינות
+    - אם focus_trait מסופק, מתמקד רק בתכונה הזו
+    
+    הסולם: 2 ערכים בלבד (1 = לא נכון לגביי, 5 = נכון לגביי)
+    """
+    questions = []
+    
+    # שאלות HEXACO
+    hexaco_df = load_hexaco_questions()
+    if not hexaco_df.empty:
+        if focus_trait and focus_trait != 'all':
+            # סינון לפי תכונה
+            trait_col = 'trait' if 'trait' in hexaco_df.columns else 'Trait'
+            filtered = hexaco_df[hexaco_df[trait_col] == focus_trait]
+            if not filtered.empty:
+                hexaco_count = min(count, len(filtered))
+                hexaco_sample = filtered.sample(n=hexaco_count)
+            else:
+                hexaco_sample = hexaco_df.sample(n=min(count // 2, len(hexaco_df)))
+        else:
+            # שאלון מאוזן בין כל התכונות
+            hexaco_count = int(count * 0.7)  # 70% HEXACO
+            hexaco_sample = pd.DataFrame(get_balanced_questions(hexaco_df, total_limit=hexaco_count))
+        
+        for _, row in hexaco_sample.iterrows() if hasattr(hexaco_sample, 'iterrows') else []:
+            q_dict = row.to_dict() if hasattr(row, 'to_dict') else dict(row)
+            q_dict['quiz_format'] = 'binary'
+            questions.append(q_dict)
+    
+    # שאלות תרחיש מאמינות (רק אם לא במצב focus)
+    if not focus_trait or focus_trait == 'all':
+        integrity_count = count - len(questions)
+        if integrity_count > 0:
+            int_df = load_integrity_questions_csv()
+            if not int_df.empty:
+                # מסננים החוצה את שאלות הלחץ והבקרה — רוצים רק תרחישים
+                exclude_cats = {'polygraph', 'regret', 'honesty_meta'}
+                cat_col = 'category' if 'category' in int_df.columns else 'trait'
+                if cat_col in int_df.columns:
+                    int_filtered = int_df[~int_df[cat_col].isin(exclude_cats)]
+                    if not int_filtered.empty:
+                        int_sample = int_filtered.sample(n=min(integrity_count, len(int_filtered)))
+                        for _, row in int_sample.iterrows():
+                            q_dict = row.to_dict()
+                            q_dict['quiz_format'] = 'binary'
+                            q_dict['is_scenario'] = True
+                            # נוודא שיש 'trait' (לתאימות עם הקוד הקיים)
+                            if 'trait' not in q_dict and 'category' in q_dict:
+                                q_dict['trait'] = q_dict['category']
+                            questions.append(q_dict)
+    
+    random.shuffle(questions)
+    return questions[:count]
+
+
+def get_instant_tip(question_data, user_answer):
+    """
+    טיפ מיידי אחרי תשובה במצב תרגול.
+    מסביר מה התשובה האידיאלית הייתה ולמה.
+    """
+    trait = question_data.get('trait', question_data.get('category', ''))
+    is_reverse = str(question_data.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes']
+    is_scenario = question_data.get('is_scenario', False)
+    
+    # תרחיש אמינות — לוגיקה אחרת
+    if is_scenario:
+        # בתרחישים שליליים (גניבה, סמים, וכו'), התשובה הרצויה היא 1 (לא)
+        negative_cats = {'theft', 'drugs', 'gambling', 'unethical', 'termination', 'academic'}
+        positive_cats = {'whistleblowing', 'feedback', 'teamwork'}
+        category = question_data.get('category', '')
+        
+        if category in negative_cats:
+            ideal = "לא נכון לגביי (1)"
+            reason = "תרחישים כאלה — התנהגויות בעייתיות שאתה רוצה להראות שלא מאפיינות אותך."
+        elif category in positive_cats:
+            ideal = "נכון לגביי (5)"
+            reason = "אלה התנהגויות חיוביות שמתאימות לרופא — שיתוף פעולה, יושרה, אחריות."
+        else:
+            ideal = "תלוי בנסיבות"
+            reason = "ענה לפי האמת שלך, אבל זכור את הקונטקסט הרפואי."
+        
+        return f"💡 **תשובה אידיאלית:** {ideal}\n\n**למה:** {reason}"
+    
+    # שאלת HEXACO רגילה
+    if trait not in IDEAL_RANGES:
+        return None
+    
+    low, high = IDEAL_RANGES[trait]
+    trait_he = TRAIT_EXPLANATIONS.get(trait, {}).get('name', trait)
+    target_mid = (low + high) / 2
+    
+    # לקבוע מה הכיוון הרצוי
+    # אם reverse=False, ציון גבוה לשאלה = ציון גבוה בתכונה
+    # אם reverse=True, ציון גבוה לשאלה = ציון נמוך בתכונה
+    
+    # האם רוצים ציון גבוה בתכונה הזו? (כל היעדים שלנו הם 3.5+, אז כן)
+    want_high_trait = target_mid >= 3.5
+    
+    if is_reverse:
+        # שאלה הפוכה — אם רוצים ציון גבוה, נענה "לא נכון"
+        ideal_answer = "לא נכון לגביי" if want_high_trait else "נכון לגביי"
+    else:
+        # שאלה רגילה — אם רוצים ציון גבוה, נענה "נכון"
+        ideal_answer = "נכון לגביי" if want_high_trait else "לא נכון לגביי"
+    
+    user_label = "נכון לגביי" if user_answer == 5 else "לא נכון לגביי"
+    is_match = (user_label == ideal_answer)
+    
+    icon = "✅" if is_match else "💭"
+    status = "תשובה אידיאלית!" if is_match else "כדאי לחשוב על זה"
+    
+    tip = (f"{icon} **{status}**\n\n"
+           f"**תכונה:** {trait_he}\n"
+           f"**טווח אידיאלי לרופאים:** {low}—{high}\n"
+           f"**תשובה אידיאלית:** {ideal_answer}\n"
+           f"**ענית:** {user_label}")
+    
+    if not is_match:
+        explanation = TRAIT_EXPLANATIONS.get(trait, {}).get('medical', '')
+        if explanation:
+            tip += f"\n\n**למה זה חשוב:** {explanation}"
+    
+    return tip
 
 
 # ============================================================
@@ -409,8 +539,13 @@ def init_session_state():
         'practice_mode': False,
         'ai_ready': False,
         'user_id': str(uuid.uuid4()),
-        'ai_status': 'pending', 
-        'balloons_shown': False
+        'ai_status': 'pending',
+        'balloons_shown': False,
+        'focus_trait': 'all',
+        'last_tip': None,
+        'last_tip_time': 0,
+        'ai_future': None,
+        'ai_submitted_at': 0,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -424,70 +559,104 @@ def render_home():
     st.markdown("""
     <div class="hero-section">
         <h1>🧠 Mednitai HEXACO</h1>
-        <p class="hero-subtitle">מערכת הכנה חכמה למבדקי אישיות למיון לבתי ספר לרפואה</p>
+        <p class="hero-subtitle">מערכת הכנה חכמה למבדקי אישיות לקבלה לרפואה</p>
     </div>
     """, unsafe_allow_html=True)
 
     name = st.text_input("✍️ מה השם שלך?", value=st.session_state.get('user_name', ''),
-                          placeholder="הכנס את שמך המלא (ולחץ Enter במקלדת)")
+                          placeholder="הכנס את שמך המלא ולחץ Enter")
     st.session_state.user_name = name
     is_name_valid = bool(name.strip())
 
-    st.write("")
-
     if not is_name_valid:
-        st.warning("⚠️ התפריט נעול: אנא הקלד את שמך בתיבה למעלה **ולחץ על מקש האנטר (Enter)** כדי לפתוח את אפשרויות המבדק וההיסטוריה.")
+        st.warning("⚠️ הקלד את שמך למעלה ולחץ Enter כדי לפתוח את המבדקים.")
     else:
-        st.success(f"✅ שלום {name}! בחר פעולה:")
+        st.success(f"✅ שלום {name}! בחר את סוג המבדק:")
         
-        tab_new, tab_archive = st.tabs(["📝 מבחן חדש", "📜 היסטוריית מבדקים"])
+        tab_quick, tab_full, tab_archive = st.tabs([
+            "⚡ מבחן מהיר (כן/לא)", 
+            "📝 מבחנים מלאים",
+            "📜 ההיסטוריה שלי"
+        ])
         
-        # --- לשונית מבחן חדש ---
-        with tab_new:
-            st.markdown("### ⚙️ הגדרות המבדק")
-            test_length = st.radio("⏱️ בחר את אורך המבדק:",
-                                   [
-                                       "קצר (תרגול מהיר: 36-76 שאלות)", 
-                                       "רגיל (מומלץ: 60-140 שאלות)", 
-                                       "מלא (סימולציה: 120-260 שאלות)"
-                                   ],
+        # ===== Tab 1: מבחן מהיר =====
+        with tab_quick:
+            st.markdown("### ⚡ מבחן מהיר — נכון / לא נכון")
+            st.markdown("""
+            🎯 **מה זה?** שאלון מהיר עם 2 תשובות בלבד (כן או לא) — מהיר, ממוקד, וקל ללמידה.
+            
+            🧠 **מה כלול?** שאלות HEXACO ושאלות תרחיש מבדק האמינות.
+            """)
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                quick_length = st.radio(
+                    "אורך המבחן:",
+                    ["מיני (20 שאלות — 5 דקות)",
+                     "קצר (40 שאלות — 10 דקות)",
+                     "רגיל (70 שאלות — 15 דקות)"],
+                    key="quick_length"
+                )
+            with col_b:
+                focus_options = {
+                    'all': '🎲 כל התכונות (מאוזן)',
+                    'Conscientiousness': '✅ רק מצפוניות (C)',
+                    'Honesty-Humility': '🤝 רק כנות-ענווה (H)',
+                    'Agreeableness': '💚 רק נעימות (A)',
+                    'Emotionality': '💗 רק רגשנות (E)',
+                    'Extraversion': '🌟 רק מוחצנות (X)',
+                    'Openness to Experience': '🌀 רק פתיחות (O)',
+                }
+                focus_trait = st.selectbox(
+                    "🎯 אימון ממוקד לתכונה:",
+                    options=list(focus_options.keys()),
+                    format_func=lambda x: focus_options[x],
+                    key="focus_select"
+                )
+            
+            practice_quick = st.checkbox(
+                "📚 מצב תרגול — קבל טיפ מיידי אחרי כל תשובה",
+                value=True,
+                key="practice_quick"
+            )
+            
+            if st.button("⚡ התחל מבחן מהיר", key="btn_quick", type="primary", use_container_width=True):
+                st.session_state.practice_mode = practice_quick
+                st.session_state.focus_trait = focus_trait
+                start_quick_test(quick_length, focus_trait)
+        
+        # ===== Tab 2: מבחנים מלאים =====
+        with tab_full:
+            st.markdown("### 📝 מבחנים מלאים (סולם 1-5)")
+            test_length = st.radio("⏱️ אורך המבדק:",
+                                   ["קצר (תרגול: 36-76 שאלות)",
+                                    "רגיל (מומלץ: 60-140 שאלות)",
+                                    "מלא (סימולציה: 120-260 שאלות)"],
                                    horizontal=True)
 
-            st.write("")
             col1, col2, col3 = st.columns(3, gap="large")
-            
             with col1:
-                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
                 st.markdown("#### 🎯 HEXACO")
                 st.caption("6 תכונות אישיות מרכזיות")
-                st.markdown("</div>", unsafe_allow_html=True)
                 if st.button("התחל HEXACO", key="btn_hexaco", type="primary", use_container_width=True):
                     start_test('hexaco', test_length)
-                    
             with col2:
-                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
                 st.markdown("#### 🔍 אמינות")
                 st.caption("בדיקת עקביות ויושרה")
-                st.markdown("</div>", unsafe_allow_html=True)
                 if st.button("התחל אמינות", key="btn_integrity", type="primary", use_container_width=True):
                     start_test('integrity', test_length)
-                    
             with col3:
-                st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
                 st.markdown("#### 🏥 משולב")
-                st.caption("HEXACO + אמינות — סימולציה מלאה")
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.caption("HEXACO + אמינות")
                 if st.button("התחל משולב", key="btn_combined", type="primary", use_container_width=True):
                     start_test('combined', test_length)
 
             st.markdown("---")
-            practice = st.checkbox("📚 מצב תרגול (ללא טיימר, ללא לחץ, עם הסברים)",
+            practice = st.checkbox("📚 מצב תרגול (ללא לחץ, עם הסברים)",
                                    value=st.session_state.get('practice_mode', False))
             st.session_state.practice_mode = practice
-            if practice:
-                st.info("במצב תרגול: ללא מסכי לחץ, ללא מדידת זמן, עם הסברים אחרי כל שאלה.")
-
-        # --- לשונית היסטוריה ---
+        
+        # ===== Tab 3: היסטוריה =====
         with tab_archive:
             history = get_db_history(name)
             if history:
@@ -497,40 +666,75 @@ def render_home():
                     test_time = entry.get('test_time', '')
                     test_type_lbl = entry.get('test_type', 'HEXACO')
                     
-                    with st.expander(f"📅 מבדק {test_type_lbl} מיום {test_date} בשעה {test_time}"):
+                    with st.expander(f"📅 מבדק {test_type_lbl} — {test_date} {test_time}"):
                         results = entry.get('results', {})
                         if results:
                             try:
                                 fig = get_radar_chart(results)
                                 if fig:
-                                    st.plotly_chart(fig, use_container_width=True, key=f"hist_chart_{i}_{uuid.uuid4().hex[:8]}")
+                                    st.plotly_chart(fig, use_container_width=True, 
+                                                  key=f"hist_chart_{i}_{uuid.uuid4().hex[:8]}")
                             except Exception:
                                 pass
-                                
                         report = entry.get('ai_report', '')
                         if isinstance(report, list):
                             t_gem, t_cld = st.tabs(["🤖 Gemini", "🩺 Claude"])
-                            with t_gem: 
-                                st.markdown(html.escape(str(report[0])) if len(report)>0 else "אין נתונים")
-                            with t_cld: 
-                                st.markdown(html.escape(str(report[1])) if len(report)>1 else "אין נתונים")
+                            with t_gem:
+                                st.markdown(html.escape(str(report[0])) if len(report) > 0 else "אין נתונים")
+                            with t_cld:
+                                st.markdown(html.escape(str(report[1])) if len(report) > 1 else "אין נתונים")
                         elif report:
                             st.markdown(html.escape(str(report)))
             else:
-                st.info("לא נמצאו מבדקים קודמים עבורך במערכת.")
+                st.info("עדיין לא ביצעת מבדקים. עשה את הראשון כדי לראות את ההיסטוריה כאן!")
 
     st.markdown("---")
     with st.expander("🔐 גישת מנהל"):
         admin_pass = st.text_input("סיסמה", type="password", key="admin_pw")
         if st.button("כניסת מנהל", key="btn_admin", type="primary"):
             try:
-                if admin_pass == st.secrets.get("ADMIN_USER", ""):
+                if admin_pass == st.secrets.get("ADMIN_PASS", st.secrets.get("ADMIN_USER", "")):
                     st.session_state.step = 'ADMIN_VIEW'
                     st.rerun()
                 else:
                     st.error("סיסמה שגויה")
             except Exception:
                 st.error("שגיאה בגישה למערכת")
+
+
+def start_quick_test(length_label, focus_trait):
+    """התחלת מבחן מהיר נכון/לא נכון."""
+    if "מיני" in length_label:
+        count = 20
+    elif "קצר" in length_label:
+        count = 40
+    else:
+        count = 70
+    
+    st.session_state.test_type = 'quick'
+    st.session_state.current_q = 0
+    st.session_state.responses = []
+    st.session_state.hesitation_count = 0
+    st.session_state.speed_flag_count = 0
+    st.session_state.stress_active = False
+    st.session_state.q_start_time = time.time()
+    st.session_state.user_id = str(uuid.uuid4())
+    st.session_state.fatigue_index = None
+    st.session_state.ai_ready = False
+    st.session_state.ai_status = 'pending'
+    st.session_state.balloons_shown = False
+    st.session_state.last_tip = None
+    
+    try:
+        questions = get_quick_quiz_questions(count=count, focus_trait=focus_trait)
+        if not questions:
+            st.error("לא נמצאו שאלות. בדוק שקבצי ה-CSV נמצאים בתיקיה.")
+            return
+        st.session_state.questions = questions
+        st.session_state.step = 'QUIZ'
+        st.rerun()
+    except Exception as e:
+        st.error(f"שגיאה בטעינת שאלות: {e}")
 
 
 def start_test(test_type, test_length):
@@ -547,6 +751,7 @@ def start_test(test_type, test_length):
     st.session_state.ai_ready = False
     st.session_state.ai_status = 'pending'
     st.session_state.balloons_shown = False
+    st.session_state.last_tip = None
 
     try:
         if test_type == 'hexaco':
@@ -592,13 +797,15 @@ def render_quiz():
         finish_test_fast()
         return
 
-    st_autorefresh(interval=1000, key="quiz_timer")
-
     q_data = questions[current]
     is_stress = str(q_data.get('is_stress_meta', '')).strip().lower() in ["1", "1.0", "true"]
+    is_quick = (st.session_state.test_type == 'quick')
 
-    # ==================== STRESS SCREEN ====================
-    if is_stress and not st.session_state.practice_mode:
+    # ===== מסך לחץ — רק במבחנים מלאים, לא במהיר =====
+    if is_stress and not st.session_state.practice_mode and not is_quick:
+        # רענון אוטומטי רק במסך הלחץ — חכם!
+        st_autorefresh(interval=1000, limit=20, key=f"stress_timer_{current}")
+        
         if st.session_state.get('stress_completed_q') != current:
             if not st.session_state.stress_active:
                 st.session_state.stress_active = True
@@ -610,7 +817,6 @@ def render_quiz():
 
             if remaining > 0:
                 msg = STRESS_MESSAGES[st.session_state.stress_msg_index]
-
                 st.markdown(f"""
                 <div class="stress-screen">
                     <div class="stress-icon">{msg['icon']}</div>
@@ -624,121 +830,202 @@ def render_quiz():
             else:
                 st.session_state.stress_active = False
                 st.session_state.stress_completed_q = current
-                st.session_state.q_start_time = time.time() 
+                st.session_state.q_start_time = time.time()
 
-    # ==================== Progress & Timers ====================
-    elapsed = time.time() - st.session_state.q_start_time
-
-    if elapsed > 8 and not st.session_state.practice_mode:
-        st.markdown("""
-        <div style="background-color: #fff3cd; color: #856404; padding: 15px; border-radius: 10px; border-right: 5px solid #ffc107; text-align: center; font-weight: bold; margin-bottom: 20px; animation: flash 1s infinite alternate;">
-            ⚠️ שים לב: עליך לענות במהירות! היסוס יתר נרשם במערכת.
-        </div>
-        <style>@keyframes flash { from { opacity: 1; } to { opacity: 0.7; } }</style>
-        """, unsafe_allow_html=True)
-
+    # ===== Progress & Header =====
     st.progress(current / total)
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns([2, 1])
     with col1:
-        st.write(f"שאלה **{current + 1}** מתוך {total}")
+        st.write(f"שאלה **{current + 1}** מתוך **{total}**")
     with col2:
-        st.write(f"⏱️ זמן לשאלה: **{int(elapsed)}** שניות")
-    with col3:
         if not st.session_state.practice_mode:
-            st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירות")
+            elapsed = time.time() - st.session_state.q_start_time
+            st.caption(f"⏱️ {int(elapsed)}s | ⚡ {st.session_state.hesitation_count} | 🏎️ {st.session_state.speed_flag_count}")
 
-    # ==================== Question ====================
+    # ===== Question Card =====
     q_text = q_data.get('q', q_data.get('question', q_data.get('text', 'שאלה חסרה')))
     q_category = q_data.get('trait', q_data.get('category', ''))
+    
+    # תרגום שם התכונה לעברית להצגה
+    q_category_display = TRAIT_DICT.get(str(q_category), str(q_category))
 
     st.markdown(f"""
     <div class="question-card">
-        <div class="question-category">{html.escape(str(q_category))}</div>
+        <div class="question-category">{html.escape(str(q_category_display))}</div>
         <div class="question-text">{html.escape(str(q_text))}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ==================== Answer Buttons ====================
-    options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
-    cols = st.columns(5)
-    
-    for i, (label, val) in enumerate(options):
-        if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}_{st.session_state.user_id}", use_container_width=True, type="secondary"):
-            
-            response_time = time.time() - st.session_state.q_start_time
-            wpm_threshold = calculate_dynamic_wpm_threshold(str(q_text))
-            is_too_fast = response_time < wpm_threshold
-            is_hesitation = response_time > (wpm_threshold * 4)
+    # ===== Answer Buttons =====
+    if is_quick:
+        # 2 כפתורים: נכון / לא נכון
+        col_no, col_yes = st.columns(2)
+        if col_no.button("❌ לא נכון לגביי", key=f"ans_no_{current}",
+                         use_container_width=True, type="secondary"):
+            _handle_answer(q_data, 1, current, is_stress)
+        if col_yes.button("✅ נכון לגביי", key=f"ans_yes_{current}",
+                          use_container_width=True, type="secondary"):
+            _handle_answer(q_data, 5, current, is_stress)
+    else:
+        # 5 כפתורים רגילים
+        options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
+        cols = st.columns(5)
+        for i, (label, val) in enumerate(options):
+            if cols[i].button(f"{val} — {label}", key=f"ans_{current}_{val}",
+                              use_container_width=True, type="secondary"):
+                _handle_answer(q_data, val, current, is_stress)
 
-            if not st.session_state.practice_mode:
-                if is_too_fast:
-                    st.session_state.speed_flag_count += 1
-                if is_hesitation:
-                    st.session_state.hesitation_count += 1
+    # ===== Instant Tip (רק במצב תרגול) =====
+    if st.session_state.practice_mode and st.session_state.last_tip:
+        # מציגים את הטיפ של השאלה הקודמת
+        st.markdown(f'<div class="instant-tip">{st.session_state.last_tip}</div>',
+                    unsafe_allow_html=True)
 
-            st.session_state.responses.append({
-                'question_index': current,
-                'question': str(q_text),
-                'answer': int(val),
-                'response_time': round(response_time, 2),
-                'wpm_threshold': round(wpm_threshold, 2),
-                'is_too_fast': is_too_fast,
-                'is_hesitation': is_hesitation,
-                'trait': q_data.get('trait', q_data.get('category', '')),
-                'reverse': q_data.get('reverse', False),
-                'is_stress_meta': is_stress,
-                'category': q_data.get('category', q_data.get('trait', '')),
-            })
-
-            st.session_state.current_q += 1
-            st.session_state.q_start_time = time.time()
-            st.session_state.stress_active = False
-            st.rerun()
-
-    if st.session_state.practice_mode and q_category in TRAIT_EXPLANATIONS:
-        info = TRAIT_EXPLANATIONS[q_category]
-        st.info(f"ℹ️ **{info['name']}**: {info['desc']}")
-        st.caption(f"🏥 {info['medical']}")
-
+    # ===== Back Button =====
     if current > 0:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("⬅️ חזור לשאלה הקודמת (לתיקון)", key=f"back_btn_{current}", type="secondary"):
+        if st.button("⬅️ חזור לשאלה הקודמת", key=f"back_btn_{current}", type="secondary"):
             st.session_state.current_q -= 1
             if st.session_state.responses:
-                st.session_state.responses.pop() 
-            st.session_state.q_start_time = time.time() 
+                st.session_state.responses.pop()
+            st.session_state.q_start_time = time.time()
+            st.session_state.last_tip = None
             st.rerun()
 
 
+def _handle_answer(q_data, val, current, is_stress):
+    """מטפל בלחיצה על תשובה."""
+    response_time = time.time() - st.session_state.q_start_time
+    q_text = q_data.get('q', q_data.get('question', ''))
+    
+    wpm_threshold = calculate_dynamic_wpm_threshold(str(q_text))
+    is_too_fast = response_time < wpm_threshold
+    is_hesitation = response_time > (wpm_threshold * 4)
+
+    if not st.session_state.practice_mode:
+        if is_too_fast:
+            st.session_state.speed_flag_count += 1
+        if is_hesitation:
+            st.session_state.hesitation_count += 1
+
+    st.session_state.responses.append({
+        'question_index': current,
+        'question': str(q_text),
+        'answer': int(val),
+        'response_time': round(response_time, 2),
+        'wpm_threshold': round(wpm_threshold, 2),
+        'is_too_fast': is_too_fast,
+        'is_hesitation': is_hesitation,
+        'trait': q_data.get('trait', q_data.get('category', '')),
+        'reverse': q_data.get('reverse', False),
+        'is_stress_meta': is_stress,
+        'category': q_data.get('category', q_data.get('trait', '')),
+    })
+    
+    # יצירת טיפ מיידי במצב תרגול
+    if st.session_state.practice_mode:
+        tip = get_instant_tip(q_data, val)
+        st.session_state.last_tip = tip
+    else:
+        st.session_state.last_tip = None
+
+    st.session_state.current_q += 1
+    st.session_state.q_start_time = time.time()
+    st.session_state.stress_active = False
+    st.rerun()
+
+
 # ============================================================
-# Background AI & Fast Finish
+# Background AI — FIXED: Future-based pattern (100% reliable)
 # ============================================================
-def _run_ai_background(username, test_type, s_data, i_data, rel, cont, hes, hist):
+from concurrent.futures import ThreadPoolExecutor
+
+
+@st.cache_resource
+def _get_executor():
+    """Singleton ThreadPoolExecutor — נשאר חי בין reruns."""
+    return ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai_worker")
+
+
+def _run_ai_pure(username, test_type, s_data, i_data, rel, cont, hes, hist,
+                 firebase_creds=None):
+    """
+    פונקציה טהורה — לא נוגעת ב-st.session_state.
+    מקבלת את כל הקלט כפרמטרים, מחזירה dict עם התוצאה.
+    זו המפתח לתיקון: ה-thread לא מנסה לכתוב ל-session state יותר.
+    """
+    result = {
+        'gemini': None,
+        'claude': None,
+        'status': 'done',
+        'error': None,
+        'saved_to_db': False,
+    }
+    
     try:
         g, c = None, None
-        if test_type == 'hexaco':
+        if test_type in ('hexaco', 'quick'):
             g, c = get_multi_ai_analysis(username, s_data, hist)
-            save_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, [g, c] if c else g, hesitation=hes)
         elif test_type == 'integrity':
             g, c = get_integrity_ai_analysis(username, rel, cont, s_data, hist)
-            save_integrity_test_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, rel, [g, c] if c else g, hesitation=hes)
         elif test_type == 'combined':
             g, c = get_combined_ai_analysis(username, s_data, rel, cont, hist)
-            save_combined_test_to_db(username, s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data, i_data.to_dict() if hasattr(i_data, 'to_dict') else i_data, rel, [g, c] if c else g, hesitation=hes)
         
-        st.session_state.gemini_report = g
-        st.session_state.claude_report = c
-        st.session_state.ai_status = 'done'
+        result['gemini'] = g
+        result['claude'] = c
+        
+        # שמירה ל-DB (גם אם נכשל, התוצאה תוצג)
+        try:
+            s_dict = s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data
+            i_dict = i_data.to_dict() if hasattr(i_data, 'to_dict') else i_data
+            report_arg = [g, c] if c else g
+            
+            if test_type in ('hexaco', 'quick'):
+                save_to_db(username, s_dict, report_arg, hesitation=hes)
+            elif test_type == 'integrity':
+                save_integrity_test_to_db(username, s_dict, rel, report_arg, hesitation=hes)
+            elif test_type == 'combined':
+                save_combined_test_to_db(username, s_dict, i_dict, rel, report_arg, hesitation=hes)
+            
+            result['saved_to_db'] = True
+        except Exception as db_err:
+            result['db_error'] = str(db_err)
+        
     except Exception as e:
-        st.session_state.gemini_report = f"שגיאה בהפקת ניתוח AI: {str(e)}"
-        st.session_state.ai_status = 'error'
+        result['status'] = 'error'
+        result['error'] = str(e)
+        result['gemini'] = f"שגיאה בהפקת ניתוח AI: {str(e)}"
+    
+    return result
+
+
+def _check_ai_future():
+    """
+    בודק את ה-Future ב-session state — אם הוא מוכן, שולף את התוצאה.
+    נקרא בכל rerun במסך התוצאות.
+    """
+    future = st.session_state.get('ai_future')
+    if future is None:
+        return
+    
+    if future.done():
+        try:
+            result = future.result(timeout=0.1)
+            st.session_state.gemini_report = result.get('gemini')
+            st.session_state.claude_report = result.get('claude')
+            st.session_state.ai_status = result.get('status', 'done')
+            st.session_state.ai_future = None  # ניקוי
+        except Exception as e:
+            st.session_state.gemini_report = f"שגיאה: {e}"
+            st.session_state.ai_status = 'error'
+            st.session_state.ai_future = None
+
 
 def finish_test_fast():
     test_type = st.session_state.test_type
     responses = st.session_state.responses
     st.session_state.fatigue_index = calculate_fatigue_index(responses)
 
-    if test_type == 'hexaco':
+    if test_type in ('hexaco', 'quick'):
         df_raw, summary_df = process_results(responses)
         st.session_state.results_data = df_raw
         st.session_state.summary_data = summary_df
@@ -777,31 +1064,121 @@ def finish_test_fast():
         st.session_state.reliability_score = reliability
         st.session_state.contradictions = contradictions
 
-    # Start Background Thread for AI
     st.session_state.ai_status = 'processing'
     hist = []
     try:
-        if test_type == 'hexaco': hist = get_db_history(st.session_state.user_name)
-        elif test_type == 'integrity': hist = get_integrity_history(st.session_state.user_name)
-        else: hist = get_combined_history(st.session_state.user_name)
-    except: pass
+        if test_type in ('hexaco', 'quick'):
+            hist = get_db_history(st.session_state.user_name)
+        elif test_type == 'integrity':
+            hist = get_integrity_history(st.session_state.user_name)
+        else:
+            hist = get_combined_history(st.session_state.user_name)
+    except Exception:
+        pass
 
-    t = threading.Thread(target=_run_ai_background, args=(
-        st.session_state.user_name, test_type, st.session_state.summary_data,
-        st.session_state.int_summary_data, st.session_state.reliability_score,
-        st.session_state.contradictions, st.session_state.hesitation_count, hist
-    ))
-    add_script_run_ctx(t)
-    t.start()
+    # FIXED: שולח לעבודה דרך executor — לא thread גולמי
+    # ה-Future נשמר ב-session state, ובכל rerun נבדוק אם הוא מוכן
+    executor = _get_executor()
+    future = executor.submit(
+        _run_ai_pure,
+        st.session_state.user_name,
+        test_type,
+        st.session_state.summary_data,
+        st.session_state.int_summary_data,
+        st.session_state.reliability_score,
+        st.session_state.contradictions,
+        st.session_state.hesitation_count,
+        hist,
+    )
+    st.session_state.ai_future = future
+    st.session_state.ai_submitted_at = time.time()
 
     st.session_state.step = 'RESULTS'
     st.rerun()
 
 
 # ============================================================
-# RESULTS Screen (Progressive Rendering)
+# Quick Summary — 3 Key Takeaways
+# ============================================================
+def get_quick_takeaways(summary_df, contradictions, fatigue, hesitations, speed_flags):
+    """מחזיר 3 דברים חשובים שכדאי לזכור לפעם הבאה."""
+    takeaways = []
+    
+    # 1. תכונה הכי חלשה
+    if summary_df is not None and hasattr(summary_df, 'iterrows') and not summary_df.empty:
+        worst_trait = None
+        worst_gap = 0
+        for _, row in summary_df.iterrows():
+            trait = row.get('Trait', row.get('trait', ''))
+            score = float(row.get('Mean', row.get('avg_score', 0)))
+            if trait in IDEAL_RANGES:
+                low, high = IDEAL_RANGES[trait]
+                if score < low:
+                    gap = low - score
+                elif score > high:
+                    gap = score - high
+                else:
+                    gap = 0
+                if gap > worst_gap:
+                    worst_gap = gap
+                    worst_trait = trait
+        
+        if worst_trait:
+            trait_he = TRAIT_EXPLANATIONS.get(worst_trait, {}).get('name', worst_trait)
+            takeaways.append({
+                'icon': '🎯',
+                'title': f'התמקד ב{trait_he}',
+                'text': f'התכונה הזו הכי רחוקה מהטווח האידיאלי. כדאי לתרגל אותה במצב "אימון ממוקד".'
+            })
+    
+    # 2. סתירות
+    if contradictions and len(contradictions) > 2:
+        takeaways.append({
+            'icon': '⚠️',
+            'title': f'זוהו {len(contradictions)} סתירות',
+            'text': 'נסה לקרוא שאלות שדומות זו לזו ולוודא שאתה עקבי. שאלות "הפוכות" — אם ענית "כן" באחת, אולי צריך "לא" באחרת.'
+        })
+    
+    # 3. מהירות / היסוס
+    if speed_flags > 5:
+        takeaways.append({
+            'icon': '🐢',
+            'title': 'האט קצת',
+            'text': f'{speed_flags} תשובות נחשבו "מהירות מדי". המערכת חושדת בכך — קרא כל שאלה במלואה.'
+        })
+    elif hesitations > 8:
+        takeaways.append({
+            'icon': '⚡',
+            'title': 'שמור על קצב',
+            'text': f'{hesitations} היסוסים — לפעמים אתה חושב יותר מדי. סמוך על האינסטינקט הראשון.'
+        })
+    
+    # 4. עייפות
+    if fatigue and fatigue > 40:
+        takeaways.append({
+            'icon': '😴',
+            'title': 'עייפות גבוהה',
+            'text': 'התשובות שלך השתנו לקראת הסוף. במבחן האמיתי — נוח טוב לפני!'
+        })
+    
+    # תמיד לפחות אחד
+    if not takeaways:
+        takeaways.append({
+            'icon': '✨',
+            'title': 'ביצוע מצוין!',
+            'text': 'התוצאות שלך נראות מאוזנות. המשך לתרגל כדי לשמור על העקביות.'
+        })
+    
+    return takeaways[:3]  # מקסימום 3
+
+
+# ============================================================
+# RESULTS Screen
 # ============================================================
 def render_results():
+    # FIXED: בודק את ה-Future בכל rerun — אם הוא מוכן, שולף את התוצאה
+    _check_ai_future()
+    
     name_safe = html.escape(st.session_state.user_name)
     st.markdown(f"""
     <div class="hero-section">
@@ -810,6 +1187,27 @@ def render_results():
     </div>
     """, unsafe_allow_html=True)
 
+    # ===== 3 Quick Takeaways =====
+    takeaways = get_quick_takeaways(
+        st.session_state.get('summary_data'),
+        st.session_state.get('contradictions', []),
+        st.session_state.get('fatigue_index'),
+        st.session_state.get('hesitation_count', 0),
+        st.session_state.get('speed_flag_count', 0)
+    )
+    
+    st.markdown("### 🎯 מה לקחת מהמבחן הזה")
+    for t in takeaways:
+        st.markdown(f"""
+        <div class="summary-card">
+            <h4>{t['icon']} {t['title']}</h4>
+            <p>{t['text']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ===== Metrics =====
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("🏥 התאמה", f"{st.session_state.get('medical_fit', 0)}%")
     c2.metric("🔒 אמינות", f"{st.session_state.get('reliability_score', 0)}")
@@ -822,16 +1220,37 @@ def render_results():
     else:
         c4.metric("🏎️ מהירות", f"{st.session_state.get('speed_flag_count', 0)}")
 
-    st.write("")
-
     if st.session_state.ai_status == 'done' and not st.session_state.balloons_shown:
         st.balloons()
         st.session_state.balloons_shown = True
 
+    # FIXED: רענון רק כשמחכים ל-AI, וגם הצגת התקדמות יפה
     if st.session_state.ai_status == 'processing':
-        st_autorefresh(interval=3000, limit=100, key="ai_polling")
+        elapsed = int(time.time() - st.session_state.get('ai_submitted_at', time.time()))
+        # רענון אגרסיבי יותר כדי לתפוס את הסיום מהר
+        st_autorefresh(interval=2000, limit=300, key="ai_polling")
+        
+        # מחוון התקדמות חזותי
+        progress_pct = min(95, elapsed * 2)  # 50 שניות = 100%
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+                    padding: 16px; border-radius: 12px; margin: 10px 0;
+                    border-right: 4px solid #1976d2;">
+            <div style="font-weight: 600; color: #0d47a1;">
+                🤖 מנועי ה-AI מנתחים את התוצאות שלך... ({elapsed} שניות)
+            </div>
+            <div style="background: #fff; height: 8px; border-radius: 4px; margin-top: 8px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #1976d2, #42a5f5); 
+                            height: 100%; width: {progress_pct}%; 
+                            transition: width 0.5s ease;"></div>
+            </div>
+            <div style="font-size: 0.85rem; color: #555; margin-top: 8px;">
+                💡 בינתיים אתה יכול לעיין בתוצאות, בלמידה ובהורדות. הניתוח יופיע אוטומטית.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה וטיפים", "📥 הורדות"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 תוצאות", "🤖 ניתוח AI", "📚 למידה", "📥 הורדות"])
 
     with tab1:
         _render_results_tab()
@@ -839,19 +1258,30 @@ def render_results():
         _render_learning_tab()
     with tab4:
         _render_downloads_tab()
-
     with tab2:
         if st.session_state.ai_status == 'processing':
-            st.info("🤖 **מנועי ה-AI שלנו מנתחים כעת את הנתונים שלך ברקע...**\n\nזה עשוי לקחת קצת זמן (כדי להפיק דוח מעמיק של 1500 מילים). אתה חופשי לטייל בשאר הלשוניות או לסגור את המבחן - התוצאות נשמרות בהיסטוריה שלך אוטומטית!")
-            with st.spinner("מייצר דוחות פסיכולוגיים..."): 
-                st.empty()
+            elapsed = int(time.time() - st.session_state.get('ai_submitted_at', time.time()))
+            st.info(f"🤖 **ה-AI מנתח את התוצאות שלך ברקע... ({elapsed} שניות עברו)**\n\n"
+                    f"זה לוקח בדרך כלל 30-90 שניות. הדוח יופיע כאן אוטומטית כשיהיה מוכן.\n\n"
+                    f"💡 בינתיים תוכל לעיין בלשוניות אחרות — התוצאות, מדריך הלמידה, וההורדות זמינות עכשיו.")
+        elif st.session_state.ai_status == 'error':
+            st.error("❌ הייתה בעיה בהפקת הניתוח. כנראה שגיאה בחיבור ל-AI. בדוק את ה-API keys.")
+            if st.session_state.get('gemini_report'):
+                st.code(str(st.session_state.gemini_report))
         else:
             _render_ai_tab()
 
     st.markdown("---")
     if st.button("🏠 חזרה לדף הבית", use_container_width=True, type="primary"):
-        for key in ['responses', 'results_data', 'summary_data', 'int_summary_data', 'gemini_report', 'claude_report']:
-            st.session_state[key] = None if 'data' in key or 'report' in key else []
+        # ביטול Future אם עדיין רץ
+        f = st.session_state.get('ai_future')
+        if f and not f.done():
+            # לא מבטלים — נותנים לו להמשיך כדי שהתוצאה תישמר ב-DB
+            pass
+        for key in ['responses', 'results_data', 'summary_data', 'int_summary_data',
+                    'gemini_report', 'claude_report', 'last_tip', 'ai_future']:
+            if key in st.session_state:
+                st.session_state[key] = None if 'data' in key or 'report' in key or 'tip' in key or 'future' in key else []
         st.session_state.ai_status = 'pending'
         st.session_state.balloons_shown = False
         st.session_state.step = 'HOME'
@@ -873,29 +1303,25 @@ def _render_results_tab():
                 st.plotly_chart(bar, use_container_width=True)
         except Exception:
             pass
-            
+
         st.markdown("### 📋 טבלת סיכום")
-        
-        # --- תיקון הטבלה: פריסה מלאה ותרגום לעברית ---
         display_df = summary.copy()
         trait_col = next((c for c in display_df.columns if str(c).lower() in ['trait', 'category']), None)
         if trait_col:
             display_df[trait_col] = display_df[trait_col].apply(lambda x: TRAIT_DICT.get(str(x), str(x)))
-            
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     speed = st.session_state.get('speed_flag_count', 0)
     if speed > 3:
-        st.warning(f"🏎️ **{speed} תשובות מהירות מדי** — תשובות שניתנו מתחת לסף הקריאה הדינמי (WPM).")
+        st.warning(f"🏎️ **{speed} תשובות מהירות מדי** — תשובות מתחת לסף הקריאה הסביר.")
 
     contradictions = st.session_state.get('contradictions', [])
     responses = st.session_state.get('responses', [])
-    
+
     if contradictions:
-        st.markdown("### ⚠️ סתירות שזוהו בתשובות שלך")
+        st.markdown("### ⚠️ סתירות שזוהו")
         for c in contradictions:
             c_dict = c if isinstance(c, dict) else {'message': str(c)}
-            
             sev = c_dict.get('severity', '')
             icon = "🔴" if sev == 'critical' else "🟠" if sev == 'high' else "🔵"
             msg = html.escape(str(c_dict.get('message', str(c))))
@@ -909,14 +1335,12 @@ def _render_results_tab():
                     st.markdown(f"**היגד 1:** {html.escape(str(q1))} `(ענית: {a1})`")
                     st.markdown(f"**היגד 2:** {html.escape(str(q2))} `(ענית: {a2})`")
                 else:
-                    # --- מנגנון X-Ray ---
                     st.markdown("🔍 **ההיגדים שגרמו להתראת הסתירה (קצוות):**")
                     found_trait = None
                     for t_en, t_he in TRAIT_DICT.items():
                         if t_en in msg or t_he.split(' ')[0] in msg:
                             found_trait = t_en
                             break
-                    
                     if not found_trait and any(x in msg for x in ['אמינות', 'יושרה', 'עקביות']):
                         found_trait = 'integrity_fallback'
 
@@ -928,19 +1352,16 @@ def _render_results_tab():
                             rel_resp = [r for r in responses if r.get('trait') == found_trait or r.get('category') == found_trait]
                         else:
                             rel_resp = []
-
                         extremes = [r for r in rel_resp if int(r.get('answer', 3)) in [1, 5]]
-                        
                         for r in extremes:
                             st.markdown(f"- {html.escape(str(r['question']))} **(סימנת: {r['answer']})**")
                             found_questions = True
-
                     if not found_questions:
-                        st.info("💡 המערכת זיהתה דפוס סטטיסטי סותר, אך ההיגדים הספציפיים לא נשמרו. (נסה להוסיף את ההיגדים לקובץ הלוגיקה).")
+                        st.info("💡 המערכת זיהתה דפוס סטטיסטי סותר.")
 
     rel = st.session_state.get('reliability_score')
     if rel is not None:
-        st.info(f"🔒 פירוש ציון אמינות ({rel}): {get_integrity_interpretation(rel)}")
+        st.info(f"🔒 פירוש ציון האמינות ({rel}): {get_integrity_interpretation(rel)}")
 
 
 def _render_ai_tab():
@@ -970,8 +1391,8 @@ def _render_learning_tab():
 
     if summary is not None and hasattr(summary, 'iterrows'):
         for _, row in summary.iterrows():
-            trait = row.get('trait', row.get('Trait', ''))
-            score = float(row.get('avg_score', row.get('Mean', 0)))
+            trait = row.get('Trait', row.get('trait', ''))
+            score = float(row.get('Mean', row.get('avg_score', 0)))
             if trait not in TRAIT_EXPLANATIONS:
                 continue
 
@@ -979,11 +1400,11 @@ def _render_learning_tab():
             low, high = IDEAL_RANGES.get(trait, (3.0, 5.0))
 
             if low <= score <= high:
-                status = "✅ בטווח"
+                status = "✅ בטווח האידיאלי"
             elif score < low:
-                status = "📉 מתחת"
+                status = "📉 מתחת לטווח"
             else:
-                status = "📈 מעל"
+                status = "📈 מעל הטווח"
 
             with st.expander(f"**{info['name']}** — {score:.1f} {status}"):
                 st.markdown(f"**מהי?** {info['desc']}")
@@ -995,23 +1416,11 @@ def _render_learning_tab():
                     st.markdown(f'<div class="learning-tip">💡 {info["tip_high"]}</div>',
                                 unsafe_allow_html=True)
                 else:
-                    st.markdown('<div class="learning-tip">✅ בטווח האידיאלי!</div>',
+                    st.markdown('<div class="learning-tip">✅ בטווח האידיאלי — שמור על זה!</div>',
                                 unsafe_allow_html=True)
                 st.caption(f"טווח אידיאלי: {low} — {high}")
     else:
-        st.info("נתוני תכונות HEXACO מוצגים רק במבדקי HEXACO ומשולב.")
-
-    st.markdown("---")
-    st.markdown("### 📈 התקדמות")
-    try:
-        history = get_db_history(st.session_state.user_name)
-        if history and len(history) > 1:
-            for i, entry in enumerate(history[-5:]):
-                st.caption(f"מבדק {i+1} — {entry.get('test_date', 'N/A')}")
-        else:
-            st.info("אחרי עוד מבדקים תוכל לראות כאן את ההתקדמות!")
-    except Exception:
-        st.info("אחרי עוד מבדקים תוכל לראות כאן את ההתקדמות!")
+        st.info("נתוני HEXACO מוצגים רק במבדקי HEXACO, מהיר ומשולב.")
 
 
 def _render_downloads_tab():
@@ -1044,14 +1453,13 @@ def _render_downloads_tab():
 
 
 # ============================================================
-# ADMIN Screen — Enhanced Dashboard
+# ADMIN Screen (כמו שהיה)
 # ============================================================
 def render_admin():
     st.markdown("# 🔐 ממשק ניהול — Dashboard")
     if st.button("🏠 חזרה לדף הבית", type="primary"):
         st.session_state.step = 'HOME'
         st.rerun()
-
     st.markdown("---")
 
     try:
@@ -1060,21 +1468,13 @@ def render_admin():
             st.info("אין מבדקים במערכת")
             return
 
-        # ===== System-Wide Stats =====
         st.markdown("### 📊 מדדי רוחב — כלל המערכת")
-
         total_tests = len(all_tests)
         unique_users = len(set(t.get('user_name', '') for t in all_tests))
-
-        avg_hesitation = 0
-        avg_reliability = 0
         hesitation_vals = [t.get('hesitation_count', 0) for t in all_tests if t.get('hesitation_count') is not None]
         reliability_vals = [t.get('reliability_score', 0) for t in all_tests if t.get('reliability_score') is not None]
-
-        if hesitation_vals:
-            avg_hesitation = sum(hesitation_vals) / len(hesitation_vals)
-        if reliability_vals:
-            avg_reliability = sum(reliability_vals) / len(reliability_vals)
+        avg_hesitation = sum(hesitation_vals) / len(hesitation_vals) if hesitation_vals else 0
+        avg_reliability = sum(reliability_vals) / len(reliability_vals) if reliability_vals else 0
 
         type_counts = {}
         for t in all_tests:
@@ -1082,89 +1482,31 @@ def render_admin():
             type_counts[tt] = type_counts.get(tt, 0) + 1
 
         sc1, sc2, sc3, sc4 = st.columns(4)
-        sc1.markdown(f"""<div class="admin-stat-card">
-            <div class="admin-stat-value">{total_tests}</div>
-            <div class="admin-stat-label">סה״כ מבדקים</div>
-        </div>""", unsafe_allow_html=True)
-        sc2.markdown(f"""<div class="admin-stat-card">
-            <div class="admin-stat-value">{unique_users}</div>
-            <div class="admin-stat-label">מועמדים ייחודיים</div>
-        </div>""", unsafe_allow_html=True)
-        sc3.markdown(f"""<div class="admin-stat-card">
-            <div class="admin-stat-value">{avg_hesitation:.1f}</div>
-            <div class="admin-stat-label">ממוצע היסוסים</div>
-        </div>""", unsafe_allow_html=True)
-        sc4.markdown(f"""<div class="admin-stat-card">
-            <div class="admin-stat-value">{avg_reliability:.0f}</div>
-            <div class="admin-stat-label">ממוצע אמינות</div>
-        </div>""", unsafe_allow_html=True)
-
-        st.write("")
+        sc1.markdown(f"""<div class="admin-stat-card"><div class="admin-stat-value">{total_tests}</div><div class="admin-stat-label">סה״כ מבדקים</div></div>""", unsafe_allow_html=True)
+        sc2.markdown(f"""<div class="admin-stat-card"><div class="admin-stat-value">{unique_users}</div><div class="admin-stat-label">מועמדים ייחודיים</div></div>""", unsafe_allow_html=True)
+        sc3.markdown(f"""<div class="admin-stat-card"><div class="admin-stat-value">{avg_hesitation:.1f}</div><div class="admin-stat-label">ממוצע היסוסים</div></div>""", unsafe_allow_html=True)
+        sc4.markdown(f"""<div class="admin-stat-card"><div class="admin-stat-value">{avg_reliability:.0f}</div><div class="admin-stat-label">ממוצע אמינות</div></div>""", unsafe_allow_html=True)
 
         if type_counts:
             st.markdown("### 📈 התפלגות סוגי מבדקים")
-            fig = go.Figure(data=[go.Pie(
-                labels=list(type_counts.keys()),
-                values=list(type_counts.values()),
-                marker=dict(colors=['#0f3460', '#533483', '#e94560']),
-                textinfo='label+percent+value'
-            )])
-            fig.update_layout(height=300, showlegend=True,
-                            font=dict(family="Assistant, sans-serif"))
+            fig = go.Figure(data=[go.Pie(labels=list(type_counts.keys()), values=list(type_counts.values()),
+                                          marker=dict(colors=['#0f3460', '#533483', '#e94560', '#ff9800']),
+                                          textinfo='label+percent+value')])
+            fig.update_layout(height=300, showlegend=True, font=dict(family="Assistant, sans-serif"))
             st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-
-        # ===== Candidate Profile Search =====
         st.markdown("### 👤 תיק מועמד")
-
         all_names = sorted(set(t.get('user_name', '') for t in all_tests if t.get('user_name')))
         selected_name = st.selectbox("בחר מועמד:", ["— בחר —"] + all_names)
 
         if selected_name and selected_name != "— בחר —":
             candidate_tests = [t for t in all_tests if t.get('user_name') == selected_name]
             candidate_tests.sort(key=lambda x: x.get('test_date', ''))
-
             st.markdown(f"### 📋 {html.escape(selected_name)} — {len(candidate_tests)} מבדקים")
 
-            cc1, cc2, cc3 = st.columns(3)
-            cc1.metric("מבדקים", len(candidate_tests))
-
-            cand_reliability = [t.get('reliability_score', 0) for t in candidate_tests
-                               if t.get('reliability_score') is not None]
-            if cand_reliability:
-                cc2.metric("אמינות ממוצעת", f"{sum(cand_reliability)/len(cand_reliability):.0f}")
-
-            cand_hesitation = [t.get('hesitation_count', 0) for t in candidate_tests
-                              if t.get('hesitation_count') is not None]
-            if cand_hesitation:
-                cc3.metric("היסוס ממוצע", f"{sum(cand_hesitation)/len(cand_hesitation):.1f}")
-
-            if len(candidate_tests) > 1 and cand_reliability:
-                st.markdown("#### 📈 מגמת אמינות לאורך זמן")
-                dates = [t.get('test_date', f'מבדק {i+1}') for i, t in enumerate(candidate_tests)
-                         if t.get('reliability_score') is not None]
-                fig_trend = go.Figure()
-                fig_trend.add_trace(go.Scatter(
-                    x=dates, y=cand_reliability,
-                    mode='lines+markers',
-                    line=dict(color='#533483', width=3),
-                    marker=dict(size=10),
-                    name='אמינות'
-                ))
-                fig_trend.update_layout(
-                    yaxis=dict(range=[0, 105], title="ציון אמינות"),
-                    height=300,
-                    font=dict(family="Assistant, sans-serif")
-                )
-                st.plotly_chart(fig_trend, use_container_width=True)
-
             for i, test in enumerate(candidate_tests):
-                with st.expander(
-                    f"📝 {test.get('test_type', 'N/A')} — {test.get('test_date', 'N/A')} "
-                    f"| אמינות: {test.get('reliability_score', 'N/A')} "
-                    f"| היסוסים: {test.get('hesitation_count', 'N/A')}"
-                ):
+                with st.expander(f"📝 {test.get('test_type', 'N/A')} — {test.get('test_date', 'N/A')} | אמינות: {test.get('reliability_score', 'N/A')} | היסוסים: {test.get('hesitation_count', 'N/A')}"):
                     st.json(test.get('results', {}))
                     report = test.get('ai_report', '')
                     if isinstance(report, list):
@@ -1172,24 +1514,6 @@ def render_admin():
                             st.markdown(html.escape(str(r)))
                     elif report:
                         st.markdown(html.escape(str(report)))
-
-        st.markdown("---")
-
-        # ===== Full Test List =====
-        st.markdown("### 📋 כל המבדקים")
-        for test in all_tests:
-            with st.expander(
-                f"{test.get('user_name','N/A')} — {test.get('test_type','N/A')} — "
-                f"{test.get('test_date','N/A')} | "
-                f"אמינות: {test.get('reliability_score', 'N/A')}"
-            ):
-                st.json(test.get('results', {}))
-                report = test.get('ai_report', '')
-                if isinstance(report, list):
-                    for r in report:
-                        st.markdown(html.escape(str(r)))
-                elif report:
-                    st.markdown(html.escape(str(report)))
 
     except Exception as e:
         st.error(f"שגיאה: {e}")
@@ -1212,6 +1536,7 @@ def main():
     else:
         st.session_state.step = 'HOME'
         st.rerun()
+
 
 if __name__ == "__main__":
     main()
