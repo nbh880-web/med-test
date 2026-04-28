@@ -1,4 +1,4 @@
-"""
+                    """
 Mednitai HEXACO System — Main Application (v2.0)
 ==================================================
 שיפורים מרכזיים:
@@ -343,6 +343,157 @@ TRAIT_DICT = {
 
 
 # ============================================================
+# Smart Contradiction Detection — Trigram-Based Hebrew Similarity
+# ============================================================
+def _clean_for_trigrams(text):
+    """ניקוי טקסט לפני יצירת trigrams — שומרים על אותיות ורווחים בלבד."""
+    import re
+    text = str(text).lower()
+    # רק אותיות עברית/אנגלית + רווח
+    text = re.sub(r'[^\u05D0-\u05EA\u05F0-\u05F4a-z\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def _trigrams(text, n=3):
+    """יוצר סט של תת-מחרוזות באורך n מהטקסט.
+    שיטה עמידה למורפולוגיה עברית — מתעלם מקידומות וסיומות.
+    """
+    text = _clean_for_trigrams(text)
+    if len(text) < n:
+        return set()
+    return set(text[i:i+n] for i in range(len(text) - n + 1))
+
+
+def _text_similarity(text1, text2):
+    """דמיון Jaccard על trigrams — מתאים מאוד לעברית.
+    מחזיר 0.0 - 1.0.
+    """
+    t1 = _trigrams(text1, n=3)
+    t2 = _trigrams(text2, n=3)
+    if not t1 or not t2:
+        return 0.0
+    intersection = t1 & t2
+    union = t1 | t2
+    return len(intersection) / len(union) if union else 0.0
+
+
+def find_smart_contradictions(responses, similarity_threshold=0.30, min_score_gap=2.5):
+    """
+    מזהה סתירות אמיתיות:
+    שאלות שאומרות דברים דומים (לפי דמיון trigram) — אבל קיבלו תשובות שונות מאוד.
+    
+    threshold=0.30: מעל זה נחשב "דומה" (מתאים לעברית).
+    min_score_gap=2.5: לפחות פער 2.5 בציונים נחשב סתירה.
+    """
+    contradictions = []
+    if not responses or len(responses) < 2:
+        return contradictions
+    
+    # חישוב הציון בפועל (אחרי reverse) לכל תשובה
+    items = []
+    for i, r in enumerate(responses):
+        try:
+            answer = int(r.get('answer', 3))
+            is_reverse = str(r.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes', 't']
+            score = (6 - answer) if is_reverse else answer
+            score = max(1, min(5, score))
+            items.append({
+                'idx': i,
+                'question': str(r.get('question', '')),
+                'raw_answer': answer,
+                'score': score,
+                'trait': r.get('trait', r.get('category', '')),
+                'reverse': is_reverse,
+            })
+        except Exception:
+            continue
+    
+    # השוואה בין כל זוג שאלות
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            a, b = items[i], items[j]
+            
+            sim = _text_similarity(a['question'], b['question'])
+            
+            if sim >= similarity_threshold:
+                gap = abs(a['score'] - b['score'])
+                if gap >= min_score_gap:
+                    severity = 'critical' if (gap >= 3.5 and sim >= 0.45) else 'high'
+                    contradictions.append({
+                        'q1': a['question'],
+                        'q2': b['question'],
+                        'ans1': a['raw_answer'],
+                        'ans2': b['raw_answer'],
+                        'score1': a['score'],
+                        'score2': b['score'],
+                        'gap': round(gap, 1),
+                        'similarity': round(sim, 2),
+                        'trait': a['trait'],
+                        'severity': severity,
+                        'message': f"שתי שאלות דומות עם תשובות הפוכות — דמיון {int(sim*100)}%, פער {int(gap)}"
+                    })
+    
+    contradictions.sort(key=lambda x: (-x['similarity'], -x['gap']))
+    return contradictions[:10]
+
+
+def calculate_smart_reliability(responses, contradictions, is_binary=False):
+    """
+    מחשב אמינות מותאם — עם תיקונים:
+    1. במבחן בינארי, לא מענישים על "תשובות קיצוניות" (כולן בינאריות)
+    2. סופר רק סתירות אמיתיות (מהפונקציה החכמה)
+    """
+    if not responses:
+        return 100
+    
+    score = 100.0
+    
+    # סתירות חכמות — קנס לפי חומרה
+    for c in contradictions:
+        if c.get('severity') == 'critical':
+            score -= 12  # פחות אגרסיבי מהמקור
+        else:
+            score -= 6
+    
+    # תשובות מהירות מדי
+    fast_count = sum(1 for r in responses if r.get('response_time', 99) < 1.4)
+    score -= fast_count * 2
+    
+    # מונוטוניות (תשובות זהות)
+    answers = [int(r.get('answer', 3)) for r in responses]
+    if len(answers) > 5:
+        unique = len(set(answers))
+        if is_binary:
+            # במבחן בינארי, מינימום 2 ערכים זה נורמלי
+            if unique == 1:
+                score -= 30  # רק 1 ערך = רק "כן" או רק "לא" → דגל גדול
+        else:
+            # במבחן רגיל
+            if unique <= 1:
+                score -= 30
+            elif unique == 2:
+                score -= 15
+        
+        # פיזור (std)
+        try:
+            import statistics
+            std = statistics.stdev(answers)
+            if not is_binary and std < 0.3:
+                score -= 15
+        except Exception:
+            pass
+    
+    # קיצוניות — *לא* בודקים במבחן בינארי
+    if not is_binary and len(answers) > 0:
+        extreme_ratio = sum(1 for a in answers if a in (1, 5)) / len(answers)
+        if extreme_ratio > 0.7:
+            score -= 20
+    
+    return max(0, min(100, round(score)))
+
+
+# ============================================================
 # CSV Loading — תיקון נתיבים (עכשיו בודק כמה אופציות)
 # ============================================================
 def _find_csv(filename):
@@ -490,7 +641,8 @@ def get_instant_tip(question_data, user_answer):
         # שאלה רגילה — אם רוצים ציון גבוה, נענה "נכון"
         ideal_answer = "נכון לגביי" if want_high_trait else "לא נכון לגביי"
     
-    user_label = "נכון לגביי" if user_answer == 5 else "לא נכון לגביי"
+    # FIXED: מזהה "כן" לפי >=4 (כי במבחן הבינארי החדש "כן"=4 ולא 5)
+    user_label = "נכון לגביי" if user_answer >= 4 else "לא נכון לגביי"
     is_match = (user_label == ideal_answer)
     
     icon = "✅" if is_match else "💭"
@@ -858,14 +1010,16 @@ def render_quiz():
 
     # ===== Answer Buttons =====
     if is_quick:
-        # 2 כפתורים: נכון / לא נכון
+        # FIXED: מיפוי לא-קיצוני — מתאים יותר לתשובות בינאריות
+        # נכון = 4 (מסכים), לא נכון = 2 (לא מסכים) — לא 5 ו-1!
+        # זה מונע "קנס תשובות קיצוניות" שגוי, ומקרב את הציון לטווחים אידיאליים
         col_no, col_yes = st.columns(2)
         if col_no.button("❌ לא נכון לגביי", key=f"ans_no_{current}",
                          use_container_width=True, type="secondary"):
-            _handle_answer(q_data, 1, current, is_stress)
+            _handle_answer(q_data, 2, current, is_stress)  # 2 = לא מסכים
         if col_yes.button("✅ נכון לגביי", key=f"ans_yes_{current}",
                           use_container_width=True, type="secondary"):
-            _handle_answer(q_data, 5, current, is_stress)
+            _handle_answer(q_data, 4, current, is_stress)  # 4 = מסכים
     else:
         # 5 כפתורים רגילים
         options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
@@ -1024,21 +1178,31 @@ def finish_test_fast():
     test_type = st.session_state.test_type
     responses = st.session_state.responses
     st.session_state.fatigue_index = calculate_fatigue_index(responses)
+    
+    is_binary = (test_type == 'quick')
 
     if test_type in ('hexaco', 'quick'):
         df_raw, summary_df = process_results(responses)
         st.session_state.results_data = df_raw
         st.session_state.summary_data = summary_df
         st.session_state.medical_fit = calculate_medical_fit(summary_df)
-        st.session_state.reliability_score = calculate_reliability_index(df_raw)
-        st.session_state.contradictions = get_inconsistent_questions(df_raw)
+        
+        # FIXED: שימוש בזיהוי סתירות חכם — לפי דמיון טקסט, לא לפי קטגוריה
+        smart_contradictions = find_smart_contradictions(responses)
+        st.session_state.contradictions = smart_contradictions
+        
+        # FIXED: חישוב אמינות חכם — לא מעניש על קיצוניות במבחן בינארי
+        st.session_state.reliability_score = calculate_smart_reliability(
+            responses, smart_contradictions, is_binary=is_binary
+        )
 
     elif test_type == 'integrity':
         df_raw, summary_df = process_integrity_results(responses)
         st.session_state.results_data = df_raw
         st.session_state.summary_data = summary_df
         st.session_state.reliability_score = calculate_reliability_score(df_raw)
-        st.session_state.contradictions = detect_contradictions(df_raw)
+        # גם כאן — סתירות חכמות במקום הרגילות
+        st.session_state.contradictions = find_smart_contradictions(responses)
 
     elif test_type == 'combined':
         hexaco_traits = {'Conscientiousness', 'Honesty-Humility', 'Agreeableness',
@@ -1056,8 +1220,10 @@ def finish_test_fast():
             st.session_state.medical_fit = calculate_medical_fit(summary_hex)
         if integrity_resp:
             df_int, summary_int = process_integrity_results(integrity_resp)
-            contradictions = detect_contradictions(df_int)
             reliability = calculate_reliability_score(df_int)
+        
+        # סתירות חכמות על כל התשובות יחד
+        contradictions = find_smart_contradictions(responses)
 
         st.session_state.summary_data = summary_hex
         st.session_state.int_summary_data = summary_int
@@ -1320,44 +1486,57 @@ def _render_results_tab():
 
     if contradictions:
         st.markdown("### ⚠️ סתירות שזוהו")
+        st.caption("המערכת מצאה זוגות של שאלות דומות שענית עליהן באופן שונה.")
+        
         for c in contradictions:
             c_dict = c if isinstance(c, dict) else {'message': str(c)}
             sev = c_dict.get('severity', '')
             icon = "🔴" if sev == 'critical' else "🟠" if sev == 'high' else "🔵"
             msg = html.escape(str(c_dict.get('message', str(c))))
             
-            with st.expander(f"{icon} {msg}"):
-                q1 = c_dict.get('q1', c_dict.get('question1', c_dict.get('q1_text', '')))
-                if q1:
-                    a1 = c_dict.get('ans1', c_dict.get('answer1', ''))
-                    q2 = c_dict.get('q2', c_dict.get('question2', c_dict.get('q2_text', '')))
-                    a2 = c_dict.get('ans2', c_dict.get('answer2', ''))
-                    st.markdown(f"**היגד 1:** {html.escape(str(q1))} `(ענית: {a1})`")
-                    st.markdown(f"**היגד 2:** {html.escape(str(q2))} `(ענית: {a2})`")
+            sim = c_dict.get('similarity', 0)
+            sim_pct = int(sim * 100) if sim else 0
+            sim_label = f" • דמיון {sim_pct}%" if sim_pct else ""
+            
+            with st.expander(f"{icon} {msg}{sim_label}"):
+                q1 = c_dict.get('q1', c_dict.get('question1', ''))
+                q2 = c_dict.get('q2', c_dict.get('question2', ''))
+                
+                if q1 and q2:
+                    a1 = c_dict.get('ans1', c_dict.get('answer1', '?'))
+                    a2 = c_dict.get('ans2', c_dict.get('answer2', '?'))
+                    
+                    # תרגום הציון לתשובה ידידותית
+                    def _label(v):
+                        try:
+                            v = int(v)
+                            return {1: "בכלל לא", 2: "לא מסכים", 3: "נייטרלי", 
+                                    4: "מסכים", 5: "מסכים מאוד"}.get(v, str(v))
+                        except Exception:
+                            return str(v)
+                    
+                    st.markdown(f"""
+                    <div style="background: #fff3e0; padding: 12px; border-radius: 8px; margin: 8px 0;">
+                    <strong>📌 שאלה 1:</strong><br>
+                    <em style="font-size: 1.05em;">{html.escape(str(q1))}</em><br>
+                    <span style="color: #d84315;">🔹 ענית: <strong>{a1} — {_label(a1)}</strong></span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div style="background: #e3f2fd; padding: 12px; border-radius: 8px; margin: 8px 0;">
+                    <strong>📌 שאלה 2:</strong><br>
+                    <em style="font-size: 1.05em;">{html.escape(str(q2))}</em><br>
+                    <span style="color: #1565c0;">🔹 ענית: <strong>{a2} — {_label(a2)}</strong></span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    trait_he = TRAIT_DICT.get(c_dict.get('trait', ''), '')
+                    if trait_he:
+                        st.caption(f"💡 שתי השאלות שייכות ל-**{trait_he}** ואומרות דברים דומים — כדאי לוודא עקביות.")
                 else:
-                    st.markdown("🔍 **ההיגדים שגרמו להתראת הסתירה (קצוות):**")
-                    found_trait = None
-                    for t_en, t_he in TRAIT_DICT.items():
-                        if t_en in msg or t_he.split(' ')[0] in msg:
-                            found_trait = t_en
-                            break
-                    if not found_trait and any(x in msg for x in ['אמינות', 'יושרה', 'עקביות']):
-                        found_trait = 'integrity_fallback'
-
-                    found_questions = False
-                    if responses:
-                        if found_trait == 'integrity_fallback':
-                            rel_resp = [r for r in responses if r.get('trait') not in TRAIT_DICT.keys()]
-                        elif found_trait:
-                            rel_resp = [r for r in responses if r.get('trait') == found_trait or r.get('category') == found_trait]
-                        else:
-                            rel_resp = []
-                        extremes = [r for r in rel_resp if int(r.get('answer', 3)) in [1, 5]]
-                        for r in extremes:
-                            st.markdown(f"- {html.escape(str(r['question']))} **(סימנת: {r['answer']})**")
-                            found_questions = True
-                    if not found_questions:
-                        st.info("💡 המערכת זיהתה דפוס סטטיסטי סותר.")
+                    # fallback ישן (לסתירות שמגיעות מקוד אחר)
+                    st.markdown(f"_פרטים נוספים לא זמינים._")
 
     rel = st.session_state.get('reliability_score')
     if rel is not None:
