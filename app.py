@@ -1,5 +1,4 @@
-                    """
-Mednitai HEXACO System — Main Application (v2.0)
+"""Mednitai HEXACO System — Main Application (v2.0)
 ==================================================
 שיפורים מרכזיים:
 - שאלון "נכון/לא נכון" מהיר (HEXACO + תרחישים)
@@ -343,6 +342,242 @@ TRAIT_DICT = {
 
 
 # ============================================================
+# B: Trait Direction Metadata (לפי מתודולוגיית מכון נועם)
+# ============================================================
+# לכל תכונה: האם היא חיובית/שלילית/מאוזנת לרפואה
+# וגם אילו תכונות-משנה נחשבות חיוביות/שליליות
+TRAIT_DIRECTIONS = {
+    'Conscientiousness': {
+        'direction': 'positive',  # תכונה חיובית מובהקת לרפואה
+        'label': '✅ חיובית מובהקת',
+        'subtraits_positive': ['סדר', 'ארגון', 'דייקנות', 'תכנון', 'משמעת', 'אמינות',
+                               'התמדה', 'יסודיות', 'אחריות'],
+        'subtraits_negative': ['פזיזות', 'שכחנות', 'דחיינות', 'בלגן', 'רשלנות'],
+        'why_medical': 'רופא חייב להיות מדויק, שיטתי ואמין — טעות אחת = חיים. זו התכונה הקריטית ביותר.',
+        'how_to_answer': 'תכונה זו תמיד חיובית — סמן "נכון" להיגדים שמתחייבים אותה, "לא נכון" להיגדים ששוללים אותה.'
+    },
+    'Honesty-Humility': {
+        'direction': 'positive',
+        'label': '✅ חיובית מובהקת',
+        'subtraits_positive': ['כנות', 'יושרה', 'הגינות', 'צניעות', 'ענווה'],
+        'subtraits_negative': ['חמדנות', 'תחמון', 'יוהרה', 'שקרנות', 'חוסר יושר'],
+        'why_medical': 'יושרה מקצועית, שקיפות עם מטופלים, הימנעות מניצול מעמד — אבני יסוד באתיקה רפואית.',
+        'how_to_answer': 'תכונה זו תמיד חיובית — אבל היזהר! אל תהיה "מושלם מדי" — סמן "לא נכון" רק להיגדים שאומרים דברים בעייתיים מובהקים.'
+    },
+    'Agreeableness': {
+        'direction': 'positive',
+        'label': '✅ חיובית',
+        'subtraits_positive': ['שיתוף פעולה', 'סלחנות', 'סבלנות', 'גמישות', 'אמפתיה'],
+        'subtraits_negative': ['ביקורתיות יתר', 'קשיחות', 'נקמנות', 'ויכוחנות'],
+        'why_medical': 'עבודת צוות עם רופאים, אחיות, מטופלים ומשפחות — הבסיס לרפואה מודרנית.',
+        'how_to_answer': 'תכונה חיובית — אך זכור שגם יכולת לעמוד על דעה זה ערך. אל תיתן את כל ה"כן" באופן שמשתמע כניעה.'
+    },
+    'Extraversion': {
+        'direction': 'balanced',  # מאוזנת — לא קיצוני
+        'label': '⚖️ מאוזנת',
+        'subtraits_positive': ['ביטחון עצמי', 'אופטימיות', 'חברותיות', 'אנרגטיות',
+                               'מנהיגות', 'חיוביות', 'יוזמה', 'אקטיביות'],
+        'subtraits_negative': ['ביישנות יתר', 'הסתגרות', 'פסיביות', 'דכדוך'],
+        'why_medical': 'תקשורת עם מטופלים וצוות חשובה, אבל גם יכולת הקשבה. רופא לא צריך להיות "כוכב מסיבות".',
+        'how_to_answer': 'בדוק את המהות: היגדים על אקטיביות/אופטימיות/ביטחון = "נכון". היגדים על ביישנות מוגזמת/דכדוך = "לא נכון". היגדים נייטרליים על "אהבת מסיבות גדולות" — אפשר לפי האמת שלך.'
+    },
+    'Emotionality': {
+        'direction': 'balanced',
+        'label': '⚖️ מאוזנת — זהירות!',
+        'subtraits_positive': ['אמפתיה', 'רגישות למטופלים', 'מודעות רגשית'],
+        'subtraits_negative': ['חרדתיות', 'דאגנות יתר', 'רגזנות', 'איבוד שליטה',
+                               'קריסה תחת לחץ', 'חוסר יציבות'],
+        'why_medical': 'רופא חייב אמפתיה — אבל לא יכול לקרוס תחת לחץ. זה איזון עדין מאוד.',
+        'how_to_answer': '⚠️ זהירות! היגדים על אמפתיה/רגישות לאחרים = "נכון". היגדים על חרדה/דאגה מוגזמת/קריסה = "לא נכון" חד משמעית.'
+    },
+    'Openness to Experience': {
+        'direction': 'positive',
+        'label': '✅ חיובית',
+        'subtraits_positive': ['סקרנות', 'אהבת למידה', 'יצירתיות', 'פתיחות לרעיונות',
+                               'חשיבה ביקורתית'],
+        'subtraits_negative': ['שמרנות יתר', 'דוגמטיות', 'חוסר עניין'],
+        'why_medical': 'הרפואה מתעדכנת מהר — נדרשת אהבת למידה תמידית, סקרנות אינטלקטואלית, יצירתיות באבחון.',
+        'how_to_answer': 'תכונה חיובית למיון לרפואה. סמן "נכון" להיגדים על סקרנות/למידה. "לא נכון" להיגדים על שמרנות מוגזמת.'
+    },
+}
+
+
+# מילון מילות-מפתח שמרמזות על "מתחייב" או "נשלל" בהיגד
+NEGATION_HINTS = ['לא ', 'אין ', 'אינני', 'אינו ', 'אינה ', 'נמנע', 'מתקשה',
+                  'מתרחק', 'מסרב', 'בורח', 'אסור']
+
+
+def detect_statement_polarity(question_text):
+    """
+    מזהה האם ההיגד "מתחייב" את התכונה (חיובי) או "שולל" אותה (בעל שלילה).
+    מחזיר: 'affirms' (מתחייב) / 'negates' (שולל) / 'neutral'
+    """
+    text = str(question_text).lower()
+    
+    # סופרים מילות שלילה
+    negation_count = sum(1 for hint in NEGATION_HINTS if hint in text)
+    
+    if negation_count >= 1:
+        return 'negates'
+    return 'affirms'
+
+
+def get_decision_tree_analysis(question_data):
+    """
+    מבצע את עץ ההחלטה של מכון נועם:
+    1. זיהוי התכונה
+    2. חיובית/שלילית/מאוזנת
+    3. מתחייב/שולל בהיגד
+    4. תשובה מומלצת
+    
+    מחזיר dict עם כל השלבים — לתצוגה למשתמש.
+    """
+    trait = question_data.get('trait', question_data.get('category', ''))
+    text = str(question_data.get('q', question_data.get('question', '')))
+    is_reverse = str(question_data.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes']
+    
+    trait_info = TRAIT_DIRECTIONS.get(trait)
+    trait_he = TRAIT_DICT.get(trait, trait)
+    
+    # תרחיש אמינות (שאלות מ-integrity_questions.csv)
+    if not trait_info:
+        # תרחישים שליליים
+        negative_cats = {'theft', 'drugs', 'gambling', 'unethical', 'termination', 'academic'}
+        positive_cats = {'whistleblowing', 'feedback', 'teamwork'}
+        category = question_data.get('category', '')
+        
+        if category in negative_cats:
+            return {
+                'is_scenario': True,
+                'trait_he': category,
+                'direction': 'negative',
+                'direction_label': '🔴 התנהגות שלילית מובהקת',
+                'polarity': detect_statement_polarity(text),
+                'recommended': 'לא נכון',
+                'recommended_value': 2,
+                'why': 'התנהגויות כאלה (גניבה, סמים, וכו\') לא יכולות לאפיין רופא.',
+                'reasoning_chain': [
+                    f"1️⃣ סוג ההיגד: תרחיש אמינות (קטגוריה: {category})",
+                    f"2️⃣ זה תיאור של התנהגות שלילית מובהקת",
+                    f"3️⃣ לכן: {'נכון' if detect_statement_polarity(text) == 'negates' else 'לא נכון'}"
+                ]
+            }
+        elif category in positive_cats:
+            return {
+                'is_scenario': True,
+                'trait_he': category,
+                'direction': 'positive',
+                'direction_label': '🟢 התנהגות חיובית',
+                'polarity': detect_statement_polarity(text),
+                'recommended': 'נכון',
+                'recommended_value': 4,
+                'why': 'אלה התנהגויות שמתאימות לרופא — שיתוף פעולה, יושרה, אחריות.',
+                'reasoning_chain': [
+                    f"1️⃣ סוג ההיגד: תרחיש אמינות (קטגוריה: {category})",
+                    f"2️⃣ זה תיאור של התנהגות חיובית",
+                    f"3️⃣ לכן: נכון"
+                ]
+            }
+        return None
+    
+    # שאלת HEXACO רגילה
+    direction = trait_info['direction']
+    polarity = detect_statement_polarity(text)
+    
+    # מטריצת ההחלטה של מכון נועם:
+    # תכונה חיובית + מתחייבת = נכון
+    # תכונה חיובית + נשללת   = לא נכון
+    # תכונה שלילית + מתחייבת = לא נכון
+    # תכונה שלילית + נשללת   = נכון
+    
+    # תיקון: הקובץ שלך משתמש ב-reverse — ההיגד נשלל לוגית
+    # אם reverse=True זה אומר שהציון מתהפך, מה שמרמז שההיגד מנוסח "הפוך" מהתכונה
+    effective_polarity = polarity
+    if is_reverse and polarity == 'affirms':
+        effective_polarity = 'negates'
+    elif is_reverse and polarity == 'negates':
+        effective_polarity = 'affirms'
+    
+    if direction == 'positive':
+        if effective_polarity == 'affirms':
+            recommended = 'נכון'
+            value = 4
+            reasoning = f'התכונה {trait_he} חיובית לרפואה, וההיגד מתחייב אותה → "נכון"'
+        else:
+            recommended = 'לא נכון'
+            value = 2
+            reasoning = f'התכונה {trait_he} חיובית לרפואה, וההיגד שולל אותה → "לא נכון"'
+    elif direction == 'balanced':
+        # למאוזן — תלוי בתת-תכונה (אקטיביות חיובית, חרדה שלילית)
+        # ננסה לזהות מילות מפתח של תת-תכונה שלילית
+        text_lower = text.lower()
+        is_neg_subtrait = any(neg_word in text_lower 
+                              for neg_word in trait_info.get('subtraits_negative', []))
+        is_pos_subtrait = any(pos_word in text_lower 
+                              for pos_word in trait_info.get('subtraits_positive', []))
+        
+        if is_neg_subtrait and not is_pos_subtrait:
+            # תת-תכונה שלילית
+            if effective_polarity == 'affirms':
+                recommended = 'לא נכון'
+                value = 2
+                reasoning = f'ההיגד מתחייב תת-תכונה שלילית של {trait_he} → "לא נכון"'
+            else:
+                recommended = 'נכון'
+                value = 4
+                reasoning = f'ההיגד שולל תת-תכונה שלילית של {trait_he} → "נכון"'
+        elif is_pos_subtrait and not is_neg_subtrait:
+            # תת-תכונה חיובית
+            if effective_polarity == 'affirms':
+                recommended = 'נכון'
+                value = 4
+                reasoning = f'ההיגד מתחייב תת-תכונה חיובית של {trait_he} → "נכון"'
+            else:
+                recommended = 'לא נכון'
+                value = 2
+                reasoning = f'ההיגד שולל תת-תכונה חיובית של {trait_he} → "לא נכון"'
+        else:
+            # אמצע — לפי הכיוון הכללי (התכונה רוצה ציון בינוני-גבוה)
+            if effective_polarity == 'affirms':
+                recommended = 'נכון'
+                value = 4
+                reasoning = f'התכונה {trait_he} מאוזנת — והיגד נייטרלי → לרוב "נכון" (אקטיביות עדיפה)'
+            else:
+                recommended = 'לא נכון'
+                value = 2
+                reasoning = f'התכונה {trait_he} מאוזנת — וההיגד שולל → "לא נכון"'
+    else:
+        # default
+        recommended = 'נכון' if effective_polarity == 'affirms' else 'לא נכון'
+        value = 4 if recommended == 'נכון' else 2
+        reasoning = 'בחר לפי האמת שלך.'
+    
+    polarity_he = 'מתחייב' if polarity == 'affirms' else 'נשלל'
+    if is_reverse:
+        polarity_he += ' (היגד הפוך)'
+    
+    return {
+        'is_scenario': False,
+        'trait_he': trait_he,
+        'direction': direction,
+        'direction_label': trait_info['label'],
+        'polarity': polarity,
+        'polarity_he': polarity_he,
+        'recommended': recommended,
+        'recommended_value': value,
+        'why': trait_info['why_medical'],
+        'subtraits_positive': trait_info.get('subtraits_positive', []),
+        'subtraits_negative': trait_info.get('subtraits_negative', []),
+        'reasoning_chain': [
+            f"1️⃣ **התכונה הנבדקת:** {trait_he}",
+            f"2️⃣ **כיוון לרפואה:** {trait_info['label']}",
+            f"3️⃣ **ההיגד:** {polarity_he}",
+            f"4️⃣ **תשובה אידיאלית:** {recommended}",
+        ]
+    }
+
+
+# ============================================================
 # Smart Contradiction Detection — Trigram-Based Hebrew Similarity
 # ============================================================
 def _clean_for_trigrams(text):
@@ -593,71 +828,51 @@ def get_quick_quiz_questions(count=50, focus_trait=None):
 
 def get_instant_tip(question_data, user_answer):
     """
-    טיפ מיידי אחרי תשובה במצב תרגול.
-    מסביר מה התשובה האידיאלית הייתה ולמה.
+    טיפ מיידי אחרי תשובה — בשיטת מכון נועם (עץ ההחלטה ב-3 שלבים).
+    מציג למשתמש את שלבי החשיבה כדי שילמד את השיטה.
     """
-    trait = question_data.get('trait', question_data.get('category', ''))
-    is_reverse = str(question_data.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes']
-    is_scenario = question_data.get('is_scenario', False)
+    analysis = get_decision_tree_analysis(question_data)
     
-    # תרחיש אמינות — לוגיקה אחרת
-    if is_scenario:
-        # בתרחישים שליליים (גניבה, סמים, וכו'), התשובה הרצויה היא 1 (לא)
-        negative_cats = {'theft', 'drugs', 'gambling', 'unethical', 'termination', 'academic'}
-        positive_cats = {'whistleblowing', 'feedback', 'teamwork'}
-        category = question_data.get('category', '')
-        
-        if category in negative_cats:
-            ideal = "לא נכון לגביי (1)"
-            reason = "תרחישים כאלה — התנהגויות בעייתיות שאתה רוצה להראות שלא מאפיינות אותך."
-        elif category in positive_cats:
-            ideal = "נכון לגביי (5)"
-            reason = "אלה התנהגויות חיוביות שמתאימות לרופא — שיתוף פעולה, יושרה, אחריות."
-        else:
-            ideal = "תלוי בנסיבות"
-            reason = "ענה לפי האמת שלך, אבל זכור את הקונטקסט הרפואי."
-        
-        return f"💡 **תשובה אידיאלית:** {ideal}\n\n**למה:** {reason}"
-    
-    # שאלת HEXACO רגילה
-    if trait not in IDEAL_RANGES:
+    if not analysis:
         return None
     
-    low, high = IDEAL_RANGES[trait]
-    trait_he = TRAIT_EXPLANATIONS.get(trait, {}).get('name', trait)
-    target_mid = (low + high) / 2
+    # האם המשתמש ענה כמו ההמלצה?
+    user_label = "נכון" if user_answer >= 4 else "לא נכון"
+    ideal_label = analysis['recommended']
+    is_match = (user_label == ideal_label)
     
-    # לקבוע מה הכיוון הרצוי
-    # אם reverse=False, ציון גבוה לשאלה = ציון גבוה בתכונה
-    # אם reverse=True, ציון גבוה לשאלה = ציון נמוך בתכונה
-    
-    # האם רוצים ציון גבוה בתכונה הזו? (כל היעדים שלנו הם 3.5+, אז כן)
-    want_high_trait = target_mid >= 3.5
-    
-    if is_reverse:
-        # שאלה הפוכה — אם רוצים ציון גבוה, נענה "לא נכון"
-        ideal_answer = "לא נכון לגביי" if want_high_trait else "נכון לגביי"
+    # כותרת
+    if is_match:
+        header = "✅ **תשובה מצוינת — בדיוק כמו שיטת מכון נועם!**"
     else:
-        # שאלה רגילה — אם רוצים ציון גבוה, נענה "נכון"
-        ideal_answer = "נכון לגביי" if want_high_trait else "לא נכון לגביי"
+        header = "💭 **בוא נחשוב על זה ביחד — שיטת מכון נועם:**"
     
-    # FIXED: מזהה "כן" לפי >=4 (כי במבחן הבינארי החדש "כן"=4 ולא 5)
-    user_label = "נכון לגביי" if user_answer >= 4 else "לא נכון לגביי"
-    is_match = (user_label == ideal_answer)
+    # שלבי עץ ההחלטה
+    if analysis.get('is_scenario'):
+        # תרחיש אמינות
+        steps = "\n\n".join([
+            f"**🔍 שלב 1 — סוג ההיגד:** תרחיש אמינות בקטגוריה: {analysis['trait_he']}",
+            f"**📊 שלב 2 — כיוון:** {analysis['direction_label']}",
+            f"**✏️ שלב 3 — תשובה אידיאלית:** {analysis['recommended']}",
+        ])
+        explanation = f"**💡 הסבר:** {analysis['why']}"
+    else:
+        # שאלת HEXACO רגילה
+        steps = "\n\n".join([
+            f"**🔍 שלב 1 — איזו תכונה זה בודק?** {analysis['trait_he']}",
+            f"**📊 שלב 2 — חיובית או שלילית לרפואה?** {analysis['direction_label']}",
+            f"**✏️ שלב 3 — ההיגד מתחייב או נשלל?** {analysis.get('polarity_he', 'לא ברור')}",
+            f"**✅ שלב 4 — תשובה אידיאלית:** {analysis['recommended']}",
+        ])
+        explanation = f"**💡 למה זה חשוב לרפואה:** {analysis['why']}"
     
-    icon = "✅" if is_match else "💭"
-    status = "תשובה אידיאלית!" if is_match else "כדאי לחשוב על זה"
+    user_status = f"\n\n**🎯 ענית:** \"{user_label}\""
+    if is_match:
+        user_status += " — מושלם!"
+    else:
+        user_status += f" • **תשובה אידיאלית הייתה:** \"{ideal_label}\""
     
-    tip = (f"{icon} **{status}**\n\n"
-           f"**תכונה:** {trait_he}\n"
-           f"**טווח אידיאלי לרופאים:** {low}—{high}\n"
-           f"**תשובה אידיאלית:** {ideal_answer}\n"
-           f"**ענית:** {user_label}")
-    
-    if not is_match:
-        explanation = TRAIT_EXPLANATIONS.get(trait, {}).get('medical', '')
-        if explanation:
-            tip += f"\n\n**למה זה חשוב:** {explanation}"
+    tip = f"{header}\n\n{steps}\n\n{explanation}{user_status}"
     
     return tip
 
@@ -698,6 +913,11 @@ def init_session_state():
         'last_tip_time': 0,
         'ai_future': None,
         'ai_submitted_at': 0,
+        'decision_tree_mode': False,
+        'tree_step': 1,
+        'tree_answer_trait': None,
+        'tree_answer_direction': None,
+        'tree_answer_polarity': None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -772,9 +992,16 @@ def render_home():
                 key="practice_quick"
             )
             
+            decision_tree_mode = st.checkbox(
+                "🧠 מצב 'עץ ההחלטה' — לפני התשובה תפעיל את שיטת מכון נועם בעצמך (זיהוי תכונה → חיובית/שלילית → מתחייב/נשלל). מומלץ למתחילים!",
+                value=False,
+                key="decision_tree_check"
+            )
+            
             if st.button("⚡ התחל מבחן מהיר", key="btn_quick", type="primary", use_container_width=True):
                 st.session_state.practice_mode = practice_quick
                 st.session_state.focus_trait = focus_trait
+                st.session_state.decision_tree_mode = decision_tree_mode
                 start_quick_test(quick_length, focus_trait)
         
         # ===== Tab 2: מבחנים מלאים =====
@@ -1010,16 +1237,20 @@ def render_quiz():
 
     # ===== Answer Buttons =====
     if is_quick:
-        # FIXED: מיפוי לא-קיצוני — מתאים יותר לתשובות בינאריות
-        # נכון = 4 (מסכים), לא נכון = 2 (לא מסכים) — לא 5 ו-1!
-        # זה מונע "קנס תשובות קיצוניות" שגוי, ומקרב את הציון לטווחים אידיאליים
-        col_no, col_yes = st.columns(2)
-        if col_no.button("❌ לא נכון לגביי", key=f"ans_no_{current}",
-                         use_container_width=True, type="secondary"):
-            _handle_answer(q_data, 2, current, is_stress)  # 2 = לא מסכים
-        if col_yes.button("✅ נכון לגביי", key=f"ans_yes_{current}",
-                          use_container_width=True, type="secondary"):
-            _handle_answer(q_data, 4, current, is_stress)  # 4 = מסכים
+        # === Mode C: Decision Tree Practice ===
+        # אם הופעל מצב עץ ההחלטה — מציג את שלבי החשיבה לפני התשובה הסופית
+        if st.session_state.get('decision_tree_mode', False):
+            _render_decision_tree_ui(q_data, current, is_stress)
+        else:
+            # מצב רגיל: 2 כפתורים
+            # FIXED: מיפוי לא-קיצוני — נכון=4, לא נכון=2 (לא 5/1!)
+            col_no, col_yes = st.columns(2)
+            if col_no.button("❌ לא נכון לגביי", key=f"ans_no_{current}",
+                             use_container_width=True, type="secondary"):
+                _handle_answer(q_data, 2, current, is_stress)
+            if col_yes.button("✅ נכון לגביי", key=f"ans_yes_{current}",
+                              use_container_width=True, type="secondary"):
+                _handle_answer(q_data, 4, current, is_stress)
     else:
         # 5 כפתורים רגילים
         options = [("בכלל לא", 1), ("לא מסכים", 2), ("נייטרלי", 3), ("מסכים", 4), ("מסכים מאוד", 5)]
@@ -1043,6 +1274,220 @@ def render_quiz():
                 st.session_state.responses.pop()
             st.session_state.q_start_time = time.time()
             st.session_state.last_tip = None
+            _reset_tree_state()
+            st.rerun()
+
+
+def _reset_tree_state():
+    """מאפס את מצב עץ ההחלטה לשאלה הבאה."""
+    st.session_state.tree_step = 1
+    st.session_state.tree_answer_trait = None
+    st.session_state.tree_answer_direction = None
+    st.session_state.tree_answer_polarity = None
+
+
+# תוויות כיווני תכונות לתצוגה
+_DIR_LABELS = {
+    'positive': '✅ חיובית',
+    'balanced': '⚖️ מאוזנת',
+    'negative': '🔴 שלילית',
+    'unknown': 'לא ברור',
+}
+
+
+def _render_decision_tree_ui(q_data, current, is_stress):
+    """
+    מצב עץ ההחלטה (C) — המשתמש עובר 4 שלבים לפני התשובה:
+    שלב 1: זיהוי התכונה
+    שלב 2: חיובית/שלילית/מאוזנת לרפואה
+    שלב 3: מתחייב/נשלל בהיגד
+    שלב 4: התשובה הסופית (תוצאה אוטומטית של 1-3, אבל המשתמש מאשר)
+    """
+    step = st.session_state.tree_step
+    actual_trait = q_data.get('trait', q_data.get('category', ''))
+    is_scenario = actual_trait not in TRAIT_DICT
+    
+    # מד התקדמות בעץ ההחלטה
+    progress_text = f"🧠 שלב {step}/4 בעץ ההחלטה"
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+                padding: 12px 16px; border-radius: 10px; margin-bottom: 15px;
+                border-right: 4px solid #6a1b9a;">
+        <div style="font-weight: 700; color: #4a148c;">{progress_text}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ===== שלב 1: זיהוי התכונה =====
+    if step == 1:
+        st.markdown("### 🔍 שלב 1: איזו תכונה ההיגד הזה בודק?")
+        st.caption("חשוב על המשמעות של ההיגד ועל איזו תכונה הוא מתאר.")
+        
+        if is_scenario:
+            # תרחיש אמינות
+            scenario_options = {
+                'theft': '🔒 גניבה / יושר עם רכוש',
+                'drugs': '💊 התמכרויות / סמים',
+                'gambling': '🎰 הימורים / סיכון',
+                'unethical': '⚖️ אי-מוסריות / שחיתות',
+                'termination': '🏢 פיטורים / קונפליקט בעבודה',
+                'academic': '📚 יושר אקדמי / העתקות',
+                'whistleblowing': '📢 דיווח על הפרות / יושרה',
+                'feedback': '💬 קבלת ביקורת',
+                'teamwork': '🤝 עבודת צוות',
+            }
+            options = list(scenario_options.values())
+            options_keys = list(scenario_options.keys())
+            
+            choice = st.radio("בחר את הקטגוריה:", options, key=f"tree_scenario_{current}",
+                              label_visibility="collapsed")
+            chosen_idx = options.index(choice)
+            chosen_key = options_keys[chosen_idx]
+            
+            if st.button("➡️ המשך לשלב 2", key=f"tree_next1_{current}", type="primary"):
+                st.session_state.tree_answer_trait = chosen_key
+                st.session_state.tree_step = 2
+                st.rerun()
+        else:
+            # HEXACO
+            options = list(TRAIT_DICT.values())
+            options_keys = list(TRAIT_DICT.keys())
+            
+            choice = st.radio("בחר את התכונה:", options, key=f"tree_trait_{current}",
+                              label_visibility="collapsed")
+            chosen_idx = options.index(choice)
+            chosen_key = options_keys[chosen_idx]
+            
+            if st.button("➡️ המשך לשלב 2", key=f"tree_next1_{current}", type="primary"):
+                st.session_state.tree_answer_trait = chosen_key
+                st.session_state.tree_step = 2
+                st.rerun()
+        
+        # אפשרות לדלג ולענות ישר
+        st.caption("💡 לא בטוח? ענה לפי האינסטינקט שלך:")
+        col_skip_no, col_skip_yes = st.columns(2)
+        if col_skip_no.button("דלג: ❌ לא נכון", key=f"skip_no_{current}", type="secondary"):
+            _handle_answer(q_data, 2, current, is_stress)
+            _reset_tree_state()
+        if col_skip_yes.button("דלג: ✅ נכון", key=f"skip_yes_{current}", type="secondary"):
+            _handle_answer(q_data, 4, current, is_stress)
+            _reset_tree_state()
+    
+    # ===== שלב 2: חיובית/שלילית =====
+    elif step == 2:
+        chosen_trait = st.session_state.tree_answer_trait
+        chosen_label = TRAIT_DICT.get(chosen_trait, chosen_trait)
+        actual_label = TRAIT_DICT.get(actual_trait, actual_trait)
+        
+        # פידבק על שלב 1
+        if chosen_trait == actual_trait:
+            st.success(f"✅ זיהית נכון: **{chosen_label}**")
+        else:
+            st.warning(f"💭 בחרת: **{chosen_label}** • התכונה האמיתית: **{actual_label}**")
+        
+        st.markdown("### 📊 שלב 2: התכונה הזו חיובית או שלילית לרפואה?")
+        st.caption("חשוב: לא 'האם זה נכון לגביי?' — אלא 'האם רופא צריך תכונה כזו?'")
+        
+        direction_options = [
+            ('positive', '✅ חיובית מובהקת — רופא חייב את זה'),
+            ('balanced', '⚖️ מאוזנת — צריך מידה מסוימת, לא קיצוני'),
+            ('negative', '🔴 שלילית — רופא לא צריך את זה'),
+        ]
+        
+        labels = [opt[1] for opt in direction_options]
+        keys = [opt[0] for opt in direction_options]
+        choice = st.radio("הכיוון:", labels, key=f"tree_dir_{current}", label_visibility="collapsed")
+        chosen_dir = keys[labels.index(choice)]
+        
+        if st.button("➡️ המשך לשלב 3", key=f"tree_next2_{current}", type="primary"):
+            st.session_state.tree_answer_direction = chosen_dir
+            st.session_state.tree_step = 3
+            st.rerun()
+        
+        if st.button("⬅️ חזור לשלב 1", key=f"tree_back2_{current}", type="secondary"):
+            st.session_state.tree_step = 1
+            st.rerun()
+    
+    # ===== שלב 3: מתחייב או נשלל =====
+    elif step == 3:
+        chosen_dir = st.session_state.tree_answer_direction
+        actual_analysis = get_decision_tree_analysis(q_data)
+        actual_dir = actual_analysis.get('direction', 'unknown') if actual_analysis else 'unknown'
+        
+        # פידבק על שלב 2
+        if chosen_dir == actual_dir:
+            st.success(f"✅ זיהית נכון: {_DIR_LABELS[chosen_dir]}")
+        else:
+            st.warning(f"💭 בחרת: {_DIR_LABELS.get(chosen_dir, '?')} • הכיוון האמיתי: {_DIR_LABELS.get(actual_dir, '?')}")
+        
+        st.markdown("### ✏️ שלב 3: ההיגד מתחייב או שולל את התכונה?")
+        st.caption('דוגמה: "אני אדם מסודר" = מתחייב את המצפוניות. "אני נוטה לאחר" = שולל את המצפוניות.')
+        
+        polarity_options = [
+            ('affirms', '➕ מתחייב — ההיגד אומר "כן, יש לי את התכונה"'),
+            ('negates', '➖ שולל — ההיגד אומר "אין לי את התכונה" או מתאר התנהגות הפוכה'),
+        ]
+        labels = [opt[1] for opt in polarity_options]
+        keys = [opt[0] for opt in polarity_options]
+        choice = st.radio("ההיגד:", labels, key=f"tree_pol_{current}", label_visibility="collapsed")
+        chosen_pol = keys[labels.index(choice)]
+        
+        if st.button("➡️ המשך לתשובה הסופית", key=f"tree_next3_{current}", type="primary"):
+            st.session_state.tree_answer_polarity = chosen_pol
+            st.session_state.tree_step = 4
+            st.rerun()
+        
+        if st.button("⬅️ חזור לשלב 2", key=f"tree_back3_{current}", type="secondary"):
+            st.session_state.tree_step = 2
+            st.rerun()
+    
+    # ===== שלב 4: התשובה הסופית (לפי המטריצה של מכון נועם) =====
+    elif step == 4:
+        chosen_dir = st.session_state.tree_answer_direction
+        chosen_pol = st.session_state.tree_answer_polarity
+        
+        # מטריצת ההחלטה של מכון נועם
+        # תכונה חיובית + מתחייב = נכון
+        # תכונה חיובית + נשלל   = לא נכון
+        # תכונה שלילית + מתחייב = לא נכון
+        # תכונה שלילית + נשלל   = נכון
+        # תכונה מאוזנת — תלוי במשתמש (חיובית בכלליות אלא אם מדובר בקיצון)
+        
+        if chosen_dir == 'positive':
+            recommended = 'נכון' if chosen_pol == 'affirms' else 'לא נכון'
+        elif chosen_dir == 'negative':
+            recommended = 'לא נכון' if chosen_pol == 'affirms' else 'נכון'
+        else:  # balanced
+            recommended = 'נכון' if chosen_pol == 'affirms' else 'לא נכון'
+        
+        st.markdown("### 🎯 שלב 4: התשובה לפי עץ ההחלטה")
+        
+        # מציג סיכום
+        dir_emoji = {'positive': '✅', 'balanced': '⚖️', 'negative': '🔴'}.get(chosen_dir, '?')
+        pol_emoji = '➕' if chosen_pol == 'affirms' else '➖'
+        st.markdown(f"""
+        <div style="background: #fff3e0; padding: 16px; border-radius: 10px; margin: 10px 0;">
+        <strong>📋 סיכום ניתוח שלך:</strong><br>
+        • שלב 2: התכונה {dir_emoji} {_DIR_LABELS.get(chosen_dir, '?')}<br>
+        • שלב 3: ההיגד {pol_emoji} {'מתחייב' if chosen_pol == 'affirms' else 'שולל'} את התכונה<br>
+        <br>
+        <strong>🎯 לפי מטריצת מכון נועם → התשובה: <span style="color: #d84315; font-size: 1.2em;">{recommended}</span></strong>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.caption("💡 אם אתה לא מסכים עם הניתוח שלך — תוכל לבחור אחרת. אבל זה הוא הניתוח **הלוגי** לפי שיטת מכון נועם.")
+        
+        col_no, col_yes = st.columns(2)
+        if col_no.button("❌ לא נכון לגביי", key=f"tree_final_no_{current}",
+                         use_container_width=True, type="secondary"):
+            _handle_answer(q_data, 2, current, is_stress)
+            _reset_tree_state()
+        if col_yes.button("✅ נכון לגביי", key=f"tree_final_yes_{current}",
+                          use_container_width=True, type="secondary"):
+            _handle_answer(q_data, 4, current, is_stress)
+            _reset_tree_state()
+        
+        if st.button("⬅️ חזור לשלב 3", key=f"tree_back4_{current}", type="secondary"):
+            st.session_state.tree_step = 3
             st.rerun()
 
 
@@ -1085,6 +1530,11 @@ def _handle_answer(q_data, val, current, is_stress):
     st.session_state.current_q += 1
     st.session_state.q_start_time = time.time()
     st.session_state.stress_active = False
+    # איפוס מצב עץ ההחלטה לשאלה הבאה
+    st.session_state.tree_step = 1
+    st.session_state.tree_answer_trait = None
+    st.session_state.tree_answer_direction = None
+    st.session_state.tree_answer_polarity = None
     st.rerun()
 
 
