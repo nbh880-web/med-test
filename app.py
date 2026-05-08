@@ -1,4 +1,5 @@
-"""Mednitai HEXACO System — Main Application (v2.0)
+"""
+Mednitai HEXACO System — Main Application (v2.0)
 ==================================================
 שיפורים מרכזיים:
 - שאלון "נכון/לא נכון" מהיר (HEXACO + תרחישים)
@@ -826,53 +827,177 @@ def get_quick_quiz_questions(count=50, focus_trait=None):
     return questions[:count]
 
 
+def _calculate_effective_score(user_answer, is_reverse):
+    """מחשב את הציון האפקטיבי בתכונה (אחרי reverse)."""
+    try:
+        score = int(user_answer)
+        if is_reverse:
+            score = 6 - score
+        return max(1, min(5, score))
+    except Exception:
+        return 3
+
+
 def get_instant_tip(question_data, user_answer):
     """
-    טיפ מיידי אחרי תשובה — בשיטת מכון נועם (עץ ההחלטה ב-3 שלבים).
-    מציג למשתמש את שלבי החשיבה כדי שילמד את השיטה.
+    טיפ מיידי אחרי תשובה — מותאם לסולם המבחן (1-5 או בינארי).
+    מסביר איך התשובה משפיעה על הציון, מה הטווח האידיאלי, ולמה.
     """
     analysis = get_decision_tree_analysis(question_data)
-    
     if not analysis:
         return None
     
-    # האם המשתמש ענה כמו ההמלצה?
-    user_label = "נכון" if user_answer >= 4 else "לא נכון"
-    ideal_label = analysis['recommended']
-    is_match = (user_label == ideal_label)
+    trait = question_data.get('trait', question_data.get('category', ''))
+    is_reverse = str(question_data.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes']
+    is_binary = (st.session_state.get('test_type') == 'quick')
     
-    # כותרת
-    if is_match:
-        header = "✅ **תשובה מצוינת — בדיוק כמו שיטת מכון נועם!**"
+    trait_info = TRAIT_DIRECTIONS.get(trait)
+    is_scenario = analysis.get('is_scenario', False)
+    
+    # === מקרה 1: תרחיש אמינות (לא HEXACO) ===
+    if is_scenario:
+        recommended = analysis['recommended']
+        user_label = "נכון" if user_answer >= 4 else "לא נכון"
+        is_match = (user_label == recommended)
+        
+        if is_match:
+            header = "✅ **תשובה מצוינת!**"
+        else:
+            header = "💭 **כדאי לחשוב על זה:**"
+        
+        return (f"{header}\n\n"
+                f"**סוג ההיגד:** תרחיש אמינות — {analysis['trait_he']}\n\n"
+                f"**כיוון:** {analysis['direction_label']}\n\n"
+                f"**תשובה אידיאלית:** {recommended}\n\n"
+                f"**💡 למה:** {analysis['why']}\n\n"
+                f"**🎯 ענית:** \"{user_label}\"" + (" — מושלם!" if is_match else ""))
+    
+    # === מקרה 2: שאלת HEXACO ===
+    if not trait_info:
+        return None
+    
+    # מחשב את הציון האפקטיבי בתכונה
+    effective_score = _calculate_effective_score(user_answer, is_reverse)
+    direction = trait_info['direction']
+    trait_he = analysis['trait_he']
+    low, high = IDEAL_RANGES.get(trait, (3.0, 5.0))
+    
+    # === בינארי: 2 או 4 בלבד ===
+    if is_binary:
+        recommended = analysis['recommended']
+        user_label = "נכון" if user_answer >= 4 else "לא נכון"
+        is_match = (user_label == recommended)
+        
+        if is_match:
+            header = "✅ **תשובה מצוינת!**"
+            verdict = f"בדיוק כמו שצריך — תשובה זו מקדמת את {trait_he} לכיוון הנכון."
+        else:
+            header = "💭 **תשובה לא אידיאלית**"
+            verdict = f"תשובה זו מרחיקה אותך מהטווח האידיאלי של {trait_he} ({low}-{high})."
+        
+        return (f"{header}\n\n"
+                f"**🔍 התכונה:** {trait_he} — {trait_info['label']}\n\n"
+                f"**✏️ ההיגד:** {analysis.get('polarity_he', 'לא ברור')}\n\n"
+                f"**🎯 תשובה אידיאלית:** {recommended}\n\n"
+                f"**🎯 ענית:** {user_label}\n\n"
+                f"**💡 הסבר:** {verdict}\n\n"
+                f"**🏥 רלוונטיות לרפואה:** {trait_info['why_medical']}")
+    
+    # === סולם 1-5: דירוג מפורט ===
+    # נחשב מה היה צריך להיות הציון האפקטיבי האידיאלי
+    # אז נדע איזו תשובה (1-5) המשתמש היה צריך לתת
+    target_effective = (low + high) / 2  # מרכז הטווח האידיאלי
+    
+    if is_reverse:
+        # אם reverse, התשובה האידיאלית היא 6 - target
+        ideal_answer_low = round(6 - high)
+        ideal_answer_high = round(6 - low)
     else:
-        header = "💭 **בוא נחשוב על זה ביחד — שיטת מכון נועם:**"
+        ideal_answer_low = round(low)
+        ideal_answer_high = round(high)
     
-    # שלבי עץ ההחלטה
-    if analysis.get('is_scenario'):
-        # תרחיש אמינות
-        steps = "\n\n".join([
-            f"**🔍 שלב 1 — סוג ההיגד:** תרחיש אמינות בקטגוריה: {analysis['trait_he']}",
-            f"**📊 שלב 2 — כיוון:** {analysis['direction_label']}",
-            f"**✏️ שלב 3 — תשובה אידיאלית:** {analysis['recommended']}",
-        ])
-        explanation = f"**💡 הסבר:** {analysis['why']}"
+    # מקובע בין 1 ל-5
+    ideal_answer_low = max(1, min(5, ideal_answer_low))
+    ideal_answer_high = max(1, min(5, ideal_answer_high))
+    if ideal_answer_low > ideal_answer_high:
+        ideal_answer_low, ideal_answer_high = ideal_answer_high, ideal_answer_low
+    
+    answer_labels = {1: "בכלל לא", 2: "לא מסכים", 3: "נייטרלי", 4: "מסכים", 5: "מסכים מאוד"}
+    user_label = answer_labels.get(user_answer, str(user_answer))
+    
+    # קביעת ה-verdict לפי הציון האפקטיבי
+    # סובלנות של 0.5: ציון 4 ייחשב "בטווח" גם אם הטווח מתחיל ב-4.3
+    tolerance = 0.5
+    if (low - tolerance) <= effective_score <= (high + tolerance):
+        # בטווח האידיאלי (כולל סובלנות)
+        emoji = "🟢"
+        if low <= effective_score <= high:
+            header = "✅ **תשובה מצוינת — בדיוק בטווח האידיאלי!**"
+        else:
+            header = "✅ **תשובה טובה — קרוב מאוד לטווח האידיאלי**"
+        verdict = (f"הציון שלך ב-{trait_he} מהשאלה הזו: **{effective_score}** "
+                   f"(הטווח האידיאלי: {low}-{high}). שמור על הקצב הזה!")
+    elif effective_score < low - tolerance:
+        # מתחת לטווח
+        gap = low - effective_score
+        if direction == 'positive':
+            if gap >= 2:
+                emoji = "🔴"
+                severity = "משמעותית מדי"
+                header = "🔴 **תשובה רחוקה מהאידיאל**"
+            else:
+                emoji = "🟠"
+                severity = "מעט"
+                header = "🟠 **תשובה נמוכה מהאידיאל**"
+            verdict = (f"הציון שלך ב-{trait_he}: **{effective_score}** — "
+                       f"{severity} מתחת לטווח האידיאלי ({low}-{high}). "
+                       f"זו תכונה {trait_info['label'][2:]} לרפואה — צריך ציון גבוה יותר.")
+        else:  # mixed/balanced
+            emoji = "🟠"
+            header = "🟠 **תשובה נמוכה**"
+            verdict = (f"הציון שלך: **{effective_score}**. הטווח האידיאלי הוא {low}-{high}.")
+    else:  # effective_score > high
+        gap = effective_score - high
+        if direction == 'balanced' and trait == 'Emotionality':
+            # רגשנות גבוהה מדי = חרדתיות
+            emoji = "🔴"
+            header = "🔴 **תשובה גבוהה מדי**"
+            verdict = (f"הציון שלך ב-{trait_he}: **{effective_score}**. "
+                       f"גבוה מדי — מצביע על חרדתיות יתר, שעלולה לעורר חשש "
+                       f"לקושי בתפקוד תחת לחץ. הטווח האידיאלי: {low}-{high}.")
+        elif direction == 'balanced':
+            emoji = "🟠"
+            header = "🟠 **תשובה גבוהה מהאידיאל**"
+            verdict = (f"הציון שלך: **{effective_score}**, אבל הטווח האידיאלי הוא "
+                       f"{low}-{high}. זו תכונה מאוזנת — קיצוניות לא רצויה.")
+        else:
+            # תכונה חיובית עם ציון מעל הטווח
+            emoji = "🟡"
+            header = "🟡 **תשובה גבוהה מאוד — זהירות מ-'מושלם מדי'**"
+            verdict = (f"הציון שלך: **{effective_score}**. גבוה מאוד — "
+                       f"אם תמיד תענה כך תיראה לא אותנטי. הטווח האידיאלי: {low}-{high}.")
+    
+    # מציע מה היה אידיאלי
+    if ideal_answer_low == ideal_answer_high:
+        ideal_suggestion = f"**{ideal_answer_low}** ({answer_labels[ideal_answer_low]})"
     else:
-        # שאלת HEXACO רגילה
-        steps = "\n\n".join([
-            f"**🔍 שלב 1 — איזו תכונה זה בודק?** {analysis['trait_he']}",
-            f"**📊 שלב 2 — חיובית או שלילית לרפואה?** {analysis['direction_label']}",
-            f"**✏️ שלב 3 — ההיגד מתחייב או נשלל?** {analysis.get('polarity_he', 'לא ברור')}",
-            f"**✅ שלב 4 — תשובה אידיאלית:** {analysis['recommended']}",
-        ])
-        explanation = f"**💡 למה זה חשוב לרפואה:** {analysis['why']}"
+        ideal_suggestion = (f"**{ideal_answer_low}-{ideal_answer_high}** "
+                            f"({answer_labels[ideal_answer_low]} עד {answer_labels[ideal_answer_high]})")
     
-    user_status = f"\n\n**🎯 ענית:** \"{user_label}\""
-    if is_match:
-        user_status += " — מושלם!"
-    else:
-        user_status += f" • **תשובה אידיאלית הייתה:** \"{ideal_label}\""
+    reverse_note = ""
+    if is_reverse:
+        reverse_note = ("\n\n⚠️ **שים לב — זוהי שאלה הפוכה!** "
+                        f"היגד ששולל את התכונה. ענית {user_answer} → "
+                        f"זה תורגם לציון {effective_score} בתכונה.")
     
-    tip = f"{header}\n\n{steps}\n\n{explanation}{user_status}"
+    tip = (f"{header}\n\n"
+           f"**🔍 התכונה:** {trait_he} ({trait_info['label']})\n\n"
+           f"**🎯 ענית:** {user_answer} ({user_label})\n\n"
+           f"**📊 ציון אפקטיבי בתכונה:** {emoji} **{effective_score}/5**\n\n"
+           f"**🎯 תשובה אידיאלית:** {ideal_suggestion}\n\n"
+           f"**💡 ניתוח:** {verdict}\n\n"
+           f"**🏥 רלוונטיות לרפואה:** {trait_info['why_medical']}"
+           f"{reverse_note}")
     
     return tip
 
@@ -1167,6 +1292,146 @@ def start_test(test_type, test_length):
 # ============================================================
 # QUIZ Screen
 # ============================================================
+def _render_timer_visual(elapsed_seconds, show_warning=True):
+    """
+    מצייר שעון חול SVG שמתרוקן עם הזמן.
+    מציג גם הודעת אזהרה אחרי 8 שניות (אם show_warning=True).
+    
+    Visual states:
+    - 0-3 שניות: ירוק (כל החול למעלה)
+    - 3-6 שניות: צהוב (חצי-חצי)
+    - 6-8 שניות: כתום (החול עובר למטה)
+    - 8+ שניות: אדום + רעידה + הודעת אזהרה
+    """
+    THRESHOLD_WARN = 8  # סף האזהרה
+    THRESHOLD_MAX = 15  # זמן מקסימלי בויזואליזציה
+    
+    # אחוז התקדמות (0 בהתחלה, 1 בסוף)
+    progress = min(1.0, elapsed_seconds / THRESHOLD_MAX)
+    
+    # החול בחלק העליון מתרוקן, בחלק התחתון מתמלא
+    top_fill = max(0, 1 - progress)  # 1 → 0
+    bottom_fill = progress  # 0 → 1
+    
+    # צבע לפי הזמן
+    if elapsed_seconds < 3:
+        sand_color = "#10b981"  # ירוק
+        bg_color = "#d1fae5"
+        status_text = "✅ קח את הזמן שלך"
+        status_color = "#065f46"
+    elif elapsed_seconds < 6:
+        sand_color = "#f59e0b"  # צהוב/ענבר
+        bg_color = "#fef3c7"
+        status_text = "⏱️ מתקרב לסיום זמן הקריאה"
+        status_color = "#92400e"
+    elif elapsed_seconds < THRESHOLD_WARN:
+        sand_color = "#f97316"  # כתום
+        bg_color = "#ffedd5"
+        status_text = "⚠️ קצת איטי — תכף יסומן כהיסוס"
+        status_color = "#9a3412"
+    else:
+        sand_color = "#ef4444"  # אדום
+        bg_color = "#fee2e2"
+        status_text = f"🔴 איחור! ({elapsed_seconds}s) — נרשם כהיסוס"
+        status_color = "#991b1b"
+    
+    # SVG של שעון חול
+    # החול העליון מצטמצם, התחתון גדל
+    top_height = 60 * top_fill  # מקסימום 60px
+    bottom_height = 60 * bottom_fill  # מקסימום 60px
+    
+    # אנימציה: רעידה כשעוברים את הסף
+    shake_class = "shake-animation" if elapsed_seconds >= THRESHOLD_WARN else ""
+    
+    svg_html = f"""
+    <div class="hourglass-container {shake_class}" style="
+        display: flex; align-items: center; justify-content: center; gap: 20px;
+        padding: 16px; border-radius: 14px; background: {bg_color};
+        margin: 12px 0; transition: background 0.5s ease;
+    ">
+        <svg width="80" height="120" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+            <!-- מסגרת שעון החול -->
+            <path d="M 15 10 L 85 10 L 85 25 L 55 70 L 55 80 L 85 125 L 85 140 L 15 140 L 15 125 L 45 80 L 45 70 L 15 25 Z"
+                  fill="none" stroke="#374151" stroke-width="3" stroke-linejoin="round"/>
+            
+            <!-- חול בחלק העליון (מתרוקן) -->
+            <clipPath id="topClip">
+                <path d="M 18 13 L 82 13 L 82 25 L 52 68 L 48 68 L 18 25 Z"/>
+            </clipPath>
+            <rect x="15" y="{13 + 60 * progress}" width="70" height="{top_height}"
+                  fill="{sand_color}" clip-path="url(#topClip)"
+                  style="transition: all 0.5s ease;"/>
+            
+            <!-- חול בחלק התחתון (מתמלא) -->
+            <clipPath id="bottomClip">
+                <path d="M 48 82 L 52 82 L 82 125 L 82 137 L 18 137 L 18 125 Z"/>
+            </clipPath>
+            <rect x="15" y="{137 - bottom_height}" width="70" height="{bottom_height}"
+                  fill="{sand_color}" clip-path="url(#bottomClip)"
+                  style="transition: all 0.5s ease;"/>
+            
+            <!-- טפטוף החול (עיגול קטן באמצע) -->
+            <circle cx="50" cy="80" r="2" fill="{sand_color}"
+                    opacity="{1 if 0.05 < progress < 0.95 else 0}"
+                    style="transition: opacity 0.3s ease;">
+                <animate attributeName="cy" from="72" to="88" dur="0.6s" repeatCount="indefinite"/>
+            </circle>
+            
+            <!-- בסיס -->
+            <line x1="10" y1="142" x2="90" y2="142" stroke="#374151" stroke-width="3" stroke-linecap="round"/>
+            <line x1="10" y1="8" x2="90" y2="8" stroke="#374151" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
+            <div style="font-size: 2rem; font-weight: 800; color: {status_color}; font-family: 'Rubik', sans-serif;">
+                {elapsed_seconds}<span style="font-size: 1rem; font-weight: 500;"> שניות</span>
+            </div>
+            <div style="font-size: 0.95rem; color: {status_color}; font-weight: 600;">
+                {status_text}
+            </div>
+        </div>
+    </div>
+    
+    <style>
+    @keyframes shake {{
+        0%, 100% {{ transform: translateX(0); }}
+        25% {{ transform: translateX(-3px); }}
+        75% {{ transform: translateX(3px); }}
+    }}
+    .shake-animation {{
+        animation: shake 0.4s ease-in-out infinite;
+    }}
+    </style>
+    """
+    
+    st.markdown(svg_html, unsafe_allow_html=True)
+    
+    # הודעת אזהרה אחרי 8 שניות (רק במצב סימולציה)
+    if show_warning and elapsed_seconds >= 8:
+        warning_html = f"""
+        <div style="
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 2px solid #dc2626;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: 700;
+            color: #991b1b;
+            animation: pulse-warning 1s ease-in-out infinite;
+        ">
+            ⚠️ <strong>שים לב:</strong> עליך לענות מהר יותר! היסוס יתר נרשם במערכת.
+        </div>
+        <style>
+        @keyframes pulse-warning {{
+            0%, 100% {{ box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }}
+            50% {{ box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }}
+        }}
+        </style>
+        """
+        st.markdown(warning_html, unsafe_allow_html=True)
+
+
 def render_quiz():
     questions = st.session_state.questions
     current = st.session_state.current_q
@@ -1211,6 +1476,15 @@ def render_quiz():
                 st.session_state.stress_completed_q = current
                 st.session_state.q_start_time = time.time()
 
+    # ===== Smart Auto-Refresh — רק כשממתינים לתשובה =====
+    # רענון כל שנייה כדי לעדכן את השעון, אבל בלי לכבד את ה-session state
+    # (כי q_start_time כבר שמור — הרענון רק מצייר מחדש את התצוגה)
+    st_autorefresh(interval=1000, limit=300, key=f"quiz_timer_{current}")
+    
+    # מחושב פעם אחת — נשתמש בו לתצוגה ולהתראה
+    elapsed = time.time() - st.session_state.q_start_time
+    elapsed_int = int(elapsed)
+    
     # ===== Progress & Header =====
     st.progress(current / total)
     col1, col2 = st.columns([2, 1])
@@ -1218,8 +1492,11 @@ def render_quiz():
         st.write(f"שאלה **{current + 1}** מתוך **{total}**")
     with col2:
         if not st.session_state.practice_mode:
-            elapsed = time.time() - st.session_state.q_start_time
-            st.caption(f"⏱️ {int(elapsed)}s | ⚡ {st.session_state.hesitation_count} | 🏎️ {st.session_state.speed_flag_count}")
+            st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירים")
+    
+    # ===== Hourglass Timer + Warning =====
+    # מציג את שעון החול תמיד, אבל את ההתראה רק במצב סימולציה
+    _render_timer_visual(elapsed_int, show_warning=not st.session_state.practice_mode)
 
     # ===== Question Card =====
     q_text = q_data.get('q', q_data.get('question', q_data.get('text', 'שאלה חסרה')))
