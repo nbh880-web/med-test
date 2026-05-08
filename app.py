@@ -253,6 +253,61 @@ button[kind="secondary"]:hover, button[kind="secondary"]:active, button[kind="se
     font-size: 2.2rem; font-weight: 800; font-family: 'Rubik', sans-serif; color: #e94560;
 }
 .admin-stat-label { font-size: 0.9rem; color: #aaa; margin-top: 5px; }
+
+/* ===== Hourglass Timer ===== */
+.hourglass-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 16px;
+    border-radius: 14px;
+    margin: 12px 0;
+    transition: background 0.5s ease;
+}
+.hourglass-container svg { flex-shrink: 0; }
+.hourglass-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+.hourglass-num {
+    font-size: 2rem;
+    font-weight: 800;
+    font-family: 'Rubik', sans-serif;
+}
+.hourglass-num-unit {
+    font-size: 1rem;
+    font-weight: 500;
+}
+.hourglass-status {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+@keyframes hourglass-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+.shake-animation {
+    animation: hourglass-shake 0.4s ease-in-out infinite;
+}
+.timer-warning-box {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border: 2px solid #dc2626;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: 700;
+    color: #991b1b;
+    animation: pulse-warning 1s ease-in-out infinite;
+}
+@keyframes pulse-warning {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1296,140 +1351,85 @@ def _render_timer_visual(elapsed_seconds, show_warning=True):
     """
     מצייר שעון חול SVG שמתרוקן עם הזמן.
     מציג גם הודעת אזהרה אחרי 8 שניות (אם show_warning=True).
-    
-    Visual states:
-    - 0-3 שניות: ירוק (כל החול למעלה)
-    - 3-6 שניות: צהוב (חצי-חצי)
-    - 6-8 שניות: כתום (החול עובר למטה)
-    - 8+ שניות: אדום + רעידה + הודעת אזהרה
     """
-    THRESHOLD_WARN = 8  # סף האזהרה
-    THRESHOLD_MAX = 15  # זמן מקסימלי בויזואליזציה
+    THRESHOLD_WARN = 8
+    THRESHOLD_MAX = 15
     
-    # אחוז התקדמות (0 בהתחלה, 1 בסוף)
     progress = min(1.0, elapsed_seconds / THRESHOLD_MAX)
-    
-    # החול בחלק העליון מתרוקן, בחלק התחתון מתמלא
-    top_fill = max(0, 1 - progress)  # 1 → 0
-    bottom_fill = progress  # 0 → 1
+    top_fill = max(0, 1 - progress)
+    bottom_fill = progress
     
     # צבע לפי הזמן
     if elapsed_seconds < 3:
-        sand_color = "#10b981"  # ירוק
+        sand_color = "#10b981"
         bg_color = "#d1fae5"
         status_text = "✅ קח את הזמן שלך"
         status_color = "#065f46"
     elif elapsed_seconds < 6:
-        sand_color = "#f59e0b"  # צהוב/ענבר
+        sand_color = "#f59e0b"
         bg_color = "#fef3c7"
         status_text = "⏱️ מתקרב לסיום זמן הקריאה"
         status_color = "#92400e"
     elif elapsed_seconds < THRESHOLD_WARN:
-        sand_color = "#f97316"  # כתום
+        sand_color = "#f97316"
         bg_color = "#ffedd5"
         status_text = "⚠️ קצת איטי — תכף יסומן כהיסוס"
         status_color = "#9a3412"
     else:
-        sand_color = "#ef4444"  # אדום
+        sand_color = "#ef4444"
         bg_color = "#fee2e2"
         status_text = f"🔴 איחור! ({elapsed_seconds}s) — נרשם כהיסוס"
         status_color = "#991b1b"
     
-    # SVG של שעון חול
-    # החול העליון מצטמצם, התחתון גדל
-    top_height = 60 * top_fill  # מקסימום 60px
-    bottom_height = 60 * bottom_fill  # מקסימום 60px
-    
-    # אנימציה: רעידה כשעוברים את הסף
+    top_height = 60 * top_fill
+    bottom_height = 60 * bottom_fill
     shake_class = "shake-animation" if elapsed_seconds >= THRESHOLD_WARN else ""
     
-    svg_html = f"""
-    <div class="hourglass-container {shake_class}" style="
-        display: flex; align-items: center; justify-content: center; gap: 20px;
-        padding: 16px; border-radius: 14px; background: {bg_color};
-        margin: 12px 0; transition: background 0.5s ease;
-    ">
-        <svg width="80" height="120" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
-            <!-- מסגרת שעון החול -->
-            <path d="M 15 10 L 85 10 L 85 25 L 55 70 L 55 80 L 85 125 L 85 140 L 15 140 L 15 125 L 45 80 L 45 70 L 15 25 Z"
-                  fill="none" stroke="#374151" stroke-width="3" stroke-linejoin="round"/>
-            
-            <!-- חול בחלק העליון (מתרוקן) -->
-            <clipPath id="topClip">
-                <path d="M 18 13 L 82 13 L 82 25 L 52 68 L 48 68 L 18 25 Z"/>
-            </clipPath>
-            <rect x="15" y="{13 + 60 * progress}" width="70" height="{top_height}"
-                  fill="{sand_color}" clip-path="url(#topClip)"
-                  style="transition: all 0.5s ease;"/>
-            
-            <!-- חול בחלק התחתון (מתמלא) -->
-            <clipPath id="bottomClip">
-                <path d="M 48 82 L 52 82 L 82 125 L 82 137 L 18 137 L 18 125 Z"/>
-            </clipPath>
-            <rect x="15" y="{137 - bottom_height}" width="70" height="{bottom_height}"
-                  fill="{sand_color}" clip-path="url(#bottomClip)"
-                  style="transition: all 0.5s ease;"/>
-            
-            <!-- טפטוף החול (עיגול קטן באמצע) -->
-            <circle cx="50" cy="80" r="2" fill="{sand_color}"
-                    opacity="{1 if 0.05 < progress < 0.95 else 0}"
-                    style="transition: opacity 0.3s ease;">
-                <animate attributeName="cy" from="72" to="88" dur="0.6s" repeatCount="indefinite"/>
-            </circle>
-            
-            <!-- בסיס -->
-            <line x1="10" y1="142" x2="90" y2="142" stroke="#374151" stroke-width="3" stroke-linecap="round"/>
-            <line x1="10" y1="8" x2="90" y2="8" stroke="#374151" stroke-width="3" stroke-linecap="round"/>
-        </svg>
-        
-        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 6px;">
-            <div style="font-size: 2rem; font-weight: 800; color: {status_color}; font-family: 'Rubik', sans-serif;">
-                {elapsed_seconds}<span style="font-size: 1rem; font-weight: 500;"> שניות</span>
-            </div>
-            <div style="font-size: 0.95rem; color: {status_color}; font-weight: 600;">
-                {status_text}
-            </div>
-        </div>
-    </div>
+    # ID יחיד לכל clipPath כדי למנוע התנגשויות
+    cid = f"hg{elapsed_seconds}"
     
-    <style>
-    @keyframes shake {{
-        0%, 100% {{ transform: translateX(0); }}
-        25% {{ transform: translateX(-3px); }}
-        75% {{ transform: translateX(3px); }}
-    }}
-    .shake-animation {{
-        animation: shake 0.4s ease-in-out infinite;
-    }}
-    </style>
-    """
+    # מציג טפטוף רק אם החול עדיין נופל (בערך באמצע)
+    drop_visible = "1" if 0.05 < progress < 0.95 else "0"
+    
+    # SVG נקי בלבד — בלי <style> מוטמע!
+    svg_html = (
+        f'<div class="hourglass-container {shake_class}" style="background: {bg_color};">'
+        f'<svg width="80" height="120" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">'
+        f'<path d="M 15 10 L 85 10 L 85 25 L 55 70 L 55 80 L 85 125 L 85 140 L 15 140 L 15 125 L 45 80 L 45 70 L 15 25 Z" '
+        f'fill="none" stroke="#374151" stroke-width="3" stroke-linejoin="round"/>'
+        f'<defs>'
+        f'<clipPath id="top-{cid}"><path d="M 18 13 L 82 13 L 82 25 L 52 68 L 48 68 L 18 25 Z"/></clipPath>'
+        f'<clipPath id="bot-{cid}"><path d="M 48 82 L 52 82 L 82 125 L 82 137 L 18 137 L 18 125 Z"/></clipPath>'
+        f'</defs>'
+        f'<rect x="15" y="{13 + 60 * progress}" width="70" height="{top_height}" '
+        f'fill="{sand_color}" clip-path="url(#top-{cid})"/>'
+        f'<rect x="15" y="{137 - bottom_height}" width="70" height="{bottom_height}" '
+        f'fill="{sand_color}" clip-path="url(#bot-{cid})"/>'
+        f'<circle cx="50" cy="80" r="2" fill="{sand_color}" opacity="{drop_visible}">'
+        f'<animate attributeName="cy" from="72" to="88" dur="0.6s" repeatCount="indefinite"/>'
+        f'</circle>'
+        f'<line x1="10" y1="142" x2="90" y2="142" stroke="#374151" stroke-width="3" stroke-linecap="round"/>'
+        f'<line x1="10" y1="8" x2="90" y2="8" stroke="#374151" stroke-width="3" stroke-linecap="round"/>'
+        f'</svg>'
+        f'<div class="hourglass-info">'
+        f'<div class="hourglass-num" style="color: {status_color};">'
+        f'{elapsed_seconds}<span class="hourglass-num-unit"> שניות</span>'
+        f'</div>'
+        f'<div class="hourglass-status" style="color: {status_color};">{status_text}</div>'
+        f'</div>'
+        f'</div>'
+    )
     
     st.markdown(svg_html, unsafe_allow_html=True)
     
-    # הודעת אזהרה אחרי 8 שניות (רק במצב סימולציה)
-    if show_warning and elapsed_seconds >= 8:
-        warning_html = f"""
-        <div style="
-            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-            border: 2px solid #dc2626;
-            border-radius: 12px;
-            padding: 14px 18px;
-            margin: 10px 0;
-            text-align: center;
-            font-weight: 700;
-            color: #991b1b;
-            animation: pulse-warning 1s ease-in-out infinite;
-        ">
-            ⚠️ <strong>שים לב:</strong> עליך לענות מהר יותר! היסוס יתר נרשם במערכת.
-        </div>
-        <style>
-        @keyframes pulse-warning {{
-            0%, 100% {{ box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }}
-            50% {{ box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }}
-        }}
-        </style>
-        """
-        st.markdown(warning_html, unsafe_allow_html=True)
+    # הודעת אזהרה אחרי 8 שניות
+    if show_warning and elapsed_seconds >= THRESHOLD_WARN:
+        st.markdown(
+            '<div class="timer-warning-box">'
+            '⚠️ <strong>שים לב:</strong> עליך לענות מהר יותר! היסוס יתר נרשם במערכת.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
 
 def render_quiz():
