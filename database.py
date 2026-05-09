@@ -8,6 +8,8 @@ import streamlit as st
 from datetime import datetime
 import json
 import threading
+import re
+import hashlib
 
 
 # ============================================================
@@ -60,14 +62,42 @@ def _init_firebase_safe():
 
 
 def get_db_status():
-    """Returns (is_connected: bool, error_message: str or None) — for debugging."""
+    """Returns (is_connected: bool, error_message: str or None)."""
     return (_db_client is not None, _db_init_error)
 
 
 @st.cache_resource
 def _init_firebase():
-    """Initialize Firebase — cached so it runs once."""
     return _init_firebase_safe()
+
+
+# ============================================================
+# User ID Sanitization — תיקון ValueError של Firestore
+# ============================================================
+def _make_safe_user_id(user_name):
+    """
+    יוצר user_id ASCII-only ל-Firestore.
+    Firestore לא תמיד מטפל טוב בתווי עברית כ-IDs.
+    הפתרון: hash של השם → תמיד ASCII-only, תמיד ייחודי, לא ריק.
+    """
+    if not user_name:
+        return "anonymous_user"
+    
+    raw = str(user_name).strip()
+    if not raw:
+        return "anonymous_user"
+    
+    # יוצר hash מהשם המקורי (כך ש"דוד כהן" תמיד יקבל את אותו ID)
+    name_hash = hashlib.md5(raw.encode('utf-8')).hexdigest()[:16]
+    
+    # מנסה גם להוציא חלק קריא מהשם (אנגלית/מספרים בלבד)
+    readable = re.sub(r'[^a-zA-Z0-9]+', '', raw)[:20].lower()
+    
+    if readable:
+        return f"u_{readable}_{name_hash[:8]}"
+    else:
+        # רק עברית/תווים מיוחדים — נשתמש ב-hash בלבד
+        return f"user_{name_hash}"
 
 
 # ============================================================
@@ -95,15 +125,34 @@ class DB_Manager:
                 pass
             return False
 
+        # ולידציה של שם משתמש
+        if not user_name or not str(user_name).strip():
+            try:
+                st.warning("⚠️ שם משתמש ריק — לא ניתן לשמור")
+            except Exception:
+                pass
+            return False
+
+        # ולידציה של שם הקולקציה
+        if not collection or not isinstance(collection, str) or not collection.strip():
+            return False
+
         try:
             now = datetime.now()
+            safe_name = str(user_name).strip()
+            safe_user_id = _make_safe_user_id(safe_name)
+            
+            # ולידציה אחרונה — וודא ש-user_id הוא string לא ריק (ASCII)
+            if not safe_user_id or not isinstance(safe_user_id, str):
+                safe_user_id = "anonymous_user"
+            
             doc = {
-                'user_name': str(user_name),
-                'user_id': str(user_name).lower().replace(' ', '_'),
-                'test_type': collection.replace('_results', ''),
+                'user_name': safe_name,
+                'user_id': safe_user_id,
+                'test_type': str(collection).replace('_results', ''),
                 'results': self._safe_serialize(results),
                 'ai_report': self._safe_serialize(report),
-                'hesitation_count': int(hesitation_count),
+                'hesitation_count': int(hesitation_count) if hesitation_count is not None else 0,
                 'test_date': now.strftime('%Y-%m-%d'),
                 'test_time': now.strftime('%H:%M:%S'),
                 'timestamp': now,
@@ -111,7 +160,8 @@ class DB_Manager:
 
             if extra_data and isinstance(extra_data, dict):
                 for k, v in extra_data.items():
-                    doc[k] = self._safe_serialize(v)
+                    if k and isinstance(k, str):
+                        doc[k] = self._safe_serialize(v)
 
             doc_ref = db.collection(collection).add(doc)
             if doc_ref:
@@ -127,12 +177,15 @@ class DB_Manager:
             return False
 
     def fetch_history(self, user_name, collection):
-        """Fetch up to 20 records. NO order_by — to avoid Firestore index requirements."""
+        """Fetch up to 20 records — without order_by."""
         db = self._get_db()
         if not db:
             return []
+        
+        if not user_name or not str(user_name).strip():
+            return []
 
-        user_id = str(user_name).lower().replace(' ', '_')
+        user_id = _make_safe_user_id(str(user_name).strip())
 
         try:
             query = (db.collection(collection)
@@ -155,11 +208,9 @@ class DB_Manager:
             return []
 
     def fetch_all_tests_admin(self, collection):
-        """Fetch all records for admin view."""
         db = self._get_db()
         if not db:
             return []
-
         try:
             docs = db.collection(collection).stream()
             return [doc.to_dict() for doc in docs]
@@ -175,7 +226,7 @@ class DB_Manager:
         if hasattr(data, 'to_dict'):
             return data.to_dict()
         if isinstance(data, dict):
-            return {k: self._safe_serialize(v) for k, v in data.items()}
+            return {str(k): self._safe_serialize(v) for k, v in data.items() if k is not None}
         if isinstance(data, list):
             return [self._safe_serialize(item) for item in data]
         try:
