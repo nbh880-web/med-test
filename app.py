@@ -42,8 +42,9 @@ from gemini_ai import (
 )
 from database import (
     save_to_db, save_integrity_test_to_db, save_combined_test_to_db,
+    save_haifa_test_to_db, get_haifa_history,
     get_db_history, get_integrity_history, get_combined_history,
-    get_all_tests
+    get_all_tests, get_db_status
 )
 
 # ============================================================
@@ -1494,6 +1495,8 @@ def init_session_state():
         'fake_alert_acknowledged': {},
         'video_responses': {},
         'video_start_time': 0,
+        'db_save_status': None,
+        'db_save_error': None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -2576,23 +2579,7 @@ def _run_ai_pure(username, test_type, s_data, i_data, rel, cont, hes, hist,
         
         result['gemini'] = g
         result['claude'] = c
-        
-        # שמירה ל-DB (גם אם נכשל, התוצאה תוצג)
-        try:
-            s_dict = s_data.to_dict() if hasattr(s_data, 'to_dict') else s_data
-            i_dict = i_data.to_dict() if hasattr(i_data, 'to_dict') else i_data
-            report_arg = [g, c] if c else g
-            
-            if test_type in ('hexaco', 'quick', 'haifa'):
-                save_to_db(username, s_dict, report_arg, hesitation=hes)
-            elif test_type == 'integrity':
-                save_integrity_test_to_db(username, s_dict, rel, report_arg, hesitation=hes)
-            elif test_type == 'combined':
-                save_combined_test_to_db(username, s_dict, i_dict, rel, report_arg, hesitation=hes)
-            
-            result['saved_to_db'] = True
-        except Exception as db_err:
-            result['db_error'] = str(db_err)
+        result['saved_to_db'] = True  # נשמר כבר ב-thread הראשי, לפני קריאת AI
         
     except Exception as e:
         result['status'] = 'error'
@@ -2713,6 +2700,38 @@ def finish_test_fast():
         st.session_state.reliability_score = reliability
         st.session_state.contradictions = contradictions
 
+    # ===== CRITICAL FIX: שמירה ל-DB מיד, לפני ה-AI =====
+    # בעבר: השמירה רצה מ-thread רקע אחרי ה-AI. אם ה-AI נכשל — שום דבר לא נשמר.
+    # עכשיו: שומרים מיד עם הציונים (בלי AI). ה-AI מתעדכן אחר כך, אבל הרשומה כבר קיימת.
+    save_success = False
+    save_error_msg = None
+    try:
+        s_dict = st.session_state.summary_data.to_dict() if hasattr(st.session_state.summary_data, 'to_dict') else st.session_state.summary_data
+        i_dict = st.session_state.int_summary_data.to_dict() if hasattr(st.session_state.int_summary_data, 'to_dict') else st.session_state.int_summary_data
+        rel = st.session_state.reliability_score
+        hes = st.session_state.hesitation_count
+        username = st.session_state.user_name
+        
+        # ניתוח ראשוני — "Pending AI"
+        initial_report = "המבחן נשמר. הניתוח המעמיק יופיע ברגע שה-AI יסיים..."
+        
+        if test_type == 'haifa':
+            video_count = st.session_state.get('video_count', 0)
+            save_success = save_haifa_test_to_db(username, s_dict, initial_report,
+                                                  hesitation=hes, video_count=video_count)
+        elif test_type in ('hexaco', 'quick'):
+            save_success = save_to_db(username, s_dict, initial_report, hesitation=hes)
+        elif test_type == 'integrity':
+            save_success = save_integrity_test_to_db(username, s_dict, rel, initial_report, hesitation=hes)
+        elif test_type == 'combined':
+            save_success = save_combined_test_to_db(username, s_dict, i_dict, rel, initial_report, hesitation=hes)
+    except Exception as e:
+        save_error_msg = str(e)
+    
+    # נציג הודעה למשתמש על תוצאת השמירה (יוצג במסך התוצאות)
+    st.session_state.db_save_status = 'success' if save_success else 'error'
+    st.session_state.db_save_error = save_error_msg
+
     st.session_state.ai_status = 'processing'
     hist = []
     try:
@@ -2824,6 +2843,42 @@ def get_quick_takeaways(summary_df, contradictions, fatigue, hesitations, speed_
 # ============================================================
 # RESULTS Screen
 # ============================================================
+def _retry_save():
+    """נסה לשמור שוב ל-DB אם הניסיון הראשון נכשל."""
+    try:
+        s_dict = st.session_state.summary_data.to_dict() if hasattr(st.session_state.summary_data, 'to_dict') else st.session_state.summary_data
+        i_dict = st.session_state.int_summary_data.to_dict() if hasattr(st.session_state.int_summary_data, 'to_dict') else st.session_state.int_summary_data
+        rel = st.session_state.reliability_score
+        hes = st.session_state.hesitation_count
+        username = st.session_state.user_name
+        test_type = st.session_state.test_type
+        
+        report = "המבחן נשמר. הניתוח המעמיק יופיע ברגע שה-AI יסיים..."
+        
+        success = False
+        if test_type == 'haifa':
+            video_count = st.session_state.get('video_count', 0)
+            success = save_haifa_test_to_db(username, s_dict, report,
+                                             hesitation=hes, video_count=video_count)
+        elif test_type in ('hexaco', 'quick'):
+            success = save_to_db(username, s_dict, report, hesitation=hes)
+        elif test_type == 'integrity':
+            success = save_integrity_test_to_db(username, s_dict, rel, report, hesitation=hes)
+        elif test_type == 'combined':
+            success = save_combined_test_to_db(username, s_dict, i_dict, rel, report, hesitation=hes)
+        
+        if success:
+            st.session_state.db_save_status = 'success'
+            st.session_state.db_save_error = None
+            st.rerun()
+        else:
+            st.session_state.db_save_status = 'error'
+            st.session_state.db_save_error = "השמירה נכשלה שוב"
+    except Exception as e:
+        st.session_state.db_save_status = 'error'
+        st.session_state.db_save_error = str(e)
+
+
 def render_results():
     # FIXED: בודק את ה-Future בכל rerun — אם הוא מוכן, שולף את התוצאה
     _check_ai_future()
@@ -2835,6 +2890,18 @@ def render_results():
         <p class="hero-subtitle">שלום {name_safe} — הנה התוצאות שלך</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    # ===== משוב על שמירה ל-DB =====
+    db_status = st.session_state.get('db_save_status')
+    if db_status == 'success':
+        st.success("✅ **המבחן נשמר בהיסטוריה שלך** — תוכל לחזור אליו בכל זמן מטאב 'ההיסטוריה שלי'")
+    elif db_status == 'error':
+        err = st.session_state.get('db_save_error', 'שגיאה לא ידועה')
+        st.error(f"⚠️ **המבחן לא נשמר** — שגיאת חיבור למסד הנתונים: `{err}`\n\n"
+                 f"התוצאות עדיין מוצגות כאן, אבל לא יישמרו בהיסטוריה. "
+                 f"זו לא בעיה אצלך — זו תקלה במערכת. נסה ב-30 שניות.")
+        if st.button("🔄 נסה לשמור שוב", key="retry_save"):
+            _retry_save()
 
     # ===== 3 Quick Takeaways =====
     takeaways = get_quick_takeaways(
