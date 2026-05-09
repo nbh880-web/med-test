@@ -7,30 +7,67 @@ Firebase Firestore: save, fetch, admin.
 import streamlit as st
 from datetime import datetime
 import json
+import threading
 
 
 # ============================================================
-# Firebase Init — Cached
+# Firebase Init — Module-level cache (works from threads too!)
 # ============================================================
+
+_db_client = None
+_db_init_lock = threading.Lock()
+_db_init_attempted = False
+_db_init_error = None
+
+
+def _init_firebase_safe():
+    """Initialize Firebase — thread-safe, works from background threads."""
+    global _db_client, _db_init_attempted, _db_init_error
+    
+    if _db_client is not None:
+        return _db_client
+    
+    if _db_init_attempted and _db_client is None:
+        return None
+    
+    with _db_init_lock:
+        if _db_client is not None:
+            return _db_client
+        if _db_init_attempted:
+            return None
+        
+        _db_init_attempted = True
+        
+        try:
+            from google.cloud import firestore
+            from google.oauth2 import service_account
+            
+            try:
+                firebase_config = dict(st.secrets["firebase"])
+            except Exception as e:
+                _db_init_error = f"Cannot read st.secrets: {e}"
+                return None
+            
+            if 'private_key' in firebase_config:
+                firebase_config['private_key'] = firebase_config['private_key'].replace('\\n', '\n')
+            
+            credentials = service_account.Credentials.from_service_account_info(firebase_config)
+            _db_client = firestore.Client(credentials=credentials, project=firebase_config.get('project_id'))
+            return _db_client
+        except Exception as e:
+            _db_init_error = str(e)
+            return None
+
+
+def get_db_status():
+    """Returns (is_connected: bool, error_message: str or None) — for debugging."""
+    return (_db_client is not None, _db_init_error)
+
+
 @st.cache_resource
 def _init_firebase():
     """Initialize Firebase — cached so it runs once."""
-    try:
-        from google.cloud import firestore
-        from google.oauth2 import service_account
-
-        firebase_config = dict(st.secrets["firebase"])
-
-        # Fix private key newlines
-        if 'private_key' in firebase_config:
-            firebase_config['private_key'] = firebase_config['private_key'].replace('\\n', '\n')
-
-        credentials = service_account.Credentials.from_service_account_info(firebase_config)
-        db = firestore.Client(credentials=credentials, project=firebase_config.get('project_id'))
-        return db
-    except Exception as e:
-        st.warning(f"Firebase לא זמין: {e}")
-        return None
+    return _init_firebase_safe()
 
 
 # ============================================================
@@ -39,14 +76,23 @@ def _init_firebase():
 class DB_Manager:
 
     def _get_db(self):
-        return _init_firebase()
+        client = _init_firebase_safe()
+        if client is not None:
+            return client
+        try:
+            return _init_firebase()
+        except Exception:
+            return None
 
     def save_test(self, user_name, results, report, collection,
                   hesitation_count=0, extra_data=None):
         """Save test results to Firestore."""
         db = self._get_db()
         if not db:
-            st.warning("⚠️ Firebase לא זמין — בדוק את ה-secrets")
+            try:
+                st.warning("⚠️ Firebase לא זמין — בדוק את ה-secrets")
+            except Exception:
+                pass
             return False
 
         try:
@@ -67,14 +113,17 @@ class DB_Manager:
                 for k, v in extra_data.items():
                     doc[k] = self._safe_serialize(v)
 
-            # שימוש ב-add() — אבל גם בודק שזה הצליח ע"י תפיסת ה-DocumentReference
             doc_ref = db.collection(collection).add(doc)
-            # add() מחזיר tuple של (timestamp, doc_ref)
             if doc_ref:
                 return True
             return False
         except Exception as e:
-            st.warning(f"⚠️ שגיאה בשמירה ל-DB: {type(e).__name__}: {e}")
+            global _db_init_error
+            _db_init_error = f"Save failed: {type(e).__name__}: {e}"
+            try:
+                st.warning(f"⚠️ שגיאה בשמירה ל-DB: {type(e).__name__}: {e}")
+            except Exception:
+                pass
             return False
 
     def fetch_history(self, user_name, collection):
@@ -86,14 +135,12 @@ class DB_Manager:
         user_id = str(user_name).lower().replace(' ', '_')
 
         try:
-            # פשוט — בלי order_by שדורש index
             query = (db.collection(collection)
                      .where('user_id', '==', user_id)
                      .limit(20))
             docs = list(query.stream())
             results = [doc.to_dict() for doc in docs]
             
-            # ממיינים בקוד Python (במקום ב-Firestore) — לא דורש index
             try:
                 results.sort(key=lambda x: x.get('timestamp', ''), reverse=False)
             except Exception:
@@ -101,7 +148,10 @@ class DB_Manager:
             
             return results
         except Exception as e:
-            st.warning(f"⚠️ שגיאה בטעינת היסטוריה ({collection}): {type(e).__name__}: {e}")
+            try:
+                st.warning(f"⚠️ שגיאה בטעינת היסטוריה ({collection}): {type(e).__name__}: {e}")
+            except Exception:
+                pass
             return []
 
     def fetch_all_tests_admin(self, collection):
@@ -157,16 +207,21 @@ def save_combined_test_to_db(name, trait_scores, int_scores, reliability_score, 
                          })
 
 
+def save_haifa_test_to_db(name, results, report, hesitation=0, video_count=0):
+    """שמירה של תרגול חיפה — קטגוריה נפרדת."""
+    return _db.save_test(name, results, report, 'haifa_results', hesitation,
+                         extra_data={'video_count': video_count})
+
+
 def get_db_history(name):
-    """Merge history from all 3 collections."""
+    """Merge history from all 4 collections."""
     all_history = []
-    for collection in ['hexaco_results', 'integrity_results', 'combined_results']:
+    for collection in ['hexaco_results', 'integrity_results', 'combined_results', 'haifa_results']:
         try:
             history = _db.fetch_history(name, collection)
             all_history.extend(history)
         except Exception:
             continue
-    # Sort by timestamp if available
     try:
         all_history.sort(key=lambda x: x.get('timestamp', ''), reverse=False)
     except Exception:
@@ -182,10 +237,14 @@ def get_combined_history(name):
     return _db.fetch_history(name, 'combined_results')
 
 
+def get_haifa_history(name):
+    return _db.fetch_history(name, 'haifa_results')
+
+
 def get_all_tests():
     """Admin: fetch all tests from all collections."""
     all_tests = []
-    for collection in ['hexaco_results', 'integrity_results', 'combined_results']:
+    for collection in ['hexaco_results', 'integrity_results', 'combined_results', 'haifa_results']:
         try:
             tests = _db.fetch_all_tests_admin(collection)
             all_tests.extend(tests)
