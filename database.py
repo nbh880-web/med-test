@@ -46,6 +46,7 @@ class DB_Manager:
         """Save test results to Firestore."""
         db = self._get_db()
         if not db:
+            st.warning("⚠️ Firebase לא זמין — בדוק את ה-secrets")
             return False
 
         try:
@@ -66,14 +67,18 @@ class DB_Manager:
                 for k, v in extra_data.items():
                     doc[k] = self._safe_serialize(v)
 
-            db.collection(collection).add(doc)
-            return True
+            # שימוש ב-add() — אבל גם בודק שזה הצליח ע"י תפיסת ה-DocumentReference
+            doc_ref = db.collection(collection).add(doc)
+            # add() מחזיר tuple של (timestamp, doc_ref)
+            if doc_ref:
+                return True
+            return False
         except Exception as e:
-            st.warning(f"שגיאה בשמירה: {e}")
+            st.warning(f"⚠️ שגיאה בשמירה ל-DB: {type(e).__name__}: {e}")
             return False
 
     def fetch_history(self, user_name, collection):
-        """Fetch up to 20 records, sorted by timestamp. Fallback without order_by."""
+        """Fetch up to 20 records. NO order_by — to avoid Firestore index requirements."""
         db = self._get_db()
         if not db:
             return []
@@ -81,23 +86,23 @@ class DB_Manager:
         user_id = str(user_name).lower().replace(' ', '_')
 
         try:
-            # Try with order_by (requires Firestore index)
+            # פשוט — בלי order_by שדורש index
             query = (db.collection(collection)
                      .where('user_id', '==', user_id)
-                     .order_by('timestamp')
                      .limit(20))
-            docs = query.stream()
-            return [doc.to_dict() for doc in docs]
-        except Exception:
+            docs = list(query.stream())
+            results = [doc.to_dict() for doc in docs]
+            
+            # ממיינים בקוד Python (במקום ב-Firestore) — לא דורש index
             try:
-                # Fallback without order_by
-                query = (db.collection(collection)
-                         .where('user_id', '==', user_id)
-                         .limit(20))
-                docs = query.stream()
-                return [doc.to_dict() for doc in docs]
+                results.sort(key=lambda x: x.get('timestamp', ''), reverse=False)
             except Exception:
-                return []
+                pass
+            
+            return results
+        except Exception as e:
+            st.warning(f"⚠️ שגיאה בטעינת היסטוריה ({collection}): {type(e).__name__}: {e}")
+            return []
 
     def fetch_all_tests_admin(self, collection):
         """Fetch all records for admin view."""
