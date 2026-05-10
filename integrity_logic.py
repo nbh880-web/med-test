@@ -12,27 +12,23 @@ import streamlit as st
 INTEGRITY_CATEGORIES = {
     'theft', 'academic', 'termination', 'gambling', 'drugs',
     'whistleblowing', 'feedback', 'teamwork', 'unethical',
-    'polygraph', 'regret', 'honesty_meta'
+    'polygraph', 'regret', 'honesty_meta',
+    'harassment', 'procedures'  # קטגוריות חדשות לתרגול חיפה
 }
 
-NEGATIVE_TRAITS = {'theft', 'drugs', 'gambling', 'unethical', 'termination', 'academic'}
-POSITIVE_TRAITS = {'whistleblowing', 'feedback', 'teamwork'}
+NEGATIVE_TRAITS = {'theft', 'drugs', 'gambling', 'unethical', 'termination',
+                   'academic', 'harassment'}  # הטרדה = שלילי
+POSITIVE_TRAITS = {'whistleblowing', 'feedback', 'teamwork', 'procedures'}  # הקפדה על נהלים = חיובי
 META_CYCLE = ['polygraph', 'regret', 'honesty_meta']
 
 
 @st.cache_data
 def _load_integrity_csv():
-    """Try multiple paths for the CSV file."""
-    import os
-    candidates = ["integrity_questions.csv", "data/integrity_questions.csv", "./integrity_questions.csv"]
-    for path in candidates:
-        if os.path.exists(path):
-            try:
-                return pd.read_csv(path)
-            except Exception:
-                continue
-    st.error("שגיאה בטעינת שאלות אמינות: הקובץ integrity_questions.csv לא נמצא")
-    return pd.DataFrame()
+    try:
+        return pd.read_csv("data/integrity_questions.csv")
+    except Exception as e:
+        st.error(f"שגיאה בטעינת שאלות אמינות: {e}")
+        return pd.DataFrame()
 
 
 def get_integrity_questions(count=140):
