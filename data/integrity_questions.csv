@@ -168,3 +168,47 @@ q,category,reverse,control_type
 האם אי פעם לווית כסף להימורים?,gambling,FALSE,none
 האם אי פעם הימרת כסף שהיה מיועד לדברים אחרים?,gambling,FALSE,none
 האם אי פעם התווכחת עם מישהו באלימות בגלל הימור?,gambling,FALSE,none
+האם הרגשת אי-נוחות מצד עמיתים שעשו הערות בעלות אופי מיני?,harassment,FALSE,none
+האם הצעת לחבר עבודה לצאת איתך גם אחרי שסירב/ה?,harassment,FALSE,none
+האם נגעת בעמית/ת עבודה ללא הסכמה?,harassment,FALSE,none
+האם דיווחת על מקרה הטרדה שראית או חווית?,harassment,TRUE,none
+האם השתמשת במעמדך כדי להפעיל לחץ רומנטי או מיני?,harassment,FALSE,none
+האם שלחת תמונות או מסרים בעלי אופי מיני לעמיתים?,harassment,FALSE,none
+האם סיפרת בדיחות בעלות אופי מיני בסביבת עבודה?,harassment,FALSE,none
+האם התעלמת ממקרה של הטרדה מינית בסביבתך?,harassment,FALSE,main_control
+האם הרגשת שלא נוח לך לעצור התנהגות בלתי הולמת של ממונה?,harassment,FALSE,none
+האם תוכל להגיד 'לא' באופן ברור למצבים בעייתיים מינית?,harassment,TRUE,none
+האם ניצלת מצב של חוסר שוויון כוחות לרעת אדם אחר?,harassment,FALSE,none
+האם הבהרת גבולות אישיים ברורים בעבודה?,harassment,TRUE,none
+האם הפרת נוהל בעבודה גם אם הסיבה הייתה מוצדקת?,procedures,FALSE,none
+האם דייקת בכל הפרוטוקולים שהוטלו עליך?,procedures,TRUE,none
+האם קיצרת תהליכים נדרשים כדי לחסוך זמן?,procedures,FALSE,none
+האם דילגת על שלבי בדיקה כדי להספיק יותר עבודה?,procedures,FALSE,main_control
+האם נמנעת מלמלא טופס נדרש כי זה היה מסורבל?,procedures,FALSE,none
+האם החלטת על דעת עצמך כשהיית צריך אישור מממונה?,procedures,FALSE,none
+האם דיווחת על חריגה מנוהל שראית?,procedures,TRUE,none
+האם פעלת לפי הוראות גם כשחשבת שהן לא הגיוניות?,procedures,TRUE,none
+האם הרגשת שנהלים מסוימים מיותרים והתעלמת מהם?,procedures,FALSE,none
+האם תכננת מראש כדי לעמוד בכל הדרישות הפרוצדורליות?,procedures,TRUE,none
+האם אי פעם הצקת או הערת הערות לא נעימות לאדם בעבודה או בלימודים?,harassment,FALSE,none
+האם דיברת לעמית/ה במקום עבודה בצורה שגרמה לו אי-נוחות מינית?,harassment,FALSE,main_control
+האם תמיד שמרת על גבולות מקצועיים בכל אינטראקציה?,harassment,TRUE,main_control
+האם סיפרת בדיחה גסה במקום עבודה גם אחרי שמישהו ביקש שתפסיק?,harassment,FALSE,none
+האם אי פעם נגעת באדם אחר במקום עבודה מבלי שהיה מוסכם?,harassment,FALSE,none
+האם ראית הטרדה במקום עבודה ולא דיווחת?,harassment,FALSE,main_control
+האם תמיד היית רגיש לסימני אי-נוחות אצל אנשים סביבך?,harassment,TRUE,none
+האם הערת על מראה חיצוני של עמית/ה בצורה שעשויה להיתפס לא ראויה?,harassment,FALSE,none
+האם הזמנת קולגה לפעילות פרטית בעקשנות אחרי סירוב ראשון?,harassment,FALSE,none
+האם תמיד כיבדת בקשות של אחרים לשמור מרחק או שתיקה בנושא מסוים?,harassment,TRUE,none
+האם שלחת הודעה לקולגה שלא הייתה ראויה לקונטקסט מקצועי?,harassment,FALSE,main_control
+האם תמיד דיברת על קולגות בכבוד גם בהיעדרם?,harassment,TRUE,none
+האם אי פעם הפרת נוהל בעבודה או בלימודים גם כשידעת שזה אסור?,procedures,FALSE,none
+האם תמיד פעלת לפי כל הוראת בטיחות גם כשהיא הייתה לא נוחה?,procedures,TRUE,main_control
+האם דילגת על שלב בנוהל כי חשבת שאתה יודע יותר טוב?,procedures,FALSE,none
+האם השתמשת בציוד או חומרים בניגוד להוראות היצרן או הבטיחות?,procedures,FALSE,main_control
+האם הקפדת תמיד למלא טפסים נדרשים גם כשזה לקח זמן?,procedures,TRUE,none
+האם אי פעם זייפת חתימה או דיווח בנוהל פנימי?,procedures,FALSE,none
+האם קיצרת תהליך בעבודה במקום לעקוב אחר השלבים המוגדרים?,procedures,FALSE,none
+האם תמיד עדכנת את הממונה כשעלית על תקלה בנוהל?,procedures,TRUE,none
+האם פעלת באופן עצמאי בנושא שהיה צריך אישור מקדים?,procedures,FALSE,none
+האם אי פעם הסתרת הפרת נוהל של עצמך או של אחר?,procedures,FALSE,main_control
