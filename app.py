@@ -728,6 +728,212 @@ HAIFA_VIDEO_QUESTIONS = [
     },
 ]
 
+
+# ============================================================
+# Video Follow-Up Questions — לפי קטגוריית האמינות
+# ============================================================
+# מתפרצות אחרי שעניתי על מספר שאלות אמינות מאותה קטגוריה.
+# מטרה: לבדוק עקביות תחת לחץ — אם ענית "אף פעם לא גנבתי", 
+# האם תוכל לתאר מקרה שראית גניבה?
+HAIFA_FOLLOWUP_VIDEO = {
+    'theft': [
+        {
+            'q': 'ספר על מקרה שראית מישהו לוקח משהו שלא שייך לו במקום עבודה או לימודים. איך הגבת?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'בחר מקרה אמיתי — קטן או גדול',
+                'תאר מה ראית בלי להאשים יתר על המידה',
+                'הסבר את שיקול הדעת שלך — האם דיווחת? למה כן/לא?',
+                'הראה שאתה מבין את הדילמה (לא רק "כל גנב צריך להיענש")'
+            ]
+        },
+        {
+            'q': 'תאר מצב שבו פיתית להיכנס לדבר לא הוגן והחלטת לא — מה עזר לך?',
+            'duration_sec': 150,
+            'tips_for_practice': [
+                'תהיה כן — כולנו מתפתים לפעמים',
+                'תאר את הקול הפנימי שעצר אותך',
+                'חבר לערך מקצועי (יושרה רפואית)',
+                'אל תהיה מטיף — שיהיה אישי'
+            ]
+        },
+    ],
+    'drugs': [
+        {
+            'q': 'תאר מצב שראית מישהו תחת השפעת אלכוהול או סמים בעבודה או בלימודים. איך התמודדת?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'גם אם לא ראית בעבודה — אפשר ממסיבה או חוויה אחרת',
+                'הראה דאגה לאדם, לא רק לחוקים',
+                'אל תהיה שיפוטי — ההתמכרות היא מחלה',
+                'תאר מה עשית בפועל'
+            ]
+        },
+        {
+            'q': 'מה היית עושה אם היית מגלה שעמית בעבודה (בעתיד, כרופא) משתמש בחומרים אסורים?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'אל תקפוץ ל"דיווח מיידי" — תהיה מורכב',
+                'הראה שלב ראשון של דיבור עם האדם',
+                'הסבר מתי כן צריך לדווח (סכנת מטופלים)',
+                'הראה אמפתיה גם לקשיים של עמית'
+            ]
+        },
+    ],
+    'gambling': [
+        {
+            'q': 'תאר מצב שראית מישהו בסיכון מוגזם — בכסף, בריאות, או בכל תחום. איך הגבת?',
+            'duration_sec': 150,
+            'tips_for_practice': [
+                'בחר מצב אמיתי, גם אם לא דרמטי',
+                'הראה דאגה ולא ביקורת',
+                'תאר מה עשית כדי לעזור (אם משהו)',
+                'חבר ליכולת רפואית — לראות סימני אזהרה'
+            ]
+        },
+    ],
+    'unethical': [
+        {
+            'q': 'ספר על מצב שראית התנהגות לא אתית — בעבודה, לימודים או חיים אישיים. מה עשית?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'בחר מקרה ספציפי — לא הכללה',
+                'תאר את הדילמה האמיתית (לא רק "ידעתי שזה רע")',
+                'הסבר את ההחלטה שלך — לדווח/לא לדווח',
+                'תהיה מוכן לסבירות שטעית — אנושיות'
+            ]
+        },
+        {
+            'q': 'תאר מצב שעמדת בפני פיתוי לקצר דרך באופן לא הגון. מה החליט אותך?',
+            'duration_sec': 150,
+            'tips_for_practice': [
+                'תהיה כן — לפעמים אנחנו רוצים לקצר',
+                'הראה את התהליך הפנימי שלך',
+                'חבר לערכים מקצועיים',
+                'הימנע מקלישאות'
+            ]
+        },
+    ],
+    'termination': [
+        {
+            'q': 'תאר מצב שעזבת מקום עבודה או לימודים בנסיבות מורכבות. מה למדת?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'אל תכפיש את המקום הקודם',
+                'קח אחריות על חלקך אם היה',
+                'הראה למידה ושינוי בעקבות',
+                'הצג את הפרספקטיבה הבוגרת שלך עכשיו'
+            ]
+        },
+    ],
+    'academic': [
+        {
+            'q': 'ספר על מצב שראית מישהו מעתיק או רומה במבחן/עבודה. מה הרגשת ועשית?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'אל תהיה ילדותי ("הלשנתי")',
+                'הצג את המורכבות — חברתית מול אקדמית',
+                'הסבר שיקול דעתך — מה עשית בפועל',
+                'חבר לחשיבות יושרה אקדמית ברפואה'
+            ]
+        },
+        {
+            'q': 'תאר מצב שהיית בלחץ אקדמי קיצוני. איך התמודדת בלי לפגוע ביושר שלך?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'תהיה כן על הקושי',
+                'תאר אסטרטגיות שעבדו',
+                'הראה שאתה לא לבד — ביקשת עזרה',
+                'חבר ליכולת התמודדות בלימודי רפואה'
+            ]
+        },
+    ],
+    'whistleblowing': [
+        {
+            'q': 'תאר מצב ששקלת לדווח על משהו לא תקין אבל היססת. מה עזר לך להחליט?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'הראה שיש לך ספקות בריאים — לא רק ביטחון',
+                'תאר את התהליך הפנימי',
+                'הצג גם את העלות של דיווח (יחסים, הוקעה)',
+                'חבר ליכולת לעמוד מול לחץ חברתי כרופא'
+            ]
+        },
+    ],
+    'feedback': [
+        {
+            'q': 'ספר על ביקורת קשה מאוד שקיבלת מבן זוג, חבר או מנהל. איך הרגשת ומה עשית?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'אל תזלזל בביקורת ("הוא טעה")',
+                'תאר את התהליך הרגשי האמיתי — כעס/הגנה',
+                'הראה איך הגעת לקבל את הביקורת',
+                'הצג שינוי או צמיחה בעקבותיה'
+            ]
+        },
+    ],
+    'teamwork': [
+        {
+            'q': 'תאר מצב שעבדת בצוות שלא תפקד טוב. מה היה תפקידך והאם ניסית לתקן?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'אל תאשים את כולם חוץ ממך',
+                'קח אחריות על חלקך',
+                'תאר ניסיונות תיקון ספציפיים',
+                'הראה למידה גם אם לא הצלחת'
+            ]
+        },
+    ],
+    'harassment': [
+        {
+            'q': 'תאר מצב שראית התנהגות שגרמה לאי-נוחות לאדם אחר במקום עבודה. איך הגבת?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'בחר מקרה אמיתי ספציפי',
+                'תאר את ההתנהגות בלי לפרט יותר מדי',
+                'הראה שזיהית את הבעיה גם אם היא הייתה דקה',
+                'הסבר מה עשית — האם דיברת עם הקורבן/המבצע/הממונה',
+                'אל תכפיש ואל תצדק יתר על המידה'
+            ]
+        },
+        {
+            'q': 'מה היית עושה כרופא אם היית רואה עמית מתנהג בצורה לא ראויה כלפי מטופלת או עובדת?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'הראה גישה הדרגתית: שיחה אישית → ממונה → דיווח רשמי',
+                'אל תקפוץ ל"ארגיש את אלה" — תהיה אסטרטגי',
+                'הסבר את החובה המקצועית להגן על מטופלים',
+                'הראה אמפתיה גם לאדם שטעה (אם זה היה חד-פעמי)'
+            ]
+        },
+    ],
+    'procedures': [
+        {
+            'q': 'תאר מקרה שבו הפרת נוהל או הוראה — בעבודה, לימודים או חיים אישיים. למה זה קרה?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'בחר מקרה אמיתי — כולם מפרים נוהל לפעמים',
+                'הסבר את הסיבה בכנות (אבל בלי תירוצים)',
+                'תאר את ההשלכות',
+                'הראה למידה — מה תעשה אחרת בפעם הבאה',
+                'אל תהיה ילדותי ("המורה היה רע")'
+            ]
+        },
+        {
+            'q': 'מה היית עושה אם היית רואה עמית רופא מדלג על שלב בפרוטוקול רפואי?',
+            'duration_sec': 180,
+            'tips_for_practice': [
+                'הראה שאתה לוקח את זה ברצינות (זו בטיחות מטופלים)',
+                'תאר גישה הדרגתית — לא לתקוף מיד',
+                'הסבר מתי כן צריך לדווח (סכנה ממשית)',
+                'הראה הבנה לעומס שלפעמים גורם לקיצורים',
+                'חבר לערך מקצועי של דיוק רפואי'
+            ]
+        },
+    ],
+}
+
+
 # מסכי "אינך דובר אמת" — שמתפרצים בתרגול חיפה
 HAIFA_FAKE_DETECTION_MESSAGES = [
     {
@@ -754,14 +960,17 @@ HAIFA_FAKE_DETECTION_MESSAGES = [
 def get_haifa_questions(count=80, video_count=4):
     """
     בונה רצף שאלות לתרגול חיפה:
-    - שאלות HEXACO (50%)
-    - שאלות אמינות + הקטגוריות החדשות (50%)
+    - שאלות HEXACO (~45%)
+    - שאלות אמינות תרחישים (~45%)
+    - שאלות מטא (פוליגרף/חרטה/כנות) — מתפרצות באקראיות אמיתית
     - שאלות וידאו פתע (count_video מהן, אקראיות)
     """
     questions = []
+    meta_pool = []
+    meta_categories = {'polygraph', 'regret', 'honesty_meta'}
     
-    # 50% HEXACO
-    hex_count = count // 2
+    # ~45% HEXACO
+    hex_count = int(count * 0.45)
     try:
         hex_df = load_hexaco_questions()
         if not hex_df.empty:
@@ -774,17 +983,16 @@ def get_haifa_questions(count=80, video_count=4):
     except Exception:
         pass
     
-    # 50% אמינות (כולל קטגוריות מורחבות אם יהיו)
-    int_count = count - len(questions)
+    # ~45% אמינות (תרחישים בלבד — מטא נשמר בנפרד)
+    int_count = int(count * 0.45)
     if int_count > 0:
         try:
             int_df = load_integrity_questions_csv()
             if not int_df.empty:
-                # מסננים החוצה רק שאלות מטא של פוליגרף
-                exclude_cats = {'polygraph', 'regret', 'honesty_meta'}
                 cat_col = 'category' if 'category' in int_df.columns else 'trait'
                 if cat_col in int_df.columns:
-                    int_filtered = int_df[~int_df[cat_col].isin(exclude_cats)]
+                    # תרחישים רגילים
+                    int_filtered = int_df[~int_df[cat_col].isin(meta_categories)]
                     if not int_filtered.empty:
                         int_sample = int_filtered.sample(n=min(int_count, len(int_filtered)))
                         for _, row in int_sample.iterrows():
@@ -795,25 +1003,70 @@ def get_haifa_questions(count=80, video_count=4):
                             if 'trait' not in q_dict and 'category' in q_dict:
                                 q_dict['trait'] = q_dict['category']
                             questions.append(q_dict)
+                    
+                    # שאלות מטא — נשמרות בנפרד להזרקה אקראית
+                    meta_df = int_df[int_df[cat_col].isin(meta_categories)]
+                    for _, row in meta_df.iterrows():
+                        q_dict = row.to_dict()
+                        q_dict['quiz_format'] = 'haifa_text'
+                        q_dict['source'] = 'meta'
+                        q_dict['is_meta_question'] = True
+                        if 'trait' not in q_dict and 'category' in q_dict:
+                            q_dict['trait'] = q_dict['category']
+                        meta_pool.append(q_dict)
         except Exception:
             pass
     
     random.shuffle(questions)
     
-    # הוספת שאלות וידאו אקראית במיקומים שונים
+    # ===== הזרקת שאלות מטא באקראיות אמיתית =====
+    # כמות תלויה באורך: 3 בקצר, 4 בבינוני, 5 במלא, 8 ב-300
+    if meta_pool and len(questions) >= 20:
+        if count <= 50:
+            num_meta = 3
+        elif count <= 90:
+            num_meta = 4
+        elif count <= 150:
+            num_meta = 5
+        else:
+            num_meta = 8  # ל-300 שאלות — יותר אירועי לחץ
+        
+        num_meta = min(num_meta, len(meta_pool))
+        meta_sample = random.sample(meta_pool, num_meta)
+        
+        # אקראיות אמיתית — מיקומים אקראיים בתחום בטוח
+        # לא ב-10 הראשונות, לא ב-10 האחרונות, ולא צמודות מדי זה לזה
+        safe_start = 10
+        safe_end = max(safe_start + 1, len(questions) - 10)
+        
+        if safe_end > safe_start:
+            chosen_positions = []
+            attempts = 0
+            min_gap = 5  # מינימום 5 שאלות בין מטא למטא
+            
+            while len(chosen_positions) < num_meta and attempts < 100:
+                pos = random.randint(safe_start, safe_end)
+                if all(abs(pos - p) >= min_gap for p in chosen_positions):
+                    chosen_positions.append(pos)
+                attempts += 1
+            
+            # ממיינים מהסוף להתחלה כדי ש-insert לא ישבש אינדקסים
+            chosen_positions.sort(reverse=True)
+            for i, pos in enumerate(chosen_positions):
+                if i < len(meta_sample):
+                    questions.insert(min(pos, len(questions)), meta_sample[i])
+    
+    # ===== הוספת שאלות וידאו אקראית =====
     if video_count > 0 and len(questions) > 10:
-        # מיקומים: בין שאלות 8-15, 25-35, 45-55, 65-75
         video_sample = random.sample(HAIFA_VIDEO_QUESTIONS, min(video_count, len(HAIFA_VIDEO_QUESTIONS)))
         
-        # מחלקים את הרצף לקטעים שווים
         if len(questions) >= video_count:
-            segment_size = len(questions) // video_count
+            segment_size = max(1, len(questions) // video_count)
             for i, vq in enumerate(video_sample):
-                # מיקום אקראי בתוך הסגמנט
-                segment_start = i * segment_size + 5  # לפחות 5 שאלות בהתחלה
-                segment_end = (i + 1) * segment_size
+                segment_start = i * segment_size + 5
+                segment_end = min((i + 1) * segment_size, len(questions))
                 if segment_start < segment_end:
-                    pos = random.randint(segment_start, min(segment_end, len(questions)))
+                    pos = random.randint(segment_start, segment_end)
                     video_q = dict(vq)
                     video_q['quiz_format'] = 'haifa_video'
                     video_q['source'] = 'video'
@@ -850,6 +1103,51 @@ def should_inject_fake_detection(responses, current_q):
         return False
     
     return True
+
+
+def should_inject_followup_video(responses, current_q, already_injected_categories):
+    """
+    מחליט אם להזריק שאלת וידאו פולו-אפ.
+    תנאים:
+    - ענית על 3+ שאלות מאותה קטגוריית אמינות
+    - הקטגוריה הזו עדיין לא קיבלה פולו-אפ
+    - לא מוקדם מדי במבחן (אחרי שאלה 12)
+    
+    מחזיר: (category, video_data) או (None, None)
+    """
+    if current_q < 12 or not responses:
+        return None, None
+    
+    # סופרים תשובות לכל קטגוריית אמינות
+    category_counts = {}
+    for r in responses:
+        cat = r.get('category', '') or r.get('trait', '')
+        if cat in HAIFA_FOLLOWUP_VIDEO and cat not in already_injected_categories:
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+    
+    # מחפשים קטגוריה עם 3+ תשובות
+    eligible = [cat for cat, c in category_counts.items() if c >= 3]
+    
+    if not eligible:
+        return None, None
+    
+    # סיכוי 30% להזריק (כדי שזה יהיה פתע, לא צפוי)
+    if random.random() > 0.3:
+        return None, None
+    
+    # בוחרים קטגוריה אקראית מהזמינות
+    chosen_cat = random.choice(eligible)
+    video_options = HAIFA_FOLLOWUP_VIDEO[chosen_cat]
+    chosen_video = dict(random.choice(video_options))
+    
+    # הוספת מטא-דאטה
+    chosen_video['quiz_format'] = 'haifa_video'
+    chosen_video['source'] = 'followup'
+    chosen_video['followup_category'] = chosen_cat
+    chosen_video['category'] = chosen_cat
+    chosen_video['trait'] = chosen_cat
+    
+    return chosen_cat, chosen_video
 
 
 
@@ -1119,6 +1417,148 @@ def find_smart_contradictions(responses, similarity_threshold=0.30, min_score_ga
     
     contradictions.sort(key=lambda x: (-x['similarity'], -x['gap']))
     return contradictions[:10]
+
+
+def calculate_pressure_stability(responses):
+    """
+    מחשב מדד יציבות תחת לחץ.
+    
+    הלוגיקה:
+    1. מזהה "אירועי לחץ" — שאלות מטא, וידאו, או מסכי "אינך דובר אמת"
+    2. מסמן 5 שאלות לפני כל אירוע כ"לפני" ו-5 אחרי כ"אחרי"
+    3. מחשב ציון ממוצע לכל תכונה לפני/אחרי
+    4. מודד את ההפרש — ככל שגדול, היציבות נמוכה
+    
+    מחזיר:
+    - score: 0-100 (100 = יציבות מושלמת)
+    - changes: dict של {trait: {before, after, delta, severity}}
+    - summary: טקסט קצר
+    """
+    if not responses or len(responses) < 15:
+        return {'score': 100, 'changes': {}, 'summary': 'לא מספיק נתונים', 'events': 0}
+    
+    # זיהוי אירועי לחץ
+    pressure_events = []
+    for i, r in enumerate(responses):
+        is_meta = (
+            r.get('source') == 'meta' or 
+            r.get('is_meta_question') or 
+            r.get('category') in ('polygraph', 'regret', 'honesty_meta')
+        )
+        is_video = r.get('is_video', False) or r.get('quiz_format') == 'haifa_video'
+        is_followup = r.get('source') == 'followup'
+        
+        if is_meta or is_video or is_followup:
+            pressure_events.append({
+                'index': i,
+                'type': 'meta' if is_meta else ('video' if is_video else 'followup'),
+            })
+    
+    if not pressure_events:
+        return {'score': 100, 'changes': {}, 'summary': 'לא היו אירועי לחץ במבחן', 'events': 0}
+    
+    # חישוב ציונים לפני/אחרי לכל אירוע
+    # פוקוס על תשובות HEXACO רק (יש להן ציון מספרי משמעותי)
+    hexaco_traits = {'Conscientiousness', 'Honesty-Humility', 'Agreeableness',
+                     'Emotionality', 'Extraversion', 'Openness to Experience'}
+    
+    trait_changes = {}  # {trait: [(before_score, after_score), ...]}
+    
+    for event in pressure_events:
+        idx = event['index']
+        
+        # 5 שאלות לפני (לא כולל אירועי לחץ אחרים)
+        before_responses = []
+        for i in range(idx - 1, max(idx - 8, -1), -1):
+            r = responses[i]
+            if r.get('trait') in hexaco_traits and not r.get('is_video'):
+                before_responses.append(r)
+                if len(before_responses) >= 5:
+                    break
+        
+        # 5 שאלות אחרי
+        after_responses = []
+        for i in range(idx + 1, min(idx + 8, len(responses))):
+            r = responses[i]
+            if r.get('trait') in hexaco_traits and not r.get('is_video'):
+                after_responses.append(r)
+                if len(after_responses) >= 5:
+                    break
+        
+        # סופרים את הציונים האפקטיביים לכל תכונה
+        for trait in hexaco_traits:
+            before_for_trait = [_calc_effective(r) for r in before_responses if r.get('trait') == trait]
+            after_for_trait = [_calc_effective(r) for r in after_responses if r.get('trait') == trait]
+            
+            if len(before_for_trait) >= 1 and len(after_for_trait) >= 1:
+                avg_before = sum(before_for_trait) / len(before_for_trait)
+                avg_after = sum(after_for_trait) / len(after_for_trait)
+                
+                if trait not in trait_changes:
+                    trait_changes[trait] = []
+                trait_changes[trait].append((avg_before, avg_after))
+    
+    # חישוב מדד יציבות
+    if not trait_changes:
+        return {'score': 100, 'changes': {}, 'summary': 'לא נמצאו זוגות לפני/אחרי', 'events': len(pressure_events)}
+    
+    changes_summary = {}
+    total_delta = 0
+    count_significant = 0
+    
+    for trait, pairs in trait_changes.items():
+        avg_before = sum(p[0] for p in pairs) / len(pairs)
+        avg_after = sum(p[1] for p in pairs) / len(pairs)
+        delta = abs(avg_after - avg_before)
+        
+        if delta >= 1.0:
+            severity = 'high'
+            count_significant += 1
+        elif delta >= 0.5:
+            severity = 'medium'
+            count_significant += 0.5
+        else:
+            severity = 'low'
+        
+        changes_summary[trait] = {
+            'before': round(avg_before, 2),
+            'after': round(avg_after, 2),
+            'delta': round(avg_after - avg_before, 2),
+            'severity': severity,
+        }
+        total_delta += delta
+    
+    # ציון יציבות: 100 = אין שינוי, 0 = שינויים גדולים
+    avg_delta = total_delta / max(1, len(trait_changes))
+    stability_score = max(0, min(100, round(100 - (avg_delta * 30))))
+    
+    # סיכום טקסטואלי
+    if stability_score >= 85:
+        summary = '🛡️ יציבות מצוינת — האישיות שלך נשארת קבועה גם תחת לחץ'
+    elif stability_score >= 70:
+        summary = '✅ יציבות טובה — שינויים קלים בלבד תחת לחץ'
+    elif stability_score >= 55:
+        summary = '⚠️ יציבות בינונית — אתה משתנה במידה מסוימת תחת לחץ'
+    else:
+        summary = '🔴 יציבות נמוכה — האישיות שלך משתנה בצורה משמעותית תחת לחץ'
+    
+    return {
+        'score': stability_score,
+        'changes': changes_summary,
+        'summary': summary,
+        'events': len(pressure_events),
+    }
+
+
+def _calc_effective(response):
+    """ציון אפקטיבי בתכונה (אחרי reverse)."""
+    try:
+        ans = int(response.get('answer', 3))
+        is_rev = str(response.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes', 't']
+        score = (6 - ans) if is_rev else ans
+        return max(1, min(5, score))
+    except Exception:
+        return 3
 
 
 def calculate_smart_reliability(responses, contradictions, is_binary=False):
@@ -1552,7 +1992,8 @@ def render_home():
                     "אורך הסימולציה:",
                     ["קצרה (40 שאלות + 2 וידאו — ~15 דקות)",
                      "בינונית (80 שאלות + 4 וידאו — ~30 דקות)",
-                     "מלאה (140 שאלות + 6 וידאו — ~50 דקות)"],
+                     "מלאה (140 שאלות + 6 וידאו — ~50 דקות)",
+                     "🔥 סימולציית 300 (300 שאלות + 8 וידאו — ~75 דקות, מלא כמו במבחן)"],
                     key="haifa_length"
                 )
             with col_b:
@@ -1714,7 +2155,9 @@ def start_haifa_test(length_label, is_simulation):
     התחלת תרגול חיפה — שאלון מעורב + שאלות וידאו + מסכי "אינך דובר אמת".
     is_simulation: True = מצב סימולציה (לחץ + מסכים), False = מצב תרגול (רגוע)
     """
-    if "קצרה" in length_label:
+    if "300" in length_label:
+        count, video_count = 300, 8
+    elif "קצרה" in length_label:
         count, video_count = 40, 2
     elif "בינונית" in length_label:
         count, video_count = 80, 4
@@ -1854,18 +2297,20 @@ def _render_haifa_video_question(q_data, current):
     # רענון כל שנייה לעדכון הטיימר
     st_autorefresh(interval=1000, limit=int(duration) + 10, key=f"video_timer_{current}")
     
-    # מציג כותרת מודגשת
+    # מציג כותרת מודגשת — עם דגש על שההקלטה צריכה להתחיל מיד
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-                border-right: 5px solid #d97706;
+    <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+                border-right: 5px solid #dc2626;
                 border-radius: 14px;
                 padding: 20px;
-                margin: 15px 0;">
-        <div style="font-size: 1.3rem; font-weight: 800; color: #92400e; margin-bottom: 8px;">
+                margin: 15px 0;
+                animation: pulse-warning 2s ease-in-out infinite;">
+        <div style="font-size: 1.3rem; font-weight: 800; color: #991b1b; margin-bottom: 8px;">
             🎥 שאלת וידאו — שאלה {current + 1} מתוך {len(st.session_state.questions)}
         </div>
-        <div style="color: #78350f; font-size: 0.95rem;">
-            הקלט את עצמך באפליקציית המצלמה של המחשב/טלפון. הקובץ יישמר אצלך — לא נשלח לשום מקום.
+        <div style="color: #7f1d1d; font-size: 0.95rem; font-weight: 600;">
+            ⚠️ <strong>הטיימר רץ עכשיו!</strong> פתח את אפליקציית המצלמה והתחל להקליט מיד —
+            זמן הקריאה הוא חלק מהזמן הכולל. אין שהות למחשבה.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1887,7 +2332,7 @@ def _render_haifa_video_question(q_data, current):
     <div style="background: #f9fafb; border: 2px solid {timer_color};
                 border-radius: 14px; padding: 20px; margin: 15px 0;
                 text-align: center;">
-        <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 5px;">⏱️ זמן לתשובה</div>
+        <div style="font-size: 0.9rem; color: #6b7280; margin-bottom: 5px;">⏱️ זמן נותר להקלטה</div>
         <div style="font-size: 3rem; font-weight: 800; color: {timer_color}; font-family: 'Rubik', sans-serif;">
             {minutes:02d}:{seconds:02d}
         </div>
@@ -1902,53 +2347,25 @@ def _render_haifa_video_question(q_data, current):
     </div>
     """, unsafe_allow_html=True)
     
-    # ===== סקציית הקלטה ידנית (אפשרות 3) =====
+    # ===== סקציית הקלטה ידנית — מקוצר, בלי כפתור התחלה =====
     minutes_text = duration // 60
     seconds_text = duration % 60
     duration_text = f"{minutes_text}:{seconds_text:02d}"
     
-    # זיהוי מערכת הפעלה (פשוט, לפי user agent ב-JS)
     st.markdown(f"""
     <div style="background: #fef3c7; border-right: 5px solid #d97706;
-                border-radius: 12px; padding: 18px; margin: 15px 0;">
-        <div style="font-size: 1.1rem; font-weight: 700; color: #78350f; margin-bottom: 10px;">
-            🎬 הקלטת וידאו — שלבים
+                border-radius: 12px; padding: 14px 18px; margin: 12px 0;">
+        <div style="font-size: 1rem; font-weight: 700; color: #78350f; margin-bottom: 8px;">
+            🎬 איך להקליט (פתח את האפליקציה במקביל)
         </div>
-        <ol style="color: #78350f; font-size: 0.95rem; line-height: 1.8; margin-right: 20px;">
-            <li><strong>פתח את אפליקציית המצלמה במחשב/טלפון:</strong>
-                <ul style="margin-top: 4px;">
-                    <li><strong>Mac</strong>: Photo Booth (חפש בספוטלייט: ⌘+Space ואז "photo booth")</li>
-                    <li><strong>Windows</strong>: אפליקציית "מצלמה" (חפש בתפריט התחל)</li>
-                    <li><strong>טלפון</strong>: אפליקציית מצלמה רגילה במצב וידאו</li>
-                </ul>
-            </li>
-            <li><strong>הקלט את התשובה שלך</strong> ({duration_text} דקות) — דבר ישיר מול המצלמה כאילו אתה במבחן</li>
-            <li><strong>שמור את הקובץ</strong> — אפליקציית המצלמה תשמור אוטומטית במחשב/טלפון שלך</li>
-            <li><strong>חזור לכאן</strong> וכתוב סיכום קצר של מה שאמרת למטה</li>
-        </ol>
-        <div style="background: #fff7ed; padding: 10px; border-radius: 8px; margin-top: 10px;
-                    font-size: 0.9rem; color: #9a3412;">
-            🔒 <strong>פרטיות:</strong> הסרטון נשמר רק במחשב/טלפון שלך — האפליקציה לא רואה אותו
-            ולא שולחת אותו לאינטרנט.
+        <div style="color: #78350f; font-size: 0.9rem; line-height: 1.6;">
+            • <strong>Mac</strong>: Photo Booth (⌘+Space → "photo booth")<br>
+            • <strong>Windows</strong>: אפליקציית "מצלמה" בתפריט התחל<br>
+            • <strong>טלפון</strong>: אפליקציית מצלמה במצב וידאו<br>
+            <span style="color: #9a3412;">🔒 הסרטון נשמר רק אצלך — לא נשלח לאינטרנט</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # כפתורים פעולה: התחל הקלטה (לחיצה רק לסימון לעצמו)
-    rec_col1, rec_col2 = st.columns(2)
-    with rec_col1:
-        if st.button("🔴 התחלתי להקליט (אפס טיימר)",
-                     key=f"video_rec_start_{current}",
-                     use_container_width=True, type="primary"):
-            st.session_state.video_start_time = time.time()
-            st.rerun()
-    with rec_col2:
-        if st.button("⏸️ עצור טיימר",
-                     key=f"video_rec_pause_{current}",
-                     use_container_width=True, type="secondary"):
-            # מקפיא את הזמן — מאפסים ל-0 כדי לא לחשב יותר
-            st.session_state.video_start_time = 0
-            st.rerun()
     
     # תיבת טקסט להתשובה
     response_key = f"video_resp_{current}"
@@ -2156,6 +2573,27 @@ def render_quiz():
     is_quick = (st.session_state.test_type == 'quick')
     is_haifa = (st.session_state.test_type == 'haifa')
     is_haifa_simulation = is_haifa and st.session_state.get('haifa_simulation', True)
+    
+    # ===== Haifa: בדיקת הזרקת פולו-אפ וידאו (פעם אחת לפני כל שאלה רגילה) =====
+    if (is_haifa and q_data.get('quiz_format') != 'haifa_video' and 
+        not st.session_state.get(f'followup_check_done_{current}', False)):
+        # מסמן שעשינו את הבדיקה (כדי לא לחזור על זה ברענון)
+        st.session_state[f'followup_check_done_{current}'] = True
+        
+        already_injected = st.session_state.get('followup_categories_used', set())
+        cat, video_q = should_inject_followup_video(
+            st.session_state.responses, current, already_injected
+        )
+        
+        if video_q is not None:
+            # מוסיפים את הקטגוריה לרשימה (כדי לא לחזור עליה)
+            if 'followup_categories_used' not in st.session_state:
+                st.session_state.followup_categories_used = set()
+            st.session_state.followup_categories_used.add(cat)
+            
+            # מזריקים את שאלת הפולו-אפ למיקום הנוכחי
+            st.session_state.questions.insert(current, video_q)
+            st.rerun()
     
     # ===== Haifa: שאלת וידאו =====
     if is_haifa and q_data.get('quiz_format') == 'haifa_video':
@@ -2673,6 +3111,10 @@ def finish_test_fast():
         st.session_state.reliability_score = reliability
         st.session_state.contradictions = contradictions
         st.session_state.video_count = len(video_resp)
+        
+        # חישוב מדד יציבות תחת לחץ (חדש!)
+        stability = calculate_pressure_stability(responses)
+        st.session_state.pressure_stability = stability
 
     elif test_type == 'combined':
         hexaco_traits = {'Conscientiousness', 'Honesty-Humility', 'Agreeableness',
@@ -2935,6 +3377,93 @@ def render_results():
         c4.metric("😴 עייפות", f"{fatigue}% ({fatigue_label})")
     else:
         c4.metric("🏎️ מהירות", f"{st.session_state.get('speed_flag_count', 0)}")
+    
+    # ===== Pressure Stability — רק בתרגול חיפה =====
+    stability = st.session_state.get('pressure_stability')
+    if stability and stability.get('events', 0) > 0:
+        st.markdown("---")
+        st.markdown("### 🛡️ יציבות תחת לחץ")
+        
+        score = stability['score']
+        # צבע לפי הציון
+        if score >= 85:
+            stab_color = "#10b981"
+            stab_bg = "#d1fae5"
+        elif score >= 70:
+            stab_color = "#0d9488"
+            stab_bg = "#ccfbf1"
+        elif score >= 55:
+            stab_color = "#f59e0b"
+            stab_bg = "#fef3c7"
+        else:
+            stab_color = "#dc2626"
+            stab_bg = "#fee2e2"
+        
+        st.markdown(f"""
+        <div style="background: {stab_bg}; padding: 20px; border-radius: 14px; 
+                    border-right: 5px solid {stab_color}; margin: 15px 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: {stab_color};">
+                        {stability['summary']}
+                    </div>
+                    <div style="color: #555; margin-top: 6px; font-size: 0.95rem;">
+                        זוהו {stability['events']} אירועי לחץ במהלך המבחן (וידאו, מטא, אזהרות)
+                    </div>
+                </div>
+                <div style="font-size: 3rem; font-weight: 800; color: {stab_color}; 
+                            font-family: 'Rubik', sans-serif;">
+                    {score}<span style="font-size: 1rem;">/100</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # פירוט שינויים בתכונות (רק אם יש שינויים משמעותיים)
+        changes = stability.get('changes', {})
+        significant = {t: c for t, c in changes.items() if c['severity'] in ('high', 'medium')}
+        
+        if significant:
+            with st.expander(f"📊 פירוט: {len(significant)} תכונות שהשתנו תחת לחץ", expanded=True):
+                trait_names_he = {
+                    'Conscientiousness': 'מצפוניות (C)',
+                    'Honesty-Humility': 'כנות-ענווה (H)',
+                    'Agreeableness': 'נעימות (A)',
+                    'Emotionality': 'רגשנות (E)',
+                    'Extraversion': 'מוחצנות (X)',
+                    'Openness to Experience': 'פתיחות (O)',
+                }
+                
+                for trait, change in significant.items():
+                    trait_he = trait_names_he.get(trait, trait)
+                    delta = change['delta']
+                    arrow = "📈" if delta > 0 else "📉"
+                    sev_icon = "🔴" if change['severity'] == 'high' else "🟠"
+                    
+                    direction = "עלה" if delta > 0 else "ירד"
+                    abs_delta = abs(delta)
+                    
+                    st.markdown(f"""
+                    <div style="background: #fff; padding: 14px; border-radius: 10px; 
+                                margin: 8px 0; border-right: 3px solid {stab_color};">
+                        <div style="font-weight: 700; color: #333;">
+                            {sev_icon} {arrow} <strong>{trait_he}</strong>
+                        </div>
+                        <div style="color: #555; margin-top: 6px;">
+                            לפני אירוע לחץ: <strong>{change['before']}</strong> → 
+                            אחרי: <strong>{change['after']}</strong> 
+                            ({direction} ב-{abs_delta:.1f})
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.info(
+                    "💡 **מה זה אומר?** התכונות האלה השתנו אצלך תחת לחץ. "
+                    "במבחן האמיתי — שים לב לסימני הלחץ אצלך (פוליגרף, וידאו, אזהרות) "
+                    "ונסה לחזור למצב הרגיל לפני שאתה עונה."
+                )
+        else:
+            st.success("✅ **לא היו שינויים משמעותיים** — האישיות שלך נשארה יציבה גם תחת לחץ. זה בדיוק מה שמחפשים.")
 
     if st.session_state.ai_status == 'done' and not st.session_state.balloons_shown:
         st.balloons()
@@ -3269,4 +3798,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
