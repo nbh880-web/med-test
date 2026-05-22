@@ -1937,6 +1937,7 @@ def init_session_state():
         'video_start_time': 0,
         'db_save_status': None,
         'db_save_error': None,
+        'test_finalized': False,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -2133,6 +2134,26 @@ def render_home():
                                 st.markdown(html.escape(str(report[1])) if len(report) > 1 else "אין נתונים")
                         elif report:
                             st.markdown(html.escape(str(report)))
+                        
+                        # ===== תשובות וידאו (רק בתרגול חיפה) =====
+                        video_responses = entry.get('video_responses', [])
+                        if video_responses and isinstance(video_responses, list):
+                            st.markdown("#### 🎥 תשובות הווידאו שלך")
+                            for vidx, vr in enumerate(video_responses, 1):
+                                if not isinstance(vr, dict):
+                                    continue
+                                vq = vr.get('question', 'שאלת וידאו')
+                                va = vr.get('answer_text', '')
+                                st.markdown(f"**🎬 שאלה {vidx}:** {html.escape(str(vq))}")
+                                if va and va != '(דולג)':
+                                    st.markdown(f"""
+                                    <div style="background: #ccfbf1; padding: 10px; border-radius: 8px; 
+                                                margin: 4px 0 12px 0; border-right: 3px solid #0d9488;">
+                                        <span style="color: #134e4a;">{html.escape(str(va))}</span>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                else:
+                                    st.caption("(לא נכתב סיכום / דולג)")
             else:
                 st.info("עדיין לא ביצעת מבדקים. עשה את הראשון כדי לראות את ההיסטוריה כאן!")
 
@@ -2180,6 +2201,7 @@ def start_haifa_test(length_label, is_simulation):
     st.session_state.fatigue_index = None
     st.session_state.ai_status = 'pending'
     st.session_state.balloons_shown = False
+    st.session_state.test_finalized = False
     st.session_state.last_tip = None
     
     try:
@@ -2215,6 +2237,7 @@ def start_quick_test(length_label, focus_trait):
     st.session_state.ai_ready = False
     st.session_state.ai_status = 'pending'
     st.session_state.balloons_shown = False
+    st.session_state.test_finalized = False
     st.session_state.last_tip = None
     
     try:
@@ -2243,6 +2266,7 @@ def start_test(test_type, test_length):
     st.session_state.ai_ready = False
     st.session_state.ai_status = 'pending'
     st.session_state.balloons_shown = False
+    st.session_state.test_finalized = False
     st.session_state.last_tip = None
 
     try:
@@ -3050,6 +3074,12 @@ def _check_ai_future():
 
 
 def finish_test_fast():
+    # ===== מניעת כפילות: אם כבר עיבדנו וסיימנו את המבחן הזה — עוברים ישר לתוצאות =====
+    if st.session_state.get('test_finalized', False):
+        st.session_state.step = 'RESULTS'
+        st.rerun()
+        return
+    
     test_type = st.session_state.test_type
     responses = st.session_state.responses
     st.session_state.fatigue_index = calculate_fatigue_index(responses)
@@ -3159,8 +3189,19 @@ def finish_test_fast():
         
         if test_type == 'haifa':
             video_count = st.session_state.get('video_count', 0)
+            # אוספים את תשובות הווידאו לשמירה בהיסטוריה
+            video_data = [
+                {
+                    'question': r.get('question', ''),
+                    'answer_text': r.get('video_response_text', ''),
+                    'filename': r.get('video_filename', ''),
+                    'category': r.get('category', ''),
+                }
+                for r in responses if r.get('is_video', False)
+            ]
             save_success = save_haifa_test_to_db(username, s_dict, initial_report,
-                                                  hesitation=hes, video_count=video_count)
+                                                  hesitation=hes, video_count=video_count,
+                                                  video_data=video_data)
         elif test_type in ('hexaco', 'quick'):
             save_success = save_to_db(username, s_dict, initial_report, hesitation=hes)
         elif test_type == 'integrity':
@@ -3202,6 +3243,9 @@ def finish_test_fast():
     )
     st.session_state.ai_future = future
     st.session_state.ai_submitted_at = time.time()
+
+    # ===== מסמנים שהמבחן הזה כבר עובד ונשמר — מונע כפילות =====
+    st.session_state.test_finalized = True
 
     st.session_state.step = 'RESULTS'
     st.rerun()
@@ -3300,8 +3344,19 @@ def _retry_save():
         success = False
         if test_type == 'haifa':
             video_count = st.session_state.get('video_count', 0)
+            responses = st.session_state.get('responses', [])
+            video_data = [
+                {
+                    'question': r.get('question', ''),
+                    'answer_text': r.get('video_response_text', ''),
+                    'filename': r.get('video_filename', ''),
+                    'category': r.get('category', ''),
+                }
+                for r in responses if r.get('is_video', False)
+            ]
             success = save_haifa_test_to_db(username, s_dict, report,
-                                             hesitation=hes, video_count=video_count)
+                                             hesitation=hes, video_count=video_count,
+                                             video_data=video_data)
         elif test_type in ('hexaco', 'quick'):
             success = save_to_db(username, s_dict, report, hesitation=hes)
         elif test_type == 'integrity':
@@ -3529,6 +3584,7 @@ def render_results():
                 st.session_state[key] = None if 'data' in key or 'report' in key or 'tip' in key or 'future' in key else []
         st.session_state.ai_status = 'pending'
         st.session_state.balloons_shown = False
+        st.session_state.test_finalized = False
         st.session_state.step = 'HOME'
         st.rerun()
 
@@ -3620,6 +3676,62 @@ def _render_results_tab():
     rel = st.session_state.get('reliability_score')
     if rel is not None:
         st.info(f"🔒 פירוש ציון האמינות ({rel}): {get_integrity_interpretation(rel)}")
+
+    # ===== תשובות הווידאו — הצגת הסיכומים שכתבת =====
+    responses = st.session_state.get('responses', [])
+    video_responses = [r for r in responses if r.get('is_video', False)]
+    
+    if video_responses:
+        st.markdown("---")
+        st.markdown("### 🎥 תשובות הווידאו שלך")
+        st.caption("כאן מרוכזים כל הסיכומים שכתבת לשאלות הווידאו — חזור אליהם כדי לשפר בפעם הבאה.")
+        
+        for i, vr in enumerate(video_responses, 1):
+            question = vr.get('question', 'שאלת וידאו')
+            answer_text = vr.get('video_response_text', '')
+            filename = vr.get('video_filename', '')
+            response_time = vr.get('response_time', 0)
+            
+            # כותרת ה-expander
+            preview = answer_text[:40] + "..." if len(str(answer_text)) > 40 else answer_text
+            if not preview or preview == '(דולג)':
+                preview = "⏭️ דולג"
+            
+            with st.expander(f"🎬 שאלה {i}: {preview}"):
+                st.markdown(f"""
+                <div style="background: #fef3c7; padding: 14px; border-radius: 10px; margin: 8px 0;
+                            border-right: 4px solid #d97706;">
+                    <strong>❓ השאלה:</strong><br>
+                    <em style="font-size: 1.05em; color: #78350f;">{html.escape(str(question))}</em>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if answer_text and answer_text != '(דולג)':
+                    st.markdown(f"""
+                    <div style="background: #ccfbf1; padding: 14px; border-radius: 10px; margin: 8px 0;
+                                border-right: 4px solid #0d9488;">
+                        <strong>✍️ הסיכום שכתבת:</strong><br>
+                        <span style="color: #134e4a;">{html.escape(str(answer_text))}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.info("לא כתבת סיכום לשאלה זו (דילגת או השארת ריק).")
+                
+                # מטא-דאטה
+                meta_parts = []
+                if response_time and response_time > 0:
+                    mins = int(response_time) // 60
+                    secs = int(response_time) % 60
+                    meta_parts.append(f"⏱️ זמן: {mins}:{secs:02d}")
+                if filename:
+                    meta_parts.append(f"📁 קובץ: {filename}")
+                if meta_parts:
+                    st.caption(" • ".join(meta_parts))
+        
+        st.success(
+            "💡 **טיפ:** קרא את הסיכומים שלך בקול. האם הם ברורים? האם הם עונים ישירות "
+            "על השאלה? במבחן האמיתי תצטרך לדבר אותם בביטחון תוך 2-4 דקות."
+        )
 
 
 def _render_ai_tab():
