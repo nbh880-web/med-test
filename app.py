@@ -3706,8 +3706,34 @@ def _render_downloads_tab():
                                        f"mednitai_{st.session_state.user_name}.xlsx",
                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                        use_container_width=True, type="primary")
+                else:
+                    # האקסל החזיר טקסט שגיאה — נציג fallback ל-CSV
+                    st.warning(f"⚠️ יצירת Excel נכשלה: {excel}")
+                    try:
+                        import io
+                        df = pd.DataFrame(responses).fillna('')
+                        csv_bytes = df.to_csv(index=False).encode('utf-8-sig')
+                        st.download_button("📄 הורד CSV (במקום Excel)", csv_bytes,
+                                           f"mednitai_{st.session_state.user_name}.csv",
+                                           "text/csv", use_container_width=True, type="secondary")
+                    except Exception as e2:
+                        st.error(f"גם CSV נכשל: {e2}")
+            else:
+                st.info("אין תשובות לייצוא.")
         except Exception as e:
             st.warning(f"שגיאה ב-Excel: {e}")
+            # fallback ל-CSV גם במקרה של חריגה
+            try:
+                import io
+                responses = st.session_state.get('responses', [])
+                if responses:
+                    df = pd.DataFrame(responses).fillna('')
+                    csv_bytes = df.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📄 הורד CSV (במקום Excel)", csv_bytes,
+                                       f"mednitai_{st.session_state.user_name}.csv",
+                                       "text/csv", use_container_width=True, type="secondary")
+            except Exception:
+                pass
 
 
 # ============================================================
