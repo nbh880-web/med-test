@@ -188,20 +188,38 @@ def create_pdf_report(summary_df, raw_responses):
 
 
 def create_excel_download(responses):
+    if not responses:
+        return "אין נתונים"
     try:
-        if not responses:
-            return "אין נתונים"
         df = pd.DataFrame(responses)
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='Responses', index=False)
-            ws = writer.sheets['Responses']
-            for i, col in enumerate(df.columns):
-                width = max(df[col].astype(str).apply(len).max(), len(col)) + 2
-                ws.set_column(i, i, min(width, 40))
-        return output.getvalue()
+        # ממלאים ערכים חסרים (NaN) — קורה כשמערבבים תשובות וידאו עם רגילות.
+        df = df.fillna('')
     except Exception as e:
-        return f"שגיאה: {e}"
+        return f"שגיאה בעיבוד נתונים: {e}"
+
+    # מנסים קודם xlsxwriter, ואם לא קיים — openpyxl
+    for engine in ('xlsxwriter', 'openpyxl'):
+        try:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine=engine) as writer:
+                df.to_excel(writer, sheet_name='Responses', index=False)
+                # התאמת רוחב עמודות — רק ב-xlsxwriter (ב-openpyxl זה שונה)
+                if engine == 'xlsxwriter':
+                    ws = writer.sheets['Responses']
+                    for i, col in enumerate(df.columns):
+                        try:
+                            max_data_len = df[col].astype(str).apply(len).max()
+                            width = max(int(max_data_len), len(str(col))) + 2
+                            ws.set_column(i, i, min(width, 40))
+                        except Exception:
+                            ws.set_column(i, i, 20)
+            return output.getvalue()
+        except ImportError:
+            continue  # מנוע לא מותקן — ננסה את הבא
+        except Exception as e:
+            return f"שגיאה ({engine}): {e}"
+
+    return "שגיאה: לא נמצא מנוע Excel (xlsxwriter / openpyxl)"
 
 
 def get_balanced_questions(df, total_limit=60):
