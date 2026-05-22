@@ -258,14 +258,40 @@ def save_combined_test_to_db(name, trait_scores, int_scores, reliability_score, 
                          })
 
 
-def save_haifa_test_to_db(name, results, report, hesitation=0, video_count=0):
-    """שמירה של תרגול חיפה — קטגוריה נפרדת."""
+def save_haifa_test_to_db(name, results, report, hesitation=0, video_count=0, video_data=None):
+    """שמירה של תרגול חיפה — קטגוריה נפרדת, כולל תשובות הווידאו."""
+    extra = {'video_count': video_count}
+    if video_data:
+        extra['video_responses'] = video_data
     return _db.save_test(name, results, report, 'haifa_results', hesitation,
-                         extra_data={'video_count': video_count})
+                         extra_data=extra)
+
+
+def _dedupe_tests(tests):
+    """
+    מסיר רשומות כפולות — מבחנים שנשמרו פעמיים בטעות.
+    כפילות = אותו משתמש + אותו תאריך + אותה שעה (עד הדקה) + אותו סוג.
+    """
+    seen = set()
+    unique = []
+    for t in tests:
+        # מפתח ייחודי: סוג + תאריך + שעה (עד דקה) + ציון אמינות
+        test_time = str(t.get('test_time', ''))[:5]  # HH:MM (בלי שניות)
+        key = (
+            t.get('test_type', ''),
+            t.get('test_date', ''),
+            test_time,
+            str(t.get('reliability_score', '')),
+            str(t.get('hesitation_count', '')),
+        )
+        if key not in seen:
+            seen.add(key)
+            unique.append(t)
+    return unique
 
 
 def get_db_history(name):
-    """Merge history from all 4 collections."""
+    """Merge history from all 4 collections — with deduplication."""
     all_history = []
     for collection in ['hexaco_results', 'integrity_results', 'combined_results', 'haifa_results']:
         try:
@@ -277,7 +303,7 @@ def get_db_history(name):
         all_history.sort(key=lambda x: x.get('timestamp', ''), reverse=False)
     except Exception:
         pass
-    return all_history
+    return _dedupe_tests(all_history)
 
 
 def get_integrity_history(name):
@@ -293,7 +319,7 @@ def get_haifa_history(name):
 
 
 def get_all_tests():
-    """Admin: fetch all tests from all collections."""
+    """Admin: fetch all tests from all collections — with deduplication."""
     all_tests = []
     for collection in ['hexaco_results', 'integrity_results', 'combined_results', 'haifa_results']:
         try:
@@ -301,4 +327,20 @@ def get_all_tests():
             all_tests.extend(tests)
         except Exception:
             continue
-    return all_tests
+    
+    # dedup — כולל שם משתמש במפתח (כי אדמין רואה את כולם)
+    seen = set()
+    unique = []
+    for t in all_tests:
+        test_time = str(t.get('test_time', ''))[:5]
+        key = (
+            t.get('user_name', ''),
+            t.get('test_type', ''),
+            t.get('test_date', ''),
+            test_time,
+            str(t.get('reliability_score', '')),
+        )
+        if key not in seen:
+            seen.add(key)
+            unique.append(t)
+    return unique
