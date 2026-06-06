@@ -1931,6 +1931,7 @@ def init_session_state():
         'tree_answer_direction': None,
         'tree_answer_polarity': None,
         'haifa_simulation': True,
+        'haifa_video_enabled': False,
         'fake_alert_active': False,
         'fake_alert_acknowledged': {},
         'video_responses': {},
@@ -1966,15 +1967,16 @@ def render_home():
         st.success(f"✅ שלום {name}! בחר את סוג המבדק:")
         
         tab_haifa, tab_quick, tab_full, tab_archive = st.tabs([
-            "🏥 תרגול חיפה",
-            "⚡ מבחן מהיר (כן/לא)", 
-            "📝 מבחנים מלאים",
+            "🏥 חיפה — תרגול",
+            "🎓 בן גוריון — מהיר", 
+            "📘 בר אילן — מלאים",
             "📜 ההיסטוריה שלי"
         ])
         
         # ===== Tab 0: תרגול חיפה (חדש!) =====
         with tab_haifa:
-            st.markdown("### 🏥 תרגול חיפה — סימולציה למבחן הקבלה")
+            st.markdown("### 🏥 אוניברסיטת חיפה — סימולציה למבחן הקבלה")
+            st.caption("מכון אדם מילא • 3 חלקים: משחקים → שאלון אמינות → שאלון AMPQ (אישיות)")
             st.markdown("""
             🎯 **מה זה?** סימולציה של מבחן הקבלה לרפואה בחיפה.
             
@@ -2018,12 +2020,28 @@ def render_home():
                     "תקבל טיפ מיידי אחרי כל תשובה. מומלץ למתחילים."
                 )
             
+            st.write("")
+            
+            # צ'קבוקס להפעלת/כיבוי שאלות וידאו
+            include_video = st.checkbox(
+                "🎥 כלול שאלות וידאו בתרגול",
+                value=False,
+                key="haifa_include_video",
+                help="במבחן חיפה של 2026 לא היו שאלות וידאו בפרק האישיות, אבל בשנים קודמות כן היו. "
+                     "סמן אם תרצה להתאמן גם עליהן (תקליט את עצמך בנפרד על המכשיר)."
+            )
+            if include_video:
+                st.caption("🎬 שאלות וידאו יופיעו באקראי במהלך התרגול. תצטרך להקליט את עצמך באפליקציית מצלמה.")
+            else:
+                st.caption("ℹ️ ללא וידאו — כמו במבחן חיפה האחרון (2026).")
+            
             if st.button("🏥 התחל תרגול חיפה", key="btn_haifa", type="primary", use_container_width=True):
-                start_haifa_test(haifa_length, "סימולציה" in haifa_mode)
+                start_haifa_test(haifa_length, "סימולציה" in haifa_mode, include_video)
         
         # ===== Tab 1: מבחן מהיר =====
         with tab_quick:
-            st.markdown("### ⚡ מבחן מהיר — נכון / לא נכון")
+            st.markdown("### 🎓 אוניברסיטת בן גוריון — מבחן מהיר נכון / לא נכון")
+            st.caption("פורמט בן גוריון: היגדים עם תשובת נכון/לא נכון")
             st.markdown("""
             🎯 **מה זה?** שאלון מהיר עם 2 תשובות בלבד (כן או לא) — מהיר, ממוקד, וקל ללמידה.
             
@@ -2076,7 +2094,8 @@ def render_home():
         
         # ===== Tab 2: מבחנים מלאים =====
         with tab_full:
-            st.markdown("### 📝 מבחנים מלאים (סולם 1-5)")
+            st.markdown("### 📘 אוניברסיטת בר אילן — מבחנים מלאים (סולם 1-5)")
+            st.caption("פורמט בר אילן: HEXACO ואמינות בנפרד (שני מבחנים נפרדים)")
             test_length = st.radio("⏱️ אורך המבדק:",
                                    ["קצר (תרגול: 36-76 שאלות)",
                                     "רגיל (מומלץ: 60-140 שאלות)",
@@ -2171,10 +2190,11 @@ def render_home():
                 st.error("שגיאה בגישה למערכת")
 
 
-def start_haifa_test(length_label, is_simulation):
+def start_haifa_test(length_label, is_simulation, include_video=False):
     """
-    התחלת תרגול חיפה — שאלון מעורב + שאלות וידאו + מסכי "אינך דובר אמת".
+    התחלת תרגול חיפה — שאלון מעורב + (אופציונלי) שאלות וידאו + מסכי "אינך דובר אמת".
     is_simulation: True = מצב סימולציה (לחץ + מסכים), False = מצב תרגול (רגוע)
+    include_video: True = כלול שאלות וידאו (כמו אשתקד), False = בלי (כמו 2026)
     """
     if "300" in length_label:
         count, video_count = 300, 8
@@ -2185,8 +2205,13 @@ def start_haifa_test(length_label, is_simulation):
     else:
         count, video_count = 140, 6
     
+    # אם המשתמש כיבה וידאו — אפס את כמות שאלות הווידאו
+    if not include_video:
+        video_count = 0
+    
     st.session_state.test_type = 'haifa'
     st.session_state.haifa_simulation = is_simulation
+    st.session_state.haifa_video_enabled = include_video
     st.session_state.practice_mode = not is_simulation  # תרגול = ללא לחץ
     st.session_state.current_q = 0
     st.session_state.responses = []
@@ -2599,7 +2624,9 @@ def render_quiz():
     is_haifa_simulation = is_haifa and st.session_state.get('haifa_simulation', True)
     
     # ===== Haifa: בדיקת הזרקת פולו-אפ וידאו (פעם אחת לפני כל שאלה רגילה) =====
-    if (is_haifa and q_data.get('quiz_format') != 'haifa_video' and 
+    # רק אם המשתמש הפעיל שאלות וידאו!
+    if (is_haifa and st.session_state.get('haifa_video_enabled', False) and
+        q_data.get('quiz_format') != 'haifa_video' and 
         not st.session_state.get(f'followup_check_done_{current}', False)):
         # מסמן שעשינו את הבדיקה (כדי לא לחזור על זה ברענון)
         st.session_state[f'followup_check_done_{current}'] = True
@@ -2665,9 +2692,11 @@ def render_quiz():
                 st.session_state.q_start_time = time.time()
 
     # ===== Smart Auto-Refresh — רק כשממתינים לתשובה =====
-    # רענון כל שנייה כדי לעדכן את השעון, אבל בלי לכבד את ה-session state
-    # (כי q_start_time כבר שמור — הרענון רק מצייר מחדש את התצוגה)
-    st_autorefresh(interval=1000, limit=300, key=f"quiz_timer_{current}")
+    # רענון כל 1.5 שניות (במקום כל שנייה) — מקל על העומס משמעותית.
+    # limit=60 כי אין סיבה לרענן שאלה אחת יותר מ-90 שניות.
+    # במצב תרגול (ללא לחץ זמן) — אין צורך ברענון בכלל!
+    if not st.session_state.practice_mode:
+        st_autorefresh(interval=1500, limit=60, key=f"quiz_timer_{current}")
     
     # מחושב פעם אחת — נשתמש בו לתצוגה ולהתראה
     elapsed = time.time() - st.session_state.q_start_time
@@ -2683,8 +2712,10 @@ def render_quiz():
             st.caption(f"⚡ {st.session_state.hesitation_count} היסוסים | 🏎️ {st.session_state.speed_flag_count} מהירים")
     
     # ===== Hourglass Timer + Warning =====
-    # מציג את שעון החול תמיד, אבל את ההתראה רק במצב סימולציה
-    _render_timer_visual(elapsed_int, show_warning=not st.session_state.practice_mode)
+    # מציג את שעון החול רק כשיש לחץ זמן (לא במצב תרגול).
+    # במצב תרגול אין רענון אוטומטי, אז השעון ממילא לא יזוז — מסתירים אותו.
+    if not st.session_state.practice_mode:
+        _render_timer_visual(elapsed_int, show_warning=True)
 
     # ===== Question Card =====
     q_text = q_data.get('q', q_data.get('question', q_data.get('text', 'שאלה חסרה')))
