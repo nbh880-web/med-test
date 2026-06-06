@@ -997,7 +997,13 @@ def get_haifa_questions(count=80, video_count=4):
                         int_sample = int_filtered.sample(n=min(int_count, len(int_filtered)))
                         for _, row in int_sample.iterrows():
                             q_dict = row.to_dict()
-                            q_dict['quiz_format'] = 'haifa_text'
+                            # אם זו שאלה מפורמט חדש (multi_attitude / multi_state / quantity)
+                            # נשתמש בסוג שלה כ-quiz_format. אחרת — ברירת המחדל haifa_text (סולם רגיל).
+                            qtype = str(q_dict.get('question_type', '')).strip().lower()
+                            if qtype in ('multi_attitude', 'multi_state', 'quantity'):
+                                q_dict['quiz_format'] = qtype
+                            else:
+                                q_dict['quiz_format'] = 'haifa_text'
                             q_dict['source'] = 'integrity'
                             q_dict['is_scenario'] = True
                             if 'trait' not in q_dict and 'category' in q_dict:
@@ -2329,6 +2335,73 @@ def start_test(test_type, test_length):
 # ============================================================
 # QUIZ Screen
 # ============================================================
+def _render_multi_choice_question(q_data, current, is_stress):
+    """
+    מציג שאלה מפורמט חדש: multi_attitude / multi_state / quantity.
+    שאלה אחת עם 3-6 אפשרויות בחירה — כל אפשרות מקבלת ציון משלה.
+    """
+    import json as _json
+    
+    qtype = q_data.get('quiz_format', '')
+    q_text = q_data.get('q', q_data.get('question', 'שאלה חסרה'))
+    options_raw = q_data.get('options', '')
+    
+    # תוויות ידידותיות לסוגים
+    type_labels = {
+        'multi_attitude': '💭 שאלת עמדה',
+        'multi_state': '📊 שאלת מצב',
+        'quantity': '🔢 שאלה כמותית',
+    }
+    type_label = type_labels.get(qtype, qtype)
+    
+    # פיענוח האפשרויות
+    try:
+        options = _json.loads(options_raw) if options_raw else []
+    except Exception:
+        st.error(f"שגיאה בטעינת אפשרויות לשאלה: {q_text}")
+        return
+    
+    if not options:
+        st.error(f"אין אפשרויות תשובה לשאלה: {q_text}")
+        return
+    
+    # תצוגת השאלה
+    category = q_data.get('category', q_data.get('trait', ''))
+    st.markdown(f"""
+    <div class="question-card">
+        <div class="question-category">{type_label} • {html.escape(str(category))}</div>
+        <div class="question-text">{html.escape(str(q_text))}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # כפתור לכל אפשרות (אחד מתחת לשני, רוחב מלא)
+    st.caption("👇 בחר תשובה אחת:")
+    for i, opt in enumerate(options):
+        opt_text = opt.get('text', '')
+        opt_score = opt.get('score', 3)
+        
+        if st.button(f"{opt_text}",
+                     key=f"mc_{current}_{i}",
+                     use_container_width=True, type="secondary"):
+            # משתמש בלוגיקת התשובה הקיימת — אבל מעביר את הציון של האפשרות
+            _handle_answer(q_data, opt_score, current, is_stress)
+    
+    # טיפ במצב תרגול
+    if st.session_state.practice_mode and st.session_state.get('last_tip'):
+        st.markdown(f'<div class="instant-tip">{st.session_state.last_tip}</div>',
+                    unsafe_allow_html=True)
+    
+    # כפתור חזור
+    if current > 0:
+        if st.button("⬅️ חזור לשאלה הקודמת", key=f"back_mc_{current}", type="secondary"):
+            st.session_state.current_q -= 1
+            if st.session_state.responses:
+                st.session_state.responses.pop()
+            st.session_state.q_start_time = time.time()
+            st.session_state.last_tip = None
+            st.rerun()
+
+
 def _render_haifa_video_question(q_data, current):
     """
     מציג שאלת וידאו — טיימר חי + תיבת טקסט להתאמן בתשובה.
@@ -2649,6 +2722,11 @@ def render_quiz():
     # ===== Haifa: שאלת וידאו =====
     if is_haifa and q_data.get('quiz_format') == 'haifa_video':
         _render_haifa_video_question(q_data, current)
+        return
+    
+    # ===== Haifa: שאלות בפורמטים חדשים (multi_attitude / multi_state / quantity) =====
+    if is_haifa and q_data.get('quiz_format') in ('multi_attitude', 'multi_state', 'quantity'):
+        _render_multi_choice_question(q_data, current, is_stress)
         return
     
     # ===== Haifa: מסך "אינך דובר אמת" (פתע, רק בסימולציה) =====
