@@ -997,13 +997,24 @@ def get_haifa_questions(count=80, video_count=4):
                         int_sample = int_filtered.sample(n=min(int_count, len(int_filtered)))
                         for _, row in int_sample.iterrows():
                             q_dict = row.to_dict()
-                            # אם זו שאלה מפורמט חדש (multi_attitude / multi_state / quantity)
-                            # נשתמש בסוג שלה כ-quiz_format. אחרת — ברירת המחדל haifa_text (סולם רגיל).
                             qtype = str(q_dict.get('question_type', '')).strip().lower()
+                            
                             if qtype in ('multi_attitude', 'multi_state', 'quantity'):
+                                # שאלה שנכתבה כבר בפורמט חדש — שומרים כמו שהיא
                                 q_dict['quiz_format'] = qtype
                             else:
-                                q_dict['quiz_format'] = 'haifa_text'
+                                # שאלת סולם רגילה — נגוון את פורמט התשובה אקראית!
+                                # זה מדמה את מה שראית במבחן: אותה שאלה במהות
+                                # מופיעה בכל פעם בפורמט תשובה אחר.
+                                # 40% סולם הסכמה / 30% כן-לא / 30% תדירות
+                                format_choice = random.random()
+                                if format_choice < 0.4:
+                                    q_dict['quiz_format'] = 'haifa_text'  # סולם 1-5
+                                elif format_choice < 0.7:
+                                    q_dict['quiz_format'] = 'auto_yesno'  # כן/לא
+                                else:
+                                    q_dict['quiz_format'] = 'auto_frequency'  # תדירות
+                            
                             q_dict['source'] = 'integrity'
                             q_dict['is_scenario'] = True
                             if 'trait' not in q_dict and 'category' in q_dict:
@@ -2335,6 +2346,80 @@ def start_test(test_type, test_length):
 # ============================================================
 # QUIZ Screen
 # ============================================================
+def _render_auto_format_question(q_data, current, is_stress):
+    """
+    מציג שאלת סולם רגילה בפורמט אוטומטי אחר — כן/לא או תדירות.
+    מטרה: לדמות את החוויה במבחן חיפה, שבו אותה שאלה במהות
+    הופיעה בפורמטים שונים כל פעם.
+    """
+    qfmt = q_data.get('quiz_format', '')
+    q_text = q_data.get('q', q_data.get('question', 'שאלה חסרה'))
+    is_reverse = str(q_data.get('reverse', False)).strip().lower() in ['true', '1', '1.0', 'yes']
+    
+    # אפשרויות לפי הפורמט
+    if qfmt == 'auto_yesno':
+        # כן/לא — 2 כפתורים
+        # כן=4, לא=2 (לא 5/1 כדי לא לעורר קנס "תשובות קיצוניות")
+        type_label = "✓ כן / לא"
+        options = [
+            ('❌ לא', 2),
+            ('✅ כן', 4),
+        ]
+    else:  # auto_frequency
+        type_label = "🔢 תדירות"
+        options = [
+            ('אף פעם לא', 5),
+            ('פעם אחת בלבד', 4),
+            ('כמה פעמים', 3),
+            ('לעיתים קרובות', 2),
+            ('בקביעות', 1),
+        ]
+    
+    # אם reverse — היפוך הציון של כל אפשרות
+    if is_reverse:
+        options = [(label, 6 - score) for label, score in options]
+    
+    # תצוגת השאלה
+    category = q_data.get('category', q_data.get('trait', ''))
+    st.markdown(f"""
+    <div class="question-card">
+        <div class="question-category">{type_label} • {html.escape(str(category))}</div>
+        <div class="question-text">{html.escape(str(q_text))}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # כפתורים
+    if qfmt == 'auto_yesno':
+        # 2 כפתורים בשורה
+        col_no, col_yes = st.columns(2)
+        for col, (label, score) in zip([col_no, col_yes], options):
+            if col.button(label, key=f"af_{current}_{score}",
+                          use_container_width=True, type="secondary"):
+                _handle_answer(q_data, score, current, is_stress)
+    else:
+        # תדירות — כפתור לכל אפשרות, אחד מתחת לשני
+        st.caption("👇 בחר תשובה:")
+        for i, (label, score) in enumerate(options):
+            if st.button(label, key=f"af_{current}_{i}",
+                         use_container_width=True, type="secondary"):
+                _handle_answer(q_data, score, current, is_stress)
+    
+    # טיפ במצב תרגול
+    if st.session_state.practice_mode and st.session_state.get('last_tip'):
+        st.markdown(f'<div class="instant-tip">{st.session_state.last_tip}</div>',
+                    unsafe_allow_html=True)
+    
+    # כפתור חזור
+    if current > 0:
+        if st.button("⬅️ חזור לשאלה הקודמת", key=f"back_af_{current}", type="secondary"):
+            st.session_state.current_q -= 1
+            if st.session_state.responses:
+                st.session_state.responses.pop()
+            st.session_state.q_start_time = time.time()
+            st.session_state.last_tip = None
+            st.rerun()
+
+
 def _render_multi_choice_question(q_data, current, is_stress):
     """
     מציג שאלה מפורמט חדש: multi_attitude / multi_state / quantity.
@@ -2727,6 +2812,11 @@ def render_quiz():
     # ===== Haifa: שאלות בפורמטים חדשים (multi_attitude / multi_state / quantity) =====
     if is_haifa and q_data.get('quiz_format') in ('multi_attitude', 'multi_state', 'quantity'):
         _render_multi_choice_question(q_data, current, is_stress)
+        return
+    
+    # ===== Haifa: שאלות סולם שהומרו אוטומטית לפורמט אחר (כן/לא או תדירות) =====
+    if is_haifa and q_data.get('quiz_format') in ('auto_yesno', 'auto_frequency'):
+        _render_auto_format_question(q_data, current, is_stress)
         return
     
     # ===== Haifa: מסך "אינך דובר אמת" (פתע, רק בסימולציה) =====
